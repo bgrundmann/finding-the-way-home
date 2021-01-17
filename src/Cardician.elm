@@ -1,45 +1,46 @@
-module World exposing (..)
+module Cardician exposing (Cardician, andThen, andThenWithError, fail, get, perform, put, return)
 
 import Card exposing (Card, Pile)
-import Html exposing (..)
 import List
+import Result
+import World exposing (PileName, World)
 
 
 
--- For a cardician the world is just piles of cards.
--- Each pile has a name
-
-
-type alias PileName =
-    String
-
-
-type alias World =
-    List ( PileName, Pile )
-
-
-view : World -> Html msg
-view world =
-    div []
-        (List.map (\( name, pile ) -> div [] [ text name, div [] (List.map Card.view pile) ]) world)
-
-
-
--- A Cardician changes the world and computes something else
--- Or with other words a State Monad where the state is the World
+-- A Cardician changes the world and computes something else or fails terribly...
+-- Or with other words a State + Error Monad where the state is the World
 
 
 type alias Cardician a =
-    World -> ( a, World )
+    World -> ( Result String a, World )
 
 
 return : a -> Cardician a
 return x =
-    \world -> ( x, world )
+    \world -> ( Ok x, world )
+
+
+fail : String -> Cardician a
+fail msg =
+    \world -> ( Err msg, world )
 
 
 andThen : (a -> Cardician b) -> Cardician a -> Cardician b
 andThen f m =
+    andThenWithError
+        (\x ->
+            case x of
+                Err e ->
+                    fail e
+
+                Ok y ->
+                    f y
+        )
+        m
+
+
+andThenWithError : (Result String a -> Cardician b) -> Cardician a -> Cardician b
+andThenWithError f m =
     \world ->
         let
             ( res, next_world ) =
@@ -48,7 +49,7 @@ andThen f m =
         f res next_world
 
 
-perform : Cardician a -> World -> ( a, World )
+perform : Cardician a -> World -> ( Result String a, World )
 perform cardician world =
     cardician world
 
@@ -68,10 +69,10 @@ get pileName =
                 world
         of
             [] ->
-                ( [], world )
+                ( Err ("No pile called " ++ pileName), world )
 
             x :: _ ->
-                ( x, world )
+                ( Ok x, world )
 
 
 put : PileName -> Pile -> Cardician ()
@@ -90,4 +91,4 @@ put pileName pile =
                         else
                             loop (( pN, v ) :: res) ls
         in
-        ( (), loop [] world )
+        ( Ok (), loop [] world )

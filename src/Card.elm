@@ -1,8 +1,10 @@
 module Card exposing (..)
+
 import Html exposing (..)
 import Html.Attributes exposing (style)
 import Html.Events exposing (..)
 import List
+
 
 type alias Pile =
     List Card
