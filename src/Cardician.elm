@@ -1,4 +1,4 @@
-module Cardician exposing (Cardician, andThen, andThenWithError, fail, get, perform, put, return)
+module Cardician exposing (Cardician, andThen, andThenWithError, fail, get, getOrEmpty, perform, put, return)
 
 import Card exposing (Card, Pile)
 import List
@@ -75,6 +75,20 @@ get pileName =
                 ( Ok x, world )
 
 
+getOrEmpty : PileName -> Cardician Pile
+getOrEmpty pileName =
+    get pileName
+        |> andThenWithError
+            (\pileOrError ->
+                case pileOrError of
+                    Err e ->
+                        return []
+
+                    Ok pile ->
+                        return pile
+            )
+
+
 put : PileName -> Pile -> Cardician ()
 put pileName pile =
     \world ->
@@ -82,7 +96,7 @@ put pileName pile =
             loop res l =
                 case l of
                     [] ->
-                        List.reverse (( pileName, pile ) :: l)
+                        List.reverse (( pileName, pile ) :: res)
 
                     ( pN, v ) :: ls ->
                         if pN == pileName then

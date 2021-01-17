@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Browser
 import Card exposing (Card, Pile, Suit, Value, poker_deck)
-import Cardician exposing (Cardician)
+import Cardician exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (style)
@@ -10,6 +10,7 @@ import Html.Events exposing (..)
 import List
 import Result
 import World exposing (World)
+import Move exposing (Move (..))
 
 
 
@@ -20,77 +21,55 @@ type alias PileName =
     String
 
 
-type Move
-    = Deal { from : PileName, to : PileName }
-    | Cut { pile : PileName, n : Int, to : PileName }
-    | Assemble { pile : PileName, onTopOf : PileName }
-    | Named String (List Move)
 
+cardician : Move -> Cardician ()
+cardician move =
+    case move of
+        Deal { from, to } ->
+            get from
+                |> andThen
+                    (\src ->
+                        getOrEmpty to
+                            |> andThen
+                                (\dst ->
+                                    case src of
+                                        [] ->
+                                            fail "Nothing left to deal"
 
-get : PileName -> World -> Result String Pile
-get pileName world =
-    case
-        List.filterMap
-            (\( n, v ) ->
-                if n == pileName then
-                    Just v
+                                        card :: rest ->
+                                            put from rest
+                                                |> andThen
+                                                    (\() ->
+                                                        put to (card :: dst)
+                                                    )
+                                )
+                    )
 
-                else
-                    Nothing
-            )
-            world
-    of
-        [] ->
-            Err ("No pile called " ++ pileName)
+        Cut _ ->
+            fail "not supported"
 
-        [ x ] ->
-            Ok x
+        Assemble _ ->
+            fail "not supported"
 
-        _ ->
-            Err ("Multiple piles called " ++ pileName)
-
-
-mapPile : (Pile -> Pile) -> PileName -> World -> World
-mapPile f pileName world =
-    let
-        loop l res =
-            case l of
-                [] ->
-                    List.reverse (( pileName, f [] ) :: res)
-
-                ( pn, v ) :: ls ->
-                    if pn == pileName then
-                        List.reverse (( pn, f v ) :: res) ++ ls
-
-                    else
-                        loop ls (( pn, v ) :: res)
-    in
-    loop world []
+        Named _ _ ->
+            fail "not supported"
 
 
 apply : Move -> World -> Result String World
 apply move world =
-    case move of
-        Deal { from, to } ->
-            get from world
-                |> Result.andThen
-                    (\p ->
-                        case p of
-                            [] ->
-                                Err "pile is empty"
+    let
+        c =
+            cardician move
 
-                            c :: cs ->
-                                Ok (mapPile (\dst -> c :: dst) to world)
-                    )
+        ( or_error, new_world ) =
+            perform c world
+    in
+    case or_error of
+        Err msg ->
+            Err msg
 
-        Cut _ ->
-            Err "not yet supported"
-
-        Assemble _ ->
-            Err "not yet supported"
-
-        Named _ _ ->
-            Err "not yet supported"
+        Ok () ->
+            Ok new_world
 
 
 main =
