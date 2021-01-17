@@ -1,8 +1,7 @@
 module Card exposing (..)
 
-import Html exposing (..)
-import Html.Attributes exposing (style)
-import Html.Events exposing (..)
+import Element exposing (Element, el, text)
+import Element.Font as Font
 import List
 
 
@@ -96,7 +95,7 @@ turnOver c =
     }
 
 
-view : Card -> Html msg
+view : Card -> Element msg
 view { face, back, orientation } =
     let
         d =
@@ -107,10 +106,10 @@ view { face, back, orientation } =
                 FaceDown ->
                     back
     in
-    span [ style "font-size" "4em" ] [ viewCardDesign d ]
+    el [ Font.size 60 ] ( viewCardDesign d )
 
 
-viewCardDesign : CardDesign -> Html msg
+viewCardDesign : CardDesign -> Element msg
 viewCardDesign d =
     case d of
         Face rf ->
@@ -120,7 +119,7 @@ viewCardDesign d =
             viewBack b
 
 
-viewBack : BackColor -> Html msg
+viewBack : BackColor -> Element msg
 viewBack b =
     let
         cardBack =
@@ -129,33 +128,33 @@ viewBack b =
         ( code, color ) =
             case b of
                 Red ->
-                    ( cardBack, "darkred" )
+                    ( cardBack, Element.rgb255 139 0 0 )
 
                 Green ->
-                    ( cardBack, "darkgreen" )
+                    ( cardBack, Element.rgb255 72 157 45 )
 
                 Blue ->
-                    ( cardBack, "darkblue" )
+                    ( cardBack, Element.rgb255 39 139 13 )
     in
-    span [ style "color" color ] [ text (Char.fromCode code |> String.fromChar) ]
+    el [ Font.color color ] ( Element.text  (Char.fromCode code |> String.fromChar) )
 
 
-viewRegularFace : RegularFace -> Html msg
+viewRegularFace : RegularFace -> Element msg
 viewRegularFace ( value, suit ) =
     let
         ( suitVal, color ) =
             case suit of
                 Spades ->
-                    ( 0x0001F0A0, "black" )
+                    ( 0x0001F0A0, Element.rgb255 0 0 0 )
 
                 Hearts ->
-                    ( 0x0001F0B0, "darkred" )
+                    ( 0x0001F0B0, Element.rgb255 139 0 0 )
 
                 Diamonds ->
-                    ( 0x0001F0C0, "darkred" )
+                    ( 0x0001F0C0, Element.rgb255 139 0 0 )
 
                 Clubs ->
-                    ( 0x0001F0D0, "black" )
+                    ( 0x0001F0D0, Element.rgb255 0 0 0 )
 
         faceVal =
             case value of
@@ -203,4 +202,4 @@ viewRegularFace ( value, suit ) =
                 |> String.fromChar
                 |> text
     in
-    span [ style "color" color ] [ c ]
+    el [ Font.color color ] c 

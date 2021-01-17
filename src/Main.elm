@@ -4,9 +4,10 @@ import Browser
 import Card exposing (Card, Pile, Suit, Value, poker_deck)
 import Cardician exposing (..)
 import Dict exposing (Dict)
+import Element
 import Html exposing (..)
-import Html.Attributes exposing (style)
-import Html.Events exposing (..)
+import Html.Attributes exposing (style, value)
+import Html.Events exposing (onInput, onClick)
 import List
 import Result
 import World exposing (World)
@@ -87,12 +88,14 @@ main =
 
 type alias Model =
     { world : World
+    , movesText : String
+    , moves : Result String (List Move)
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model [ ( "deck", poker_deck ) ]
+    ( { world = [( "deck", poker_deck )], movesText = "", moves = Ok [] }
     , Cmd.none
     )
 
@@ -105,6 +108,7 @@ type Msg
     = Draw
     | Turn_over
     | Deal_clicked
+    | SetMoves String
 
 
 turnOver : Pile -> Pile
@@ -123,13 +127,18 @@ update msg model =
         Deal_clicked ->
             case apply (Deal { from = "deck", to = "pile" }) model.world of
                 Ok w ->
-                    ( { world = w }, Cmd.none )
+                    ( { model | world = w }, Cmd.none )
 
                 Err errMsg ->
-                    Debug.log errMsg ( { world = model.world }, Cmd.none )
+                    Debug.log errMsg ( { model | world = model.world }, Cmd.none )
 
         Turn_over ->
-            ( { world = List.map (\( k, v ) -> ( k, turnOver v )) model.world }
+            ( { model | world = List.map (\( k, v ) -> ( k, turnOver v )) model.world }
+            , Cmd.none
+            )
+
+        SetMoves text ->
+            ( { model | movesText = text, moves = Err "Not implemented" }
             , Cmd.none
             )
 
@@ -149,9 +158,11 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ button [ onClick Draw ] [ text "Draw" ]
-        , button [ onClick Turn_over ] [ text "turn_over" ]
-        , button [ onClick Deal_clicked ] [ text "Deal" ]
-        , World.view model.world
-        ]
+  Element.layout []
+    (Element.column [ Element.width Element.fill, Element.height Element.fill, Element.centerX, Element.spacing 10 ]
+        [ button [ onClick Draw ] [ text "Draw" ] |> Element.html
+        , button [ onClick Turn_over ] [ text "turn_over" ] |> Element.html
+        , button [ onClick Deal_clicked ] [ text "Deal" ] |> Element.html
+        , World.view model.world 
+        , textarea [ onInput SetMoves, value model.movesText ] [] |> Element.html
+        ])
