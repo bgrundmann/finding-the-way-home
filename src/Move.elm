@@ -1,7 +1,9 @@
-module Move exposing (Move (..), parseMoves)
-import List
+module Move exposing (Move(..), parseMoves)
+
 import Image exposing (PileName)
-import Parser exposing (Parser, (|.), (|=), succeed, run, int, keyword, variable, oneOf, end, chompWhile)
+import List
+import Parser exposing ((|.), (|=), Parser, chompWhile, end, int, keyword, oneOf, run, succeed, variable)
+
 
 type Move
     = Deal { from : PileName, to : PileName }
@@ -12,20 +14,24 @@ type Move
 
 parser : Parser Move
 parser =
-  succeed (\x -> x)
-  |. chompWhile (\c -> c == ' ' || c == '\t')
-  |= oneOf
-    [ dealParser
-    ]
-  
+    succeed (\x -> x)
+        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |= oneOf
+            [ dealParser
+            ]
+
+
 dealParser =
-  succeed Deal
-    |. keyword "deal"
-    |= succeed { from= "deck", to="table" }
+    succeed Deal
+        |. keyword "deal"
+        |= succeed { from = "deck", to = "table" }
 
 
 parseMoves : String -> Result String (List Move)
 parseMoves text =
-  case run (parser |. end) text of
-    Ok m -> Ok [m]
-    Err e -> Err "Parse error"
+    case run (parser |. end) text of
+        Ok m ->
+            Ok [ m ]
+
+        Err e ->
+            Err "Parse error"

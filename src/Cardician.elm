@@ -1,9 +1,9 @@
 module Cardician exposing (Cardician, andThen, andThenWithError, fail, get, getOrEmpty, perform, put, return)
 
 import Card exposing (Card, Pile)
+import Image exposing (Image, PileName)
 import List
 import Result
-import Image exposing (PileName, Image)
 
 
 

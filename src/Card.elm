@@ -106,7 +106,7 @@ view { face, back, orientation } =
                 FaceDown ->
                     back
     in
-    el [ Font.size 60 ] ( viewCardDesign d )
+    el [ Font.size 60 ] (viewCardDesign d)
 
 
 viewCardDesign : CardDesign -> Element msg
@@ -136,7 +136,7 @@ viewBack b =
                 Blue ->
                     ( cardBack, Element.rgb255 39 139 13 )
     in
-    el [ Font.color color ] ( Element.text  (Char.fromCode code |> String.fromChar) )
+    el [ Font.color color ] (Element.text (Char.fromCode code |> String.fromChar))
 
 
 viewRegularFace : RegularFace -> Element msg
@@ -202,4 +202,4 @@ viewRegularFace ( value, suit ) =
                 |> String.fromChar
                 |> text
     in
-    el [ Font.color color ] c 
+    el [ Font.color color ] c
