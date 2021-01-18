@@ -4,7 +4,7 @@ import Browser
 import Card exposing (Card, Pile, Suit, Value, poker_deck)
 import Cardician exposing (..)
 import Dict exposing (Dict)
-import Element exposing (Element, text)
+import Element exposing (Element, el, fill, height, padding, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Input as Input
@@ -57,20 +57,20 @@ cardician move =
 
 
 apply : Move -> Image -> Result String Image
-apply move world =
+apply move image =
     let
         c =
             cardician move
 
-        ( or_error, new_world ) =
-            perform c world
+        ( or_error, newImage ) =
+            perform c image
     in
     case or_error of
         Err msg ->
             Err msg
 
         Ok () ->
-            Ok new_world
+            Ok newImage
 
 
 main =
@@ -87,15 +87,20 @@ main =
 
 
 type alias Model =
-    { world : Image
+    { initialImage : Image
     , movesText : String
+    , finalImage : Image
     , moves : Result String (List Move)
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { world = [ ( "deck", poker_deck ) ], movesText = "", moves = Ok [] }
+    let
+        initialImage =
+            [ ( "deck", poker_deck ) ]
+    in
+    ( { initialImage = initialImage, movesText = "", moves = Ok [], finalImage = initialImage }
     , Cmd.none
     )
 
@@ -106,8 +111,6 @@ init _ =
 
 type Msg
     = Draw
-    | Turn_over
-    | Deal_clicked
     | SetMoves String
 
 
@@ -124,21 +127,28 @@ update msg model =
             , Cmd.none
             )
 
-        Deal_clicked ->
-            case apply (Deal { from = "deck", to = "pile" }) model.world of
-                Ok w ->
-                    ( { model | world = w }, Cmd.none )
-
-                Err errMsg ->
-                    Debug.log errMsg ( { model | world = model.world }, Cmd.none )
-
-        Turn_over ->
-            ( { model | world = List.map (\( k, v ) -> ( k, turnOver v )) model.world }
-            , Cmd.none
-            )
-
         SetMoves text ->
-            ( { model | movesText = text, moves = Err "Not implemented" }
+            let
+                moves =
+                    Move.parseMoves text
+
+                finalImage =
+                    case moves of
+                        Err _ ->
+                            model.initialImage
+
+                        Ok [] ->
+                            Debug.log "a" model.initialImage
+
+                        Ok (m :: ms) ->
+                            case apply m model.initialImage of
+                                Err _ ->
+                                    Debug.log "b" model.initialImage
+
+                                Ok i ->
+                                    Debug.log "c" i
+            in
+            ( { model | movesText = text, moves = moves }
             , Cmd.none
             )
 
@@ -164,24 +174,40 @@ view : Model -> Html Msg
 view model =
     let
         buttons =
-            Element.row [ Element.spacing 10 ]
+            Element.row [ spacing 10 ]
                 [ Input.button [ Element.padding 10, Border.rounded 5, Background.color blue ] { label = text "Draw", onPress = Just Draw }
-                , Input.button [ Element.padding 10, Border.rounded 5, Background.color blue ] { label = text "turn_over", onPress = Just Turn_over }
-                , Input.button [ Element.padding 10, Border.rounded 5, Background.color blue ] { label = text "Deal", onPress = Just Deal_clicked }
                 ]
 
         initialImageView =
-            Image.view model.world
+            Image.view model.initialImage
+
+        movesBorderColor =
+            case model.moves of
+                Err _ ->
+                    Element.rgb255 255 0 0
+
+                Ok _ ->
+                    Element.rgb255 0 255 0
 
         movesView =
-            Input.multiline [ Element.width Element.fill, Element.height Element.fill ] { label = Input.labelAbove [] (Element.text "Moves"), onChange = SetMoves, text = model.movesText, placeholder = Nothing, spellcheck = False }
+            Input.multiline [ width fill, height fill, Border.color movesBorderColor ]
+                { label = Input.labelAbove [] (Element.text "Moves")
+                , onChange = SetMoves
+                , text = model.movesText
+                , placeholder = Nothing
+                , spellcheck = False
+                }
 
         finalImageView =
-            Image.view model.world
+            Image.view model.finalImage
     in
     Element.layout []
-        (Element.column [ Element.padding 20, Element.width Element.fill, Element.height Element.fill, Element.spacing 10 ]
+        (Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]
             [ buttons
-            , Element.row [ Element.spacing 10, Element.width Element.fill, Element.height Element.fill ] [ initialImageView, movesView, finalImageView ]
+            , Element.row [ spacing 10, width fill, height fill ]
+                [ initialImageView
+                , movesView
+                , finalImageView
+                ]
             ]
         )
