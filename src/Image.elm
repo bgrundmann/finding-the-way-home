@@ -1,4 +1,4 @@
-module World exposing (..)
+module Image exposing (..)
 
 import Card exposing (Card, Pile)
 import Element exposing (Element, el, text, row, column, paragraph, textColumn)
@@ -6,15 +6,16 @@ import List
 import List.Extra exposing (greedyGroupsOf)
 
 
--- For a cardician the world is just piles of cards.
+-- For a cardician at any given point the Image we present to the audience is just
+-- piles of cards..
+
+
 -- Each pile has a name
-
-
 type alias PileName =
     String
 
 
-type alias World =
+type alias Image =
     List ( PileName, Pile )
 
 viewPile : Pile -> Element msg
@@ -23,9 +24,9 @@ viewPile pile =
     (greedyGroupsOf 13 pile
      |> List.map (\p -> paragraph [] (List.map Card.view p)))
 
-view : World -> Element msg
+view : Image -> Element msg
 view world =
-    column []
+    column [ Element.height Element.fill, Element.width Element.fill ]
         (List.map (\( name, pile ) -> column [] [ text name, viewPile pile]) world)
 
 

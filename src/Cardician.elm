@@ -3,16 +3,16 @@ module Cardician exposing (Cardician, andThen, andThenWithError, fail, get, getO
 import Card exposing (Card, Pile)
 import List
 import Result
-import World exposing (PileName, World)
+import Image exposing (PileName, Image)
 
 
 
 -- A Cardician changes the world and computes something else or fails terribly...
--- Or with other words a State + Error Monad where the state is the World
+-- Or with other words a State + Error Monad where the state is the Image
 
 
 type alias Cardician a =
-    World -> ( Result String a, World )
+    Image -> ( Result String a, Image )
 
 
 return : a -> Cardician a
@@ -49,7 +49,7 @@ andThenWithError f m =
         f res next_world
 
 
-perform : Cardician a -> World -> ( Result String a, World )
+perform : Cardician a -> Image -> ( Result String a, Image )
 perform cardician world =
     cardician world
 

@@ -4,13 +4,14 @@ import Browser
 import Card exposing (Card, Pile, Suit, Value, poker_deck)
 import Cardician exposing (..)
 import Dict exposing (Dict)
-import Element
-import Html exposing (..)
-import Html.Attributes exposing (style, value)
-import Html.Events exposing (onInput, onClick)
+import Element exposing (Element, text)
+import Element.Border as Border
+import Element.Input as Input
+import Element.Background as Background
+import Html exposing (Html)
 import List
 import Result
-import World exposing (World)
+import Image exposing (Image)
 import Move exposing (Move (..))
 
 
@@ -56,7 +57,7 @@ cardician move =
             fail "not supported"
 
 
-apply : Move -> World -> Result String World
+apply : Move -> Image-> Result String Image
 apply move world =
     let
         c =
@@ -87,7 +88,7 @@ main =
 
 
 type alias Model =
-    { world : World
+    { world : Image
     , movesText : String
     , moves : Result String (List Move)
     }
@@ -155,14 +156,27 @@ subscriptions model =
 
 -- VIEW
 
+blue =
+    Element.rgb255 238 238 238
+
 
 view : Model -> Html Msg
 view model =
+  let
+      buttons = Element.row [ Element.spacing 10 ]
+        [ Input.button [Element.padding 10, Border.rounded 5, Background.color blue] { label = text "Draw", onPress = Just Draw }
+        , Input.button [Element.padding 10, Border.rounded 5, Background.color blue] { label = text "turn_over", onPress = Just Turn_over }
+        , Input.button [Element.padding 10, Border.rounded 5, Background.color blue] { label = text "Deal", onPress = Just Deal_clicked }
+        ]
+
+      initialImageView = Image.view model.world
+
+      movesView = Input.multiline [Element.width Element.fill, Element.height Element.fill] { label = Input.labelAbove [] (Element.text "Moves"), onChange = SetMoves, text = model.movesText, placeholder = Nothing, spellcheck = False }
+
+      finalImageView = Image.view model.world
+  in
   Element.layout []
-    (Element.column [ Element.width Element.fill, Element.height Element.fill, Element.centerX, Element.spacing 10 ]
-        [ button [ onClick Draw ] [ text "Draw" ] |> Element.html
-        , button [ onClick Turn_over ] [ text "turn_over" ] |> Element.html
-        , button [ onClick Deal_clicked ] [ text "Deal" ] |> Element.html
-        , World.view model.world 
-        , textarea [ onInput SetMoves, value model.movesText ] [] |> Element.html
+    (Element.column [ Element.padding 20, Element.width Element.fill, Element.height Element.fill, Element.spacing 10 ]
+        [ buttons
+        , Element.row [ Element.spacing 10, Element.width Element.fill, Element.height Element.fill ] [ initialImageView, movesView, finalImageView ]
         ])
