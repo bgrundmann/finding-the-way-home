@@ -16,6 +16,48 @@ import Move exposing (Move(..))
 import Result
 
 
+tamariz_from_phoenix =
+    """cut 26 deck table
+faro table deck deck
+cut 26 deck table
+faro table deck deck
+cut 26 deck table
+faro table deck deck
+cut 26 deck table
+faro table deck deck
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 1 deck hand
+cut 26 deck hand
+cut 52 hand deck
+cut 18 deck hand
+faro hand deck deck
+"""
+
+
 type alias PileName =
     String
 
@@ -30,13 +72,28 @@ cardician move =
     case move of
         Cut { n, pile, to } ->
             Cardician.cutOff n pile
-                |> andThen (Cardician.putOnTop to)
+                |> andThen (Cardician.put to)
 
         Turnover pile ->
-            Cardician.get pile
+            Cardician.take pile
                 |> andThen
                     (\cards ->
-                        Cardician.replace pile (turnOver cards)
+                        Cardician.put pile (turnOver cards)
+                    )
+
+        Faro { pile1, pile2, result } ->
+            Cardician.take pile1
+                |> andThen
+                    (\cards1 ->
+                        Cardician.take pile2
+                            |> andThen
+                                (\cards2 ->
+                                    Cardician.faro cards1 cards2
+                                        |> andThen
+                                            (\cards ->
+                                                Cardician.put result cards
+                                            )
+                                )
                     )
 
 
@@ -110,18 +167,12 @@ init _ =
 
 
 type Msg
-    = Draw
-    | SetMoves String
+    = SetMoves String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Draw ->
-            ( model
-            , Cmd.none
-            )
-
         SetMoves text ->
             let
                 movesOrError =
@@ -172,7 +223,7 @@ view model =
                     , Border.rounded 5
                     , Background.color blue
                     ]
-                    { label = text "Draw", onPress = Just Draw }
+                    { label = text "Tamariz from phoenix", onPress = Just (SetMoves tamariz_from_phoenix) }
                 ]
 
         initialImageView =

@@ -11,7 +11,14 @@ type alias Pile =
 
 poker_deck : Pile
 poker_deck =
-    List.concatMap (\s -> List.map (\v -> card v s) all_values) all_suits
+    let
+        all suit =
+            List.map (\v -> card v suit) all_values
+    in
+    all Clubs
+        ++ all Diamonds
+        ++ (all Hearts |> List.reverse)
+        ++ (all Spades |> List.reverse)
 
 
 
@@ -191,11 +198,12 @@ viewRegularFace ( value, suit ) =
                 Jack ->
                     11
 
+                -- Unicode is weird 12 is the knight of ...
                 Queen ->
-                    12
+                    13
 
                 King ->
-                    13
+                    14
 
         c =
             Char.fromCode (suitVal + faceVal)

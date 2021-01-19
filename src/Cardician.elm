@@ -1,9 +1,9 @@
-module Cardician exposing (Cardician, andThen, andThenWithError, compose, cutOff, fail, get, getOrEmpty, perform, putOnTop, replace, return)
+module Cardician exposing (Cardician, andThen, andThenWithError, compose, cutOff, fail, faro, perform, put, return, take, takeEmptyOk)
 
 import Card exposing (Card, Pile)
 import Image exposing (Image, PileName)
 import List
-import List.Extra exposing (splitAt)
+import List.Extra exposing (interweave, splitAt)
 import Result
 
 
@@ -59,30 +59,24 @@ perform cardician world =
     cardician world
 
 
-get : PileName -> Cardician Pile
-get pileName =
+{-| Take the given pile.
+-}
+take : PileName -> Cardician Pile
+take pileName =
     \world ->
-        case
-            List.filterMap
-                (\( n, v ) ->
-                    if n == pileName then
-                        Just v
-
-                    else
-                        Nothing
-                )
-                world
-        of
-            [] ->
+        case List.partition (\( n, v ) -> n == pileName) world of
+            ( [], _ ) ->
                 ( Err ("No pile called " ++ pileName), world )
 
-            x :: _ ->
-                ( Ok x, world )
+            ( ( _, x ) :: _, newWorld ) ->
+                ( Ok x, newWorld )
 
 
-getOrEmpty : PileName -> Cardician Pile
-getOrEmpty pileName =
-    get pileName
+{-| Take the given pile. Or a pile of 0 cards, if no such pile exists.
+-}
+takeEmptyOk : PileName -> Cardician Pile
+takeEmptyOk pileName =
+    take pileName
         |> andThenWithError
             (\pileOrError ->
                 case pileOrError of
@@ -113,11 +107,22 @@ replace pileName pile =
         ( Ok (), loop [] world )
 
 
+{-| Put cards on top of given pile (or create a new pile if no pile exists)
+-}
+put : PileName -> Pile -> Cardician ()
+put pileName cards =
+    takeEmptyOk pileName
+        |> andThen
+            (\alreadyThere ->
+                replace pileName (cards ++ alreadyThere)
+            )
+
+
 {-| Cut off the top N cards, leaving the rest.
 -}
 cutOff : Int -> PileName -> Cardician Pile
 cutOff n pileName =
-    get pileName
+    take pileName
         |> andThen
             (\cards ->
                 let
@@ -136,12 +141,9 @@ cutOff n pileName =
             )
 
 
-{-| Put cards on top of given pile.
+{-| Faro packet1 into packet2, starting at the top, such that packet1 card is the new top card.
+Both packets to not need to be of the same length.
 -}
-putOnTop : PileName -> Pile -> Cardician ()
-putOnTop pileName cards =
-    getOrEmpty pileName
-        |> andThen
-            (\alreadyThere ->
-                replace pileName (cards ++ alreadyThere)
-            )
+faro : Pile -> Pile -> Cardician Pile
+faro pile1 pile2 =
+    return (interweave pile1 pile2)

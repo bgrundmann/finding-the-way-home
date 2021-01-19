@@ -56,6 +56,7 @@ type Problem
 
 type Move
     = Cut { n : Int, pile : PileName, to : PileName }
+    | Faro { pile1 : PileName, pile2 : PileName, result : PileName }
     | Turnover PileName
 
 
@@ -112,6 +113,14 @@ recognizeBuiltins ( cmd, args ) =
 
         ( "turnover", _ ) ->
             Problem "turnover <pile>"
+                |> problem
+
+        ( "faro", [ Pile pile1, Pile pile2, Pile result ] ) ->
+            Faro { pile1 = pile1, pile2 = pile2, result = result }
+                |> succeed
+
+        ( "faro", _ ) ->
+            Problem "faro <pile1> <pile2> <to-pile>"
                 |> problem
 
         ( other, _ ) ->
