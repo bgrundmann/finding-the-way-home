@@ -1,4 +1,4 @@
-module Cardician exposing (Cardician, andThen, andThenWithError, fail, get, getOrEmpty, perform, put, return)
+module Cardician exposing (Cardician, andThen, andThenWithError, compose, fail, get, getOrEmpty, perform, put, return)
 
 import Card exposing (Card, Pile)
 import Image exposing (Image, PileName)
@@ -23,6 +23,12 @@ return x =
 fail : String -> Cardician a
 fail msg =
     \world -> ( Err msg, world )
+
+
+compose : Cardician () -> Cardician a -> Cardician a
+compose c1 c2 =
+    c1
+        |> andThen (\() -> c2)
 
 
 andThen : (a -> Cardician b) -> Cardician a -> Cardician b
