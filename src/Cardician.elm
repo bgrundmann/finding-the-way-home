@@ -1,16 +1,15 @@
-module Cardician exposing (Cardician, andThen, andThenWithError, compose, fail, get, getOrEmpty, perform, put, return)
+module Cardician exposing (Cardician, andThen, andThenWithError, compose, cutOff, fail, get, getOrEmpty, perform, putOnTop, replace, return)
 
 import Card exposing (Card, Pile)
 import Image exposing (Image, PileName)
 import List
+import List.Extra exposing (splitAt)
 import Result
 
 
-
--- A Cardician changes the world and computes something else or fails terribly...
--- Or with other words a State + Error Monad where the state is the Image
-
-
+{-| A Cardician changes the world and computes something else or fails terribly...
+Or with other words a State + Error Monad where the state is the Image
+-}
 type alias Cardician a =
     Image -> ( Result String a, Image )
 
@@ -25,8 +24,8 @@ fail msg =
     \world -> ( Err msg, world )
 
 
-compose : Cardician () -> Cardician a -> Cardician a
-compose c1 c2 =
+compose : Cardician a -> Cardician () -> Cardician a
+compose c2 c1 =
     c1
         |> andThen (\() -> c2)
 
@@ -95,8 +94,8 @@ getOrEmpty pileName =
             )
 
 
-put : PileName -> Pile -> Cardician ()
-put pileName pile =
+replace : PileName -> Pile -> Cardician ()
+replace pileName pile =
     \world ->
         let
             loop res l =
@@ -112,3 +111,37 @@ put pileName pile =
                             loop (( pN, v ) :: res) ls
         in
         ( Ok (), loop [] world )
+
+
+{-| Cut off the top N cards, leaving the rest.
+-}
+cutOff : Int -> PileName -> Cardician Pile
+cutOff n pileName =
+    get pileName
+        |> andThen
+            (\cards ->
+                let
+                    ( topHalf, lowerHalf ) =
+                        splitAt n cards
+
+                    actualLen =
+                        List.length topHalf
+                in
+                if actualLen < n then
+                    fail ("Only " ++ String.fromInt n ++ " cards in pile " ++ pileName ++ " , wanted to cut off " ++ String.fromInt n)
+
+                else
+                    replace pileName lowerHalf
+                        |> andThen (\() -> return topHalf)
+            )
+
+
+{-| Put cards on top of given pile.
+-}
+putOnTop : PileName -> Pile -> Cardician ()
+putOnTop pileName cards =
+    getOrEmpty pileName
+        |> andThen
+            (\alreadyThere ->
+                replace pileName (cards ++ alreadyThere)
+            )

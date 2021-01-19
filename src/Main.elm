@@ -7,6 +7,7 @@ import Dict exposing (Dict)
 import Element exposing (Element, el, fill, height, padding, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Font as Font
 import Element.Input as Input
 import Html exposing (Html)
 import Image exposing (Image)
@@ -19,37 +20,24 @@ type alias PileName =
     String
 
 
+turnOver : Pile -> Pile
+turnOver pile =
+    List.reverse (List.map Card.turnOver pile)
+
+
 cardician : Move -> Cardician ()
 cardician move =
     case move of
-        Deal { from, to } ->
-            get from
+        Cut { n, pile, to } ->
+            Cardician.cutOff n pile
+                |> andThen (Cardician.putOnTop to)
+
+        Turnover pile ->
+            Cardician.get pile
                 |> andThen
-                    (\src ->
-                        getOrEmpty to
-                            |> andThen
-                                (\dst ->
-                                    case src of
-                                        [] ->
-                                            fail "Nothing left to deal"
-
-                                        card :: rest ->
-                                            put from rest
-                                                |> andThen
-                                                    (\() ->
-                                                        put to (card :: dst)
-                                                    )
-                                )
+                    (\cards ->
+                        Cardician.replace pile (turnOver cards)
                     )
-
-        Cut _ ->
-            fail "not supported"
-
-        Assemble _ ->
-            fail "not supported"
-
-        Named _ _ ->
-            fail "not supported"
 
 
 apply : List Move -> Image -> Result String Image
@@ -124,11 +112,6 @@ init _ =
 type Msg
     = Draw
     | SetMoves String
-
-
-turnOver : Pile -> Pile
-turnOver pile =
-    List.reverse (List.map Card.turnOver pile)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -216,15 +199,19 @@ view model =
                 }
 
         finalImageView =
+            let
+                viewErrorMessage m =
+                    el [ Font.bold, width fill, height fill ] (text m)
+            in
             case model.performanceResult of
                 Performed _ finalImage ->
                     Image.view finalImage
 
-                InvalidMoves _ ->
-                    Image.view model.initialImage
+                InvalidMoves errorMsg ->
+                    viewErrorMessage errorMsg
 
-                CannotPerform _ _ ->
-                    Image.view model.initialImage
+                CannotPerform _ errorMsg ->
+                    viewErrorMessage errorMsg
     in
     Element.layout []
         (Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]

@@ -1,0 +1,8 @@
+def deal pile1 pile2
+  cut 1 pile1 pile2
+end
+
+def deal 
+  deal deck table
+end
+
