@@ -16,7 +16,7 @@ import Move exposing (Move(..))
 import Result
 
 
-tamariz_from_phoenix =
+sample =
     """cut 26 deck table
 faro table deck deck
 cut 26 deck table
@@ -81,28 +81,23 @@ cardician move =
                         Cardician.put pile (turnOver cards)
                     )
 
-        Faro { pile1, pile2, result } ->
-            Cardician.take pile1
-                |> andThen
-                    (\cards1 ->
-                        Cardician.take pile2
-                            |> andThen
-                                (\cards2 ->
-                                    Cardician.faro cards1 cards2
-                                        |> andThen
-                                            (\cards ->
-                                                Cardician.put result cards
-                                            )
-                                )
-                    )
+        Repeat n moves ->
+            cardicianFromMoves moves
+                |> List.repeat n
+                |> List.foldl Cardician.compose (Cardician.return ())
+
+
+cardicianFromMoves : List Move -> Cardician ()
+cardicianFromMoves moves =
+    List.map cardician moves
+        |> List.foldl Cardician.compose (Cardician.return ())
 
 
 apply : List Move -> Image -> Result String Image
 apply moves image =
     let
         c =
-            List.map cardician moves
-                |> List.foldl Cardician.compose (Cardician.return ())
+            cardicianFromMoves moves
 
         ( or_error, newImage ) =
             perform c image
@@ -223,7 +218,7 @@ view model =
                     , Border.rounded 5
                     , Background.color blue
                     ]
-                    { label = text "Tamariz from phoenix", onPress = Just (SetMoves tamariz_from_phoenix) }
+                    { label = text "Tamariz from phoenix", onPress = Just (SetMoves sample) }
                 ]
 
         initialImageView =

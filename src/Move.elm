@@ -7,31 +7,6 @@ import Parser.Advanced exposing ((|.), (|=), Step(..), Token(..), andThen, chomp
 import Set
 
 
-
--- Core syntax
---
--- Primitives:
---   cut <n> <from-pile> <to-pile> # Move the top n cards of from-pile to to-pile (creating to-pile if it does not exist)
---
---   turnover <pile>
---
---   Inverses:
---   cut <n> <from-pile> <to-pile> -> cut <n> <to-pile> <from-pile>
---   turnover <pile> -> turnover <pile>
---
--- def deal pile1 pile2
---   cut 1 pile1 pile2
--- end
---
--- def studdeal pile1 pile2
---   with-new-pile temp
---     deal pile1 temp
---     turnover temp
---     deal temp pile2
---   end
--- end
-
-
 type alias Parser a =
     Parser.Advanced.Parser Context Problem a
 
@@ -49,14 +24,16 @@ type Problem
     | UnknownMove String
     | ExpectedInt
     | ExpectedPileName
+    | ExpectedEndOfInput
     | ExpectedEnd
+    | ExpectedRepeat
     | ExpectedEndOfLine
     | Problem String
 
 
 type Move
     = Cut { n : Int, pile : PileName, to : PileName }
-    | Faro { pile1 : PileName, pile2 : PileName, result : PileName }
+    | Repeat Int (List Move)
     | Turnover PileName
 
 
@@ -65,14 +42,39 @@ type Argument
     | Pile PileName
 
 
-cmdParser : Parser ( String, List Argument )
-cmdParser =
+keywords =
+    Set.fromList [ "repeat", "end", "def" ]
+
+
+primitiveMoveParser : Parser ( String, List Argument )
+primitiveMoveParser =
     succeed (\cmd args -> ( cmd, args ))
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |= variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = Set.empty, expecting = ExpectedMoveName }
+        |= variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = ExpectedMoveName }
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |= argsParser
-        |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEnd ]
+        |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
+
+
+repeatParser =
+    succeed (\n moves -> Repeat n moves)
+        |. keyword (Token "repeat" ExpectedRepeat)
+        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |= int ExpectedInt ExpectedInt
+        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |. token (Token "\n" ExpectedEndOfLine)
+        |= movesParser
+        |. keyword (Token "end" ExpectedEnd)
+        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
+
+
+moveParser =
+    succeed identity
+        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |= oneOf
+            [ repeatParser
+            , primitiveMoveParser |> andThen recognizeBuiltins
+            ]
 
 
 argsParser : Parser (List Argument)
@@ -115,30 +117,27 @@ recognizeBuiltins ( cmd, args ) =
             Problem "turnover <pile>"
                 |> problem
 
-        ( "faro", [ Pile pile1, Pile pile2, Pile result ] ) ->
-            Faro { pile1 = pile1, pile2 = pile2, result = result }
-                |> succeed
-
-        ( "faro", _ ) ->
-            Problem "faro <pile1> <pile2> <to-pile>"
-                |> problem
-
         ( other, _ ) ->
             UnknownMove other
                 |> problem
 
 
-parser : Parser (List Move)
-parser =
+movesParser : Parser (List Move)
+movesParser =
     let
         helper result =
             oneOf
                 [ succeed (\cmd -> Loop (cmd :: result))
-                    |= (cmdParser |> andThen recognizeBuiltins)
+                    |= moveParser
                 , succeed () |> map (\() -> Done (List.reverse result))
                 ]
     in
     loop [] helper
+
+
+parser : Parser (List Move)
+parser =
+    movesParser
 
 
 deadEndsToString : String -> List DeadEnd -> String
@@ -155,7 +154,13 @@ deadEndsToString text s =
                 Problem msg ->
                     msg
 
+                ExpectedRepeat ->
+                    "Expected 'repeat'"
+
                 ExpectedEnd ->
+                    "Expected 'end'"
+
+                ExpectedEndOfInput ->
                     "Expected that we were done, but there was more and I don't recognize what it is."
 
                 ExpectedInt ->

@@ -1,3 +1,40 @@
+
+# Core syntax
+# Primitives:
+
+  cut <n> <from-pile> <to-pile> # Move the top n cards of from-pile to to-pile (creating to-pile if it does not exist)
+  turnover <pile>
+
+# Repetition
+  repeat <n> 
+    moves...
+  end
+  
+# Definitions
+  def <move> <pileName>|<NUMBERNAME>...
+
+  end
+
+Inside a definition all pile names starting with %pile are unique to the definition (that is they get a unique prefix
+at call time)
+
+# Inverses:
+
+  cut <n> <from-pile> <to-pile> -> cut <n> <to-pile> <from-pile>
+  turnover <pile> -> turnover <pile>
+
+
+def deal pile1 pile2
+  cut 1 pile1 pile2
+end
+def studdeal pile1 pile2
+  with-new-pile temp
+    deal pile1 temp
+    turnover temp
+    deal temp pile2
+  end
+end
+
 def deal pile1 pile2
   cut 1 pile1 pile2
 end
