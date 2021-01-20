@@ -1,6 +1,7 @@
 module Move exposing (Move(..), parseMoves)
 
 import Char
+import Dict exposing (Dict)
 import Image exposing (PileName)
 import List
 import Parser.Advanced exposing ((|.), (|=), Step(..), Token(..), andThen, chompWhile, end, int, keyword, loop, map, oneOf, problem, run, succeed, token, variable)
@@ -25,16 +26,25 @@ type Problem
     | ExpectedInt
     | ExpectedPileName
     | ExpectedEndOfInput
+    | ExpectedDef
     | ExpectedEnd
     | ExpectedRepeat
     | ExpectedEndOfLine
+    | DuplicateDefinition String
     | Problem String
+
+
+type alias MoveDefinition =
+    { name : String
+    , moves : List Move
+    }
 
 
 type Move
     = Cut { n : Int, pile : PileName, to : PileName }
     | Repeat Int (List Move)
     | Turnover PileName
+    | Do MoveDefinition
 
 
 type Argument
@@ -46,34 +56,41 @@ keywords =
     Set.fromList [ "repeat", "end", "def" ]
 
 
+moveNameParser : Parser String
+moveNameParser =
+    variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = ExpectedMoveName }
+
+
 primitiveMoveParser : Parser ( String, List Argument )
 primitiveMoveParser =
     succeed (\cmd args -> ( cmd, args ))
-        |= variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = ExpectedMoveName }
+        |= moveNameParser
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |= argsParser
         |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
 
 
-repeatParser =
+repeatParser : Dict String MoveDefinition -> Parser Move
+repeatParser definitions =
     succeed (\n moves -> Repeat n moves)
         |. keyword (Token "repeat" ExpectedRepeat)
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |= int ExpectedInt ExpectedInt
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |. token (Token "\n" ExpectedEndOfLine)
-        |= movesParser
+        |= movesParser definitions
         |. keyword (Token "end" ExpectedEnd)
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
 
 
-moveParser =
+moveParser : Dict String MoveDefinition -> Parser Move
+moveParser definitions =
     succeed identity
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |= oneOf
-            [ repeatParser
-            , primitiveMoveParser |> andThen recognizeBuiltins
+            [ repeatParser definitions
+            , primitiveMoveParser |> andThen (recognizeBuiltinsAndLookupDefinitions definitions)
             ]
 
 
@@ -98,8 +115,8 @@ argsParser =
     loop [] helper
 
 
-recognizeBuiltins : ( String, List Argument ) -> Parser Move
-recognizeBuiltins ( cmd, args ) =
+recognizeBuiltinsAndLookupDefinitions : Dict String MoveDefinition -> ( String, List Argument ) -> Parser Move
+recognizeBuiltinsAndLookupDefinitions definitions ( cmd, args ) =
     case ( cmd, args ) of
         ( "cut", [ Int n, Pile pile, Pile to ] ) ->
             Cut { n = n, pile = pile, to = to }
@@ -117,27 +134,77 @@ recognizeBuiltins ( cmd, args ) =
             Problem "turnover <pile>"
                 |> problem
 
-        ( other, _ ) ->
-            UnknownMove other
-                |> problem
+        ( moveName, _ ) ->
+            case Dict.get moveName definitions of
+                Nothing ->
+                    problem (UnknownMove moveName)
+
+                Just d ->
+                    succeed (Do d)
 
 
-movesParser : Parser (List Move)
-movesParser =
+movesParser : Dict String MoveDefinition -> Parser (List Move)
+movesParser definitions =
     let
         helper result =
             oneOf
                 [ succeed (\cmd -> Loop (cmd :: result))
-                    |= moveParser
+                    |= moveParser definitions
                 , succeed () |> map (\() -> Done (List.reverse result))
                 ]
     in
     loop [] helper
 
 
-parser : Parser (List Move)
+definitionsParser : Parser (Dict String MoveDefinition)
+definitionsParser =
+    let
+        helper definitions =
+            oneOf
+                [ succeed (\def -> Loop (Dict.insert def.name def definitions))
+                    |= definitionParser definitions
+                , succeed () |> map (\() -> Done definitions)
+                ]
+    in
+    loop Dict.empty helper
+
+
+definitionParser : Dict String MoveDefinition -> Parser MoveDefinition
+definitionParser definitions =
+    succeed (\name moves -> { name = name, moves = moves })
+        |. keyword (Token "def" ExpectedDef)
+        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |= (moveNameParser
+                |> andThen
+                    (\n ->
+                        if Dict.member n definitions then
+                            problem (DuplicateDefinition n)
+
+                        else
+                            succeed n
+                    )
+           )
+        |. token (Token "\n" ExpectedEndOfLine)
+        |= movesParser definitions
+        |. keyword (Token "end" ExpectedEnd)
+        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
+
+
+definitionsAndMoves : Parser ( Dict String MoveDefinition, List Move )
+definitionsAndMoves =
+    definitionsParser
+        |> andThen
+            (\defs ->
+                movesParser defs
+                    |> map (\moves -> ( defs, moves ))
+            )
+
+
+parser : Parser { definitions : Dict String MoveDefinition, moves : List Move }
 parser =
-    movesParser
+    definitionsAndMoves
+        |> map (\( defs, mvs ) -> { definitions = defs, moves = mvs })
 
 
 deadEndsToString : String -> List DeadEnd -> String
@@ -157,11 +224,17 @@ deadEndsToString text s =
                 ExpectedRepeat ->
                     "Expected 'repeat'"
 
+                ExpectedDef ->
+                    "Expected 'def'"
+
+                DuplicateDefinition d ->
+                    "You already know how to '" ++ d ++ "'"
+
                 ExpectedEnd ->
                     "Expected 'end'"
 
                 ExpectedEndOfInput ->
-                    "Expected that we were done, but there was more and I don't recognize what it is."
+                    "End of file expected"
 
                 ExpectedInt ->
                     "Expected an int (e.g. 52)"
@@ -170,7 +243,7 @@ deadEndsToString text s =
                     "Expected the name of a pile (e.g. deck, table, ...)"
 
                 ExpectedEndOfLine ->
-                    "Expected to see the end of that line, but there was more and I don't know what to do with it."
+                    "Expected to see the next line."
 
         deadEndToString { row, col, problem } =
             String.fromInt row ++ "x" ++ String.fromInt col ++ problemToString problem
@@ -178,7 +251,7 @@ deadEndsToString text s =
     String.join "\n" (List.map deadEndToString s)
 
 
-parseMoves : String -> Result String (List Move)
+parseMoves : String -> Result String { moves : List Move, definitions : Dict String MoveDefinition }
 parseMoves text =
     case run (parser |. end ExpectedEnd) text of
         Ok m ->

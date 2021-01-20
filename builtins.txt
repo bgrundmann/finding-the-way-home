@@ -43,3 +43,7 @@ def deal
   deal deck table
 end
 
+def tantalizer
+  repeat 
+
+end

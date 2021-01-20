@@ -30,5 +30,5 @@ viewPile pile =
 
 view : Image -> Element msg
 view world =
-    column [ Element.height Element.fill, Element.width Element.fill ]
+    column [ Element.height Element.fill, Element.width Element.fill, Element.spacing 10 ]
         (List.map (\( name, pile ) -> column [] [ text name, viewPile pile ]) world)

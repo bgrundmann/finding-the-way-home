@@ -133,7 +133,7 @@ cutOff n pileName =
                         List.length topHalf
                 in
                 if actualLen < n then
-                    fail ("Only " ++ String.fromInt n ++ " cards in pile " ++ pileName ++ " , wanted to cut off " ++ String.fromInt n)
+                    fail ("Only " ++ String.fromInt actualLen ++ " cards in pile " ++ pileName ++ " , wanted to cut off " ++ String.fromInt n)
 
                 else
                     replace pileName lowerHalf

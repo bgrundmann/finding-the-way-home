@@ -16,45 +16,23 @@ import Move exposing (Move(..))
 import Result
 
 
+defaultInfoText =
+    """cut <N> <from-pile> <to-pile>
+turnover <pile>
+repeat <N>
+  <move>
+  ...
+end
+def <move-name> <pile>|<N> ...
+  <move>
+end
+"""
+
+
 sample =
-    """cut 26 deck table
-faro table deck deck
-cut 26 deck table
-faro table deck deck
-cut 26 deck table
-faro table deck deck
-cut 26 deck table
-faro table deck deck
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 1 deck hand
-cut 26 deck hand
-cut 52 hand deck
-cut 18 deck hand
-faro hand deck deck
+    """def deal
+cut 1 deck table
+end
 """
 
 
@@ -85,6 +63,9 @@ cardician move =
             cardicianFromMoves moves
                 |> List.repeat n
                 |> List.foldl Cardician.compose (Cardician.return ())
+
+        Do { name, moves } ->
+            cardicianFromMoves moves
 
 
 cardicianFromMoves : List Move -> Cardician ()
@@ -170,15 +151,12 @@ update msg model =
     case msg of
         SetMoves text ->
             let
-                movesOrError =
-                    Move.parseMoves text
-
                 performanceResult =
-                    case movesOrError of
+                    case Move.parseMoves text of
                         Err whyInvalidMoves ->
                             InvalidMoves whyInvalidMoves
 
-                        Ok moves ->
+                        Ok { moves, definitions } ->
                             case apply moves model.initialImage of
                                 Err whyCannotPerform ->
                                     CannotPerform moves whyCannotPerform
@@ -224,40 +202,45 @@ view model =
         initialImageView =
             Image.view model.initialImage
 
-        movesBorderColor =
+        viewMessage title m =
+            Element.column [ width fill, height fill, spacing 10 ]
+                [ el [ Font.bold, width fill ] (text title)
+                , el [ width fill, height fill, Font.family [ Font.monospace ] ] (text m)
+                ]
+
+        ( movesBorderColor, infoText ) =
             case model.performanceResult of
                 Performed _ _ ->
-                    Element.rgb 0 255 0
+                    ( Element.rgb 0 255 0, viewMessage "Reference" defaultInfoText )
 
-                InvalidMoves _ ->
-                    Element.rgb 255 0 255
+                InvalidMoves errorMsg ->
+                    ( Element.rgb 255 0 255, viewMessage "Error" errorMsg )
 
-                CannotPerform _ _ ->
-                    Element.rgb 255 0 0
+                CannotPerform _ errorMsg ->
+                    ( Element.rgb 255 0 0, viewMessage "Error" errorMsg )
 
         movesView =
-            Input.multiline [ width fill, height fill, Border.color movesBorderColor ]
-                { label = Input.labelAbove [] (Element.text "Moves")
-                , onChange = SetMoves
-                , text = model.movesText
-                , placeholder = Nothing
-                , spellcheck = False
-                }
+            Element.column [ width fill, height fill, spacing 10 ]
+                [ Input.multiline [ width fill, height fill, Border.color movesBorderColor ]
+                    { label = Input.labelAbove [] (Element.text "Moves")
+                    , onChange = SetMoves
+                    , text = model.movesText
+                    , placeholder = Nothing
+                    , spellcheck = False
+                    }
+                , infoText
+                ]
 
         finalImageView =
-            let
-                viewErrorMessage m =
-                    el [ Font.bold, width fill, height fill ] (text m)
-            in
             case model.performanceResult of
                 Performed _ finalImage ->
                     Image.view finalImage
 
                 InvalidMoves errorMsg ->
-                    viewErrorMessage errorMsg
+                    initialImageView
 
                 CannotPerform _ errorMsg ->
-                    viewErrorMessage errorMsg
+                    initialImageView
     in
     Element.layout []
         (Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]
