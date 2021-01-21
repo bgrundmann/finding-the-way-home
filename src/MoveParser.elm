@@ -3,6 +3,7 @@ module MoveParser exposing (parseMoves)
 import Array exposing (Array)
 import Char
 import Dict exposing (Dict)
+import Dict.Extra
 import Image exposing (PileName)
 import List
 import List.Extra
@@ -24,17 +25,21 @@ type alias DeadEnd =
 
 
 type Problem
-    = ExpectedMoveName
-    | UnknownMove String
-    | ExpectedInt
-    | ExpectedPileName
-    | ExpectedEndOfInput
-    | ExpectedDef
-    | ExpectedEnd
-    | ExpectedRepeat
-    | ExpectedEndOfLine
+    = UnknownMove String
+    | Expected Expectation
     | DuplicateDefinition String
     | Problem String
+
+
+type Expectation
+    = EInt
+    | EPileName
+    | EEndOfInput
+    | EDef
+    | EEnd
+    | ERepeat
+    | EEndOfLine
+    | EMoveName
 
 
 type alias Definitions =
@@ -47,14 +52,14 @@ keywords =
 
 moveNameParser : Parser String
 moveNameParser =
-    variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = ExpectedMoveName }
+    variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = Expected EMoveName }
 
 
 exprParser : Parser Expr
 exprParser =
     oneOf
-        [ int ExpectedInt ExpectedInt |> map Int
-        , variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = Set.empty, expecting = ExpectedPileName }
+        [ int (Expected EInt) (Expected EInt) |> map Int
+        , variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = Set.empty, expecting = Expected EPileName }
             |> map Pile
         ]
         |> map ExprValue
@@ -66,21 +71,21 @@ doMoveParser =
         |= moveNameParser
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |= actualsParser
-        |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
+        |. oneOf [ token (Token "\n" (Expected EEndOfLine)), end (Expected EEndOfInput) ]
 
 
 repeatParser : Definitions -> Parser (Move Expr)
 repeatParser definitions =
     succeed (\n moves -> Repeat n moves)
-        |. keyword (Token "repeat" ExpectedRepeat)
+        |. keyword (Token "repeat" (Expected ERepeat))
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |= exprParser
         |. chompWhile (\c -> c == ' ' || c == '\t')
-        |. token (Token "\n" ExpectedEndOfLine)
+        |. token (Token "\n" (Expected EEndOfLine))
         |= movesParser definitions
-        |. keyword (Token "end" ExpectedEnd)
+        |. keyword (Token "end" (Expected EEnd))
         |. chompWhile (\c -> c == ' ' || c == '\t')
-        |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
+        |. oneOf [ token (Token "\n" (Expected EEndOfLine)), end (Expected EEndOfInput) ]
 
 
 moveParser : Definitions -> Parser (Move Expr)
@@ -160,7 +165,7 @@ definitionsParser primitives =
 definitionParser : Definitions -> Parser MoveDefinition
 definitionParser definitions =
     succeed (\name moves -> { name = name, movesOrPrimitive = Moves moves, args = [] })
-        |. keyword (Token "def" ExpectedDef)
+        |. keyword (Token "def" (Expected EDef))
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |= (moveNameParser
                 |> andThen
@@ -172,11 +177,11 @@ definitionParser definitions =
                             succeed n
                     )
            )
-        |. token (Token "\n" ExpectedEndOfLine)
+        |. token (Token "\n" (Expected EEndOfLine))
         |= movesParser definitions
-        |. keyword (Token "end" ExpectedEnd)
+        |. keyword (Token "end" (Expected EEnd))
         |. chompWhile (\c -> c == ' ' || c == '\t')
-        |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
+        |. oneOf [ token (Token "\n" (Expected EEndOfLine)), end (Expected EEndOfInput) ]
 
 
 definitionsAndMoves : Dict String MoveDefinition -> Parser ( Definitions, List (Move Expr) )
@@ -203,43 +208,58 @@ parser primitives =
             )
 
 
+gatherDeadEndsByLocation : List DeadEnd -> List { row : Int, col : Int, problems : List Problem }
+gatherDeadEndsByLocation deadEnds =
+    Dict.Extra.groupBy (\d -> ( d.row, d.col )) deadEnds
+        |> Dict.toList
+        |> List.map
+            (\( ( row, col ), ds ) ->
+                { row = row, col = col, problems = List.map .problem ds }
+            )
+
+
 deadEndsToString : String -> List DeadEnd -> String
 deadEndsToString text deadEnds =
     let
+        expectationToString ex =
+            case ex of
+                ERepeat ->
+                    "'repeat'"
+
+                EDef ->
+                    "'def'"
+
+                EEnd ->
+                    "'end'"
+
+                EPileName ->
+                    "a pile name (e.g. deck)"
+
+                EEndOfLine ->
+                    "the next line"
+
+                EEndOfInput ->
+                    "the end"
+
+                EInt ->
+                    "a number (e.g. 3)"
+
+                EMoveName ->
+                    "a move name (e.g. 'deal')"
+
         problemToString problem =
             case problem of
                 UnknownMove n ->
                     "Don't know how to do '" ++ n ++ "'"
 
-                ExpectedMoveName ->
-                    "Expected a move (e.g. 'deal')"
-
                 Problem msg ->
                     msg
-
-                ExpectedRepeat ->
-                    "Expected 'repeat'"
-
-                ExpectedDef ->
-                    "Expected 'def'"
 
                 DuplicateDefinition d ->
                     "You already know how to '" ++ d ++ "'"
 
-                ExpectedEnd ->
-                    "Expected 'end'"
-
-                ExpectedEndOfInput ->
-                    "End of file expected"
-
-                ExpectedInt ->
-                    "Expected an int (e.g. 52)"
-
-                ExpectedPileName ->
-                    "Expected the name of a pile (e.g. deck, table, ...)"
-
-                ExpectedEndOfLine ->
-                    "Expected to see the next line."
+                Expected ex ->
+                    "Expected " ++ expectationToString ex
 
         relevantLineAndPlace row col =
             case List.Extra.getAt (row - 1) (String.lines text) of
@@ -249,11 +269,56 @@ deadEndsToString text deadEnds =
                 Just line ->
                     line ++ "\n" ++ String.repeat (col - 1) " " ++ "^\n"
 
-        deadEndToString { row, col, problem } =
-            relevantLineAndPlace row col ++ problemToString problem
+        deadEndToString { row, col, problems } =
+            let
+                ( wrappedExpectedProblems, otherProblems ) =
+                    List.partition
+                        (\p ->
+                            case p of
+                                Expected _ ->
+                                    True
+
+                                _ ->
+                                    False
+                        )
+                        problems
+
+                expectedProblems =
+                    List.map
+                        (\e ->
+                            case e of
+                                Expected x ->
+                                    x
+
+                                _ ->
+                                    -- Can't happen
+                                    EEnd
+                        )
+                        wrappedExpectedProblems
+
+                expectedProblemsString =
+                    case List.reverse expectedProblems of
+                        [] ->
+                            "\n"
+
+                        [ ex ] ->
+                            "Expected " ++ expectationToString ex ++ "\n"
+
+                        ex :: exs ->
+                            "Expected one of " ++ String.join ", " (List.map expectationToString (List.reverse exs)) ++ " or " ++ expectationToString ex ++ "\n"
+
+                otherProblemsString =
+                    case otherProblems of
+                        [] ->
+                            "\n"
+
+                        others ->
+                            String.join "\n" (List.map problemToString others)
+            in
+            relevantLineAndPlace row col ++ expectedProblemsString ++ otherProblemsString
     in
-    -- We always only deal with one problem at the time.
-    case deadEnds of
+    -- We always only deal with one problematic location at the time.
+    case gatherDeadEndsByLocation deadEnds of
         [] ->
             ""
 
@@ -263,7 +328,7 @@ deadEndsToString text deadEnds =
 
 parseMoves : Definitions -> String -> Result String { moves : List (Move ExprValue), definitions : Definitions }
 parseMoves primitives text =
-    case run (parser primitives |. end ExpectedEnd) text of
+    case run (parser primitives |. end (Expected EEnd)) text of
         Ok m ->
             Ok m
 
