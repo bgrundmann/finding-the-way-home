@@ -1,5 +1,6 @@
 module Move exposing
-    ( ArgumentKind(..)
+    ( Argument
+    , ArgumentKind(..)
     , Expr(..)
     , ExprValue(..)
     , Move(..)
@@ -18,9 +19,13 @@ import List.Extra
 import Result.Extra
 
 
+type alias Argument =
+    { name : String, kind : ArgumentKind }
+
+
 type alias MoveDefinition =
     { name : String
-    , args : List { name : String, kind : ArgumentKind }
+    , args : List Argument
     , movesOrPrimitive : MovesOrPrimitive
     }
 
@@ -40,7 +45,7 @@ type Move arg
 
 
 type Expr
-    = Argument { name : String, ndx : Int }
+    = ArgumentValue { name : String, ndx : Int }
     | ExprValue ExprValue
 
 
@@ -50,9 +55,8 @@ type ExprValue
 
 
 type ArgumentKind
-    = Kind_int
-    | Kind_pile
-    | Kind_unused
+    = KindInt
+    | KindPile
 
 
 {-| The signature is a human readable representation of a definitions names and arguments.
@@ -71,7 +75,7 @@ substituteArguments actuals moves =
     let
         substExpr expr =
             case expr of
-                Argument { name, ndx } ->
+                ArgumentValue { name, ndx } ->
                     case List.Extra.getAt ndx actuals of
                         Nothing ->
                             Err ("Internal error -- couldn't get " ++ name ++ " at " ++ String.fromInt ndx)
@@ -139,10 +143,10 @@ primitiveCut args =
 primitives =
     let
         int name =
-            { name = name, kind = Kind_int }
+            { name = name, kind = KindInt }
 
         pile name =
-            { name = name, kind = Kind_pile }
+            { name = name, kind = KindPile }
 
         prim name args p =
             { name = name, args = args, movesOrPrimitive = Primitive p }

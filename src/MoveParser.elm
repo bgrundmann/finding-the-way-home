@@ -8,7 +8,7 @@ import Image exposing (PileName)
 import List
 import List.Extra
 import Move exposing (..)
-import Parser.Advanced exposing ((|.), (|=), Step(..), Token(..), andThen, chompWhile, end, int, keyword, loop, map, oneOf, problem, run, succeed, token, variable)
+import Parser.Advanced exposing ((|.), (|=), Step(..), Token(..), andThen, chompWhile, end, int, loop, map, oneOf, problem, run, succeed, token, variable)
 import Set
 
 
@@ -34,10 +34,9 @@ type Problem
 type Expectation
     = EInt
     | EPileName
+    | ENumberName
     | EEndOfInput
-    | EDef
-    | EEnd
-    | ERepeat
+    | EKeyword String
     | EEndOfLine
     | EMoveName
 
@@ -50,6 +49,32 @@ keywords =
     Set.fromList [ "repeat", "end", "def" ]
 
 
+keyword string =
+    Parser.Advanced.keyword (Token string (Expected (EKeyword string)))
+
+
+keywordEnd =
+    keyword "end"
+
+
+keywordDef =
+    keyword "def"
+
+
+keywordRepeat =
+    keyword "repeat"
+
+
+pileNameParser : Parser String
+pileNameParser =
+    variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '_', reserved = Set.empty, expecting = Expected EPileName }
+
+
+numberNameParser : Parser String
+numberNameParser =
+    variable { start = Char.isUpper, inner = \c -> Char.isUpper c || c == '_', reserved = Set.empty, expecting = Expected ENumberName }
+
+
 moveNameParser : Parser String
 moveNameParser =
     variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = Expected EMoveName }
@@ -59,8 +84,7 @@ exprParser : Parser Expr
 exprParser =
     oneOf
         [ int (Expected EInt) (Expected EInt) |> map Int
-        , variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = Set.empty, expecting = Expected EPileName }
-            |> map Pile
+        , pileNameParser |> map Pile
         ]
         |> map ExprValue
 
@@ -77,13 +101,13 @@ doMoveParser =
 repeatParser : Definitions -> Parser (Move Expr)
 repeatParser definitions =
     succeed (\n moves -> Repeat n moves)
-        |. keyword (Token "repeat" (Expected ERepeat))
+        |. keywordRepeat
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |= exprParser
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |. token (Token "\n" (Expected EEndOfLine))
         |= movesParser definitions
-        |. keyword (Token "end" (Expected EEnd))
+        |. keywordEnd
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |. oneOf [ token (Token "\n" (Expected EEndOfLine)), end (Expected EEndOfInput) ]
 
@@ -110,6 +134,28 @@ actualsParser =
                 ]
     in
     loop [] helper
+
+
+argsParser : Parser (List Argument)
+argsParser =
+    let
+        helper result =
+            oneOf
+                [ succeed (\arg -> Loop (arg :: result))
+                    |= argParser
+                    |. chompWhile (\c -> c == ' ' || c == '\t')
+                , succeed () |> map (\() -> Done (List.reverse result))
+                ]
+    in
+    loop [] helper
+
+
+argParser : Parser Argument
+argParser =
+    oneOf
+        [ pileNameParser |> map (\n -> { name = n, kind = KindPile })
+        , numberNameParser |> map (\n -> { name = n, kind = KindInt })
+        ]
 
 
 lookupDefinition : Definitions -> ( String, List Expr ) -> Parser (Move Expr)
@@ -164,8 +210,8 @@ definitionsParser primitives =
 
 definitionParser : Definitions -> Parser MoveDefinition
 definitionParser definitions =
-    succeed (\name moves -> { name = name, movesOrPrimitive = Moves moves, args = [] })
-        |. keyword (Token "def" (Expected EDef))
+    succeed (\name args moves -> { name = name, movesOrPrimitive = Moves moves, args = args })
+        |. keywordDef
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |= (moveNameParser
                 |> andThen
@@ -177,9 +223,11 @@ definitionParser definitions =
                             succeed n
                     )
            )
+        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |= argsParser
         |. token (Token "\n" (Expected EEndOfLine))
         |= movesParser definitions
-        |. keyword (Token "end" (Expected EEnd))
+        |. keywordEnd
         |. chompWhile (\c -> c == ' ' || c == '\t')
         |. oneOf [ token (Token "\n" (Expected EEndOfLine)), end (Expected EEndOfInput) ]
 
@@ -223,17 +271,14 @@ deadEndsToString text deadEnds =
     let
         expectationToString ex =
             case ex of
-                ERepeat ->
-                    "'repeat'"
-
-                EDef ->
-                    "'def'"
-
-                EEnd ->
-                    "'end'"
+                EKeyword s ->
+                    "'" ++ s ++ "'"
 
                 EPileName ->
                     "a pile name (e.g. deck)"
+
+                ENumberName ->
+                    "a number name (e.g. N)"
 
                 EEndOfLine ->
                     "the next line"
@@ -267,7 +312,7 @@ deadEndsToString text deadEnds =
                     "THIS SHOULD NOT HAPPEN"
 
                 Just line ->
-                    line ++ "\n" ++ String.repeat (col - 1) " " ++ "^\n"
+                    String.fromInt row ++ "\n" ++ line ++ "\n" ++ String.repeat (col - 1) " " ++ "^\n"
 
         deadEndToString { row, col, problems } =
             let
@@ -292,7 +337,7 @@ deadEndsToString text deadEnds =
 
                                 _ ->
                                     -- Can't happen
-                                    EEnd
+                                    EKeyword ""
                         )
                         wrappedExpectedProblems
 
@@ -328,7 +373,7 @@ deadEndsToString text deadEnds =
 
 parseMoves : Definitions -> String -> Result String { moves : List (Move ExprValue), definitions : Definitions }
 parseMoves primitives text =
-    case run (parser primitives |. end (Expected EEnd)) text of
+    case run (parser primitives |. end (Expected EEndOfInput)) text of
         Ok m ->
             Ok m
 
