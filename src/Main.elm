@@ -12,19 +12,23 @@ import Element.Input as Input
 import Html exposing (Html)
 import Image exposing (Image)
 import List
-import Move exposing (Move(..))
+import Move exposing (ExprValue(..), Move(..), MovesOrPrimitive(..))
+import MoveParser
 import Result
 
 
 defaultInfoText =
-    """cut <N> <from-pile> <to-pile>
-turnover <pile>
-repeat <N>
-  <move>
+    String.join "\n" (List.map Move.signature Move.primitives)
+        ++ """
+
+repeat N
+  move1
   ...
 end
-def <move-name> <pile>|<N> ...
-  <move>
+
+def move-name pile|N ...
+  move1
+  ...
 end
 """
 
@@ -45,36 +49,40 @@ turnOver pile =
     List.reverse (List.map Card.turnOver pile)
 
 
-cardician : Move -> Cardician ()
+cardician : Move ExprValue -> Cardician ()
 cardician move =
     case move of
-        Cut { n, pile, to } ->
-            Cardician.cutOff n pile
-                |> andThen (Cardician.put to)
+        Repeat nExpr moves ->
+            case nExpr of
+                Int n ->
+                    cardicianFromMoves moves
+                        |> List.repeat n
+                        |> List.foldl Cardician.compose (Cardician.return ())
 
-        Turnover pile ->
-            Cardician.take pile
-                |> andThen
-                    (\cards ->
-                        Cardician.put pile (turnOver cards)
-                    )
+                Pile _ ->
+                    Cardician.fail "Internal error: type checker failed"
 
-        Repeat n moves ->
-            cardicianFromMoves moves
-                |> List.repeat n
-                |> List.foldl Cardician.compose (Cardician.return ())
+        Do { name, movesOrPrimitive, args } actuals ->
+            case movesOrPrimitive of
+                Moves moves ->
+                    case Move.substituteArguments actuals moves of
+                        Err msg ->
+                            Cardician.fail ("Internal error: substitution failed " ++ msg)
 
-        Do { name, moves } ->
-            cardicianFromMoves moves
+                        Ok substitutedMoves ->
+                            cardicianFromMoves substitutedMoves
+
+                Primitive p ->
+                    p actuals
 
 
-cardicianFromMoves : List Move -> Cardician ()
+cardicianFromMoves : List (Move ExprValue) -> Cardician ()
 cardicianFromMoves moves =
     List.map cardician moves
         |> List.foldl Cardician.compose (Cardician.return ())
 
 
-apply : List Move -> Image -> Result String Image
+apply : List (Move ExprValue) -> Image -> Result String Image
 apply moves image =
     let
         c =
@@ -110,8 +118,8 @@ type alias ErrorMessage =
 
 type PerformanceResult
     = InvalidMoves ErrorMessage
-    | CannotPerform (List Move) ErrorMessage
-    | Performed (List Move) Image
+    | CannotPerform (List (Move ExprValue)) ErrorMessage
+    | Performed (List (Move ExprValue)) Image
 
 
 type alias Model =
@@ -152,7 +160,7 @@ update msg model =
         SetMoves text ->
             let
                 performanceResult =
-                    case Move.parseMoves text of
+                    case MoveParser.parseMoves (Move.primitives |> List.map (\d -> ( d.name, d )) |> Dict.fromList) text of
                         Err whyInvalidMoves ->
                             InvalidMoves whyInvalidMoves
 

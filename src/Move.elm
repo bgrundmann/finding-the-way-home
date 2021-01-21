@@ -1,261 +1,152 @@
-module Move exposing (Move(..), parseMoves)
+module Move exposing
+    ( ArgumentKind(..)
+    , Expr(..)
+    , ExprValue(..)
+    , Move(..)
+    , MoveDefinition
+    , MovesOrPrimitive(..)
+    , primitives
+    , signature
+    , substituteArguments
+    )
 
-import Char
+import Card exposing (Card, Pile)
+import Cardician exposing (Cardician, andThen, fail)
 import Dict exposing (Dict)
 import Image exposing (PileName)
-import List
-import Parser.Advanced exposing ((|.), (|=), Step(..), Token(..), andThen, chompWhile, end, int, keyword, loop, map, oneOf, problem, run, succeed, token, variable)
-import Set
-
-
-type alias Parser a =
-    Parser.Advanced.Parser Context Problem a
-
-
-type alias Context =
-    ()
-
-
-type alias DeadEnd =
-    Parser.Advanced.DeadEnd Context Problem
-
-
-type Problem
-    = ExpectedMoveName
-    | UnknownMove String
-    | ExpectedInt
-    | ExpectedPileName
-    | ExpectedEndOfInput
-    | ExpectedDef
-    | ExpectedEnd
-    | ExpectedRepeat
-    | ExpectedEndOfLine
-    | DuplicateDefinition String
-    | Problem String
+import List.Extra
+import Result.Extra
 
 
 type alias MoveDefinition =
     { name : String
-    , moves : List Move
+    , args : List { name : String, kind : ArgumentKind }
+    , movesOrPrimitive : MovesOrPrimitive
     }
 
 
-type Move
-    = Cut { n : Int, pile : PileName, to : PileName }
-    | Repeat Int (List Move)
-    | Turnover PileName
-    | Do MoveDefinition
+type alias ArgDefinition =
+    { name : String, kind : ArgumentKind }
 
 
-type Argument
-    = Int Int
-    | Pile PileName
+type MovesOrPrimitive
+    = Moves (List (Move Expr))
+    | Primitive (List ExprValue -> Cardician ())
 
 
-keywords =
-    Set.fromList [ "repeat", "end", "def" ]
+type Move arg
+    = Repeat arg (List (Move arg))
+    | Do MoveDefinition (List arg)
 
 
-moveNameParser : Parser String
-moveNameParser =
-    variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = ExpectedMoveName }
+type Expr
+    = Argument { name : String, ndx : Int }
+    | ExprValue ExprValue
 
 
-primitiveMoveParser : Parser ( String, List Argument )
-primitiveMoveParser =
-    succeed (\cmd args -> ( cmd, args ))
-        |= moveNameParser
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |= argsParser
-        |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
+type ExprValue
+    = Pile PileName
+    | Int Int
 
 
-repeatParser : Dict String MoveDefinition -> Parser Move
-repeatParser definitions =
-    succeed (\n moves -> Repeat n moves)
-        |. keyword (Token "repeat" ExpectedRepeat)
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |= int ExpectedInt ExpectedInt
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |. token (Token "\n" ExpectedEndOfLine)
-        |= movesParser definitions
-        |. keyword (Token "end" ExpectedEnd)
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
+type ArgumentKind
+    = Kind_int
+    | Kind_pile
+    | Kind_unused
 
 
-moveParser : Dict String MoveDefinition -> Parser Move
-moveParser definitions =
-    succeed identity
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |= oneOf
-            [ repeatParser definitions
-            , primitiveMoveParser |> andThen (recognizeBuiltinsAndLookupDefinitions definitions)
-            ]
+{-| The signature is a human readable representation of a definitions names and arguments.
+-}
+signature : MoveDefinition -> String
+signature { name, args } =
+    name ++ " " ++ String.join " " (args |> List.map .name)
 
 
-argsParser : Parser (List Argument)
-argsParser =
+{-| Replace Arguments by their values.
+The passed in Array must match the the args Array of the definition
+the list of moves are part of. Or be the empty array.
+-}
+substituteArguments : List ExprValue -> List (Move Expr) -> Result String (List (Move ExprValue))
+substituteArguments actuals moves =
     let
-        helper result =
-            oneOf
-                [ succeed (\arg -> Loop (arg :: result))
-                    |= argParser
-                    |. chompWhile (\c -> c == ' ' || c == '\t')
-                , succeed () |> map (\() -> Done (List.reverse result))
-                ]
+        substExpr expr =
+            case expr of
+                Argument { name, ndx } ->
+                    case List.Extra.getAt ndx actuals of
+                        Nothing ->
+                            Err ("Internal error -- couldn't get " ++ name ++ " at " ++ String.fromInt ndx)
 
-        argParser =
-            oneOf
-                [ int ExpectedInt ExpectedInt |> map Int
-                , variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = Set.empty, expecting = ExpectedPileName }
-                    |> map Pile
-                ]
+                        Just value ->
+                            Ok value
+
+                ExprValue v ->
+                    Ok v
+
+        substMove move =
+            case move of
+                Repeat arg rmoves ->
+                    Result.map2 Repeat
+                        (substExpr arg)
+                        (substituteArguments actuals rmoves)
+
+                Do def exprs ->
+                    Result.map (\values -> Do def values)
+                        (List.map substExpr exprs |> Result.Extra.combine)
     in
-    loop [] helper
+    List.map substMove moves
+        |> Result.Extra.combine
 
 
-recognizeBuiltinsAndLookupDefinitions : Dict String MoveDefinition -> ( String, List Argument ) -> Parser Move
-recognizeBuiltinsAndLookupDefinitions definitions ( cmd, args ) =
-    case ( cmd, args ) of
-        ( "cut", [ Int n, Pile pile, Pile to ] ) ->
-            Cut { n = n, pile = pile, to = to }
-                |> succeed
 
-        ( "cut", _ ) ->
-            Problem "cut <number> <pile> <to-pile>"
-                |> problem
-
-        ( "turnover", [ Pile name ] ) ->
-            Turnover name
-                |> succeed
-
-        ( "turnover", _ ) ->
-            Problem "turnover <pile>"
-                |> problem
-
-        ( moveName, _ ) ->
-            case Dict.get moveName definitions of
-                Nothing ->
-                    problem (UnknownMove moveName)
-
-                Just d ->
-                    succeed (Do d)
+--- Primitives
 
 
-movesParser : Dict String MoveDefinition -> Parser (List Move)
-movesParser definitions =
-    let
-        helper result =
-            oneOf
-                [ succeed (\cmd -> Loop (cmd :: result))
-                    |= moveParser definitions
-                , succeed () |> map (\() -> Done (List.reverse result))
-                ]
-    in
-    loop [] helper
+turnover : Pile -> Pile
+turnover pile =
+    List.reverse (List.map Card.turnOver pile)
 
 
-definitionsParser : Parser (Dict String MoveDefinition)
-definitionsParser =
-    let
-        helper definitions =
-            oneOf
-                [ succeed (\def -> Loop (Dict.insert def.name def definitions))
-                    |= definitionParser definitions
-                , succeed () |> map (\() -> Done definitions)
-                ]
-    in
-    loop Dict.empty helper
+bugInTypeCheckerOrPrimitiveDef : String -> Cardician ()
+bugInTypeCheckerOrPrimitiveDef name =
+    fail ("Bug in type checker or definition of " ++ name)
 
 
-definitionParser : Dict String MoveDefinition -> Parser MoveDefinition
-definitionParser definitions =
-    succeed (\name moves -> { name = name, moves = moves })
-        |. keyword (Token "def" ExpectedDef)
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |= (moveNameParser
+primitiveTurnover : List ExprValue -> Cardician ()
+primitiveTurnover args =
+    case args of
+        [ Pile name ] ->
+            Cardician.take name
                 |> andThen
-                    (\n ->
-                        if Dict.member n definitions then
-                            problem (DuplicateDefinition n)
-
-                        else
-                            succeed n
+                    (\cards ->
+                        Cardician.put name (turnover cards)
                     )
-           )
-        |. token (Token "\n" ExpectedEndOfLine)
-        |= movesParser definitions
-        |. keyword (Token "end" ExpectedEnd)
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |. oneOf [ token (Token "\n" ExpectedEndOfLine), end ExpectedEndOfInput ]
+
+        _ ->
+            bugInTypeCheckerOrPrimitiveDef "turnover"
 
 
-definitionsAndMoves : Parser ( Dict String MoveDefinition, List Move )
-definitionsAndMoves =
-    definitionsParser
-        |> andThen
-            (\defs ->
-                movesParser defs
-                    |> map (\moves -> ( defs, moves ))
-            )
+primitiveCut : List ExprValue -> Cardician ()
+primitiveCut args =
+    case args of
+        [ Int n, Pile from, Pile to ] ->
+            Cardician.cutOff n from
+                |> andThen (Cardician.put to)
+
+        _ ->
+            bugInTypeCheckerOrPrimitiveDef "cut"
 
 
-parser : Parser { definitions : Dict String MoveDefinition, moves : List Move }
-parser =
-    definitionsAndMoves
-        |> map (\( defs, mvs ) -> { definitions = defs, moves = mvs })
-
-
-deadEndsToString : String -> List DeadEnd -> String
-deadEndsToString text s =
+primitives =
     let
-        problemToString problem =
-            case problem of
-                UnknownMove n ->
-                    "Don't know how to do '" ++ n ++ "'"
+        int name =
+            { name = name, kind = Kind_int }
 
-                ExpectedMoveName ->
-                    "Expected a move (e.g. 'deal')"
+        pile name =
+            { name = name, kind = Kind_pile }
 
-                Problem msg ->
-                    msg
-
-                ExpectedRepeat ->
-                    "Expected 'repeat'"
-
-                ExpectedDef ->
-                    "Expected 'def'"
-
-                DuplicateDefinition d ->
-                    "You already know how to '" ++ d ++ "'"
-
-                ExpectedEnd ->
-                    "Expected 'end'"
-
-                ExpectedEndOfInput ->
-                    "End of file expected"
-
-                ExpectedInt ->
-                    "Expected an int (e.g. 52)"
-
-                ExpectedPileName ->
-                    "Expected the name of a pile (e.g. deck, table, ...)"
-
-                ExpectedEndOfLine ->
-                    "Expected to see the next line."
-
-        deadEndToString { row, col, problem } =
-            String.fromInt row ++ "x" ++ String.fromInt col ++ problemToString problem
+        prim name args p =
+            { name = name, args = args, movesOrPrimitive = Primitive p }
     in
-    String.join "\n" (List.map deadEndToString s)
-
-
-parseMoves : String -> Result String { moves : List Move, definitions : Dict String MoveDefinition }
-parseMoves text =
-    case run (parser |. end ExpectedEnd) text of
-        Ok m ->
-            Ok m
-
-        Err deadEnds ->
-            Err (deadEndsToString text deadEnds)
+    [ prim "turnover" [ pile "pile" ] primitiveTurnover
+    , prim "cut" [ int "N", pile "from", pile "to" ] primitiveCut
+    ]
