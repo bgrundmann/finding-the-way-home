@@ -45,7 +45,7 @@ type Move arg
 
 
 type Expr
-    = ArgumentValue { name : String, ndx : Int }
+    = ExprArgument { name : String, ndx : Int }
     | ExprValue ExprValue
 
 
@@ -75,7 +75,7 @@ substituteArguments actuals moves =
     let
         substExpr expr =
             case expr of
-                ArgumentValue { name, ndx } ->
+                ExprArgument { name, ndx } ->
                     case List.Extra.getAt ndx actuals of
                         Nothing ->
                             Err ("Internal error -- couldn't get " ++ name ++ " at " ++ String.fromInt ndx)

@@ -26,6 +26,7 @@ type alias DeadEnd =
 
 type Problem
     = UnknownMove String
+    | NoSuchArgument String
     | Expected Expectation
     | DuplicateDefinition String
     | Problem String
@@ -65,6 +66,44 @@ keywordRepeat =
     keyword "repeat"
 
 
+spaces : Parser ()
+spaces =
+    chompWhile (\c -> c == ' ' || c == '\t')
+
+
+{-| At least one newline, maybe preceeded by whitespace, and possibly followed by more newlines / spaces.
+-}
+newline : Parser ()
+newline =
+    spaces
+        |. token (Token "\n" (Expected EEndOfLine))
+        |. spaces
+        |. loop ()
+            (\() ->
+                oneOf
+                    [ (token (Token "\n" (Expected EEndOfLine)) |. spaces) |> map (\_ -> Loop ())
+                    , succeed () |> map (\_ -> Done ())
+                    ]
+            )
+
+
+type WhereAreWe
+    = Toplevel
+    | Embedded
+
+
+{-| The end of a statement is a newline character. Or at the toplevel the end of the file is also ok.
+-}
+endOfStatement : WhereAreWe -> Parser ()
+endOfStatement whereAreWe =
+    case whereAreWe of
+        Toplevel ->
+            oneOf [ newline, end (Expected EEndOfInput) ]
+
+        Embedded ->
+            newline
+
+
 pileNameParser : Parser String
 pileNameParser =
     variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '_', reserved = Set.empty, expecting = Expected EPileName }
@@ -80,56 +119,62 @@ moveNameParser =
     variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = Expected EMoveName }
 
 
-exprParser : Parser Expr
-exprParser =
+exprParser : List Argument -> Parser Expr
+exprParser arguments =
+    let
+        maybeArgument whenNot name =
+            case List.Extra.find (\( _, a ) -> a.name == name) (List.indexedMap Tuple.pair arguments) of
+                Nothing ->
+                    whenNot name
+
+                Just ( ndx, x ) ->
+                    succeed (ExprArgument { name = name, ndx = ndx })
+    in
     oneOf
-        [ int (Expected EInt) (Expected EInt) |> map Int
-        , pileNameParser |> map Pile
+        [ int (Expected EInt) (Expected EInt) |> map (\i -> ExprValue (Int i))
+        , numberNameParser |> andThen (maybeArgument (\n -> problem (NoSuchArgument n)))
+        , pileNameParser |> andThen (maybeArgument (\n -> succeed (ExprValue (Pile n))))
         ]
-        |> map ExprValue
 
 
-doMoveParser : Parser ( String, List Expr )
-doMoveParser =
+doMoveParser : List Argument -> Parser ( String, List Expr )
+doMoveParser arguments =
     succeed (\cmd args -> ( cmd, args ))
         |= moveNameParser
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |= actualsParser
-        |. oneOf [ token (Token "\n" (Expected EEndOfLine)), end (Expected EEndOfInput) ]
+        |. spaces
+        |= actualsParser arguments
 
 
-repeatParser : Definitions -> Parser (Move Expr)
-repeatParser definitions =
+repeatParser : Definitions -> List Argument -> Parser (Move Expr)
+repeatParser definitions arguments =
     succeed (\n moves -> Repeat n moves)
         |. keywordRepeat
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |= exprParser
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |. token (Token "\n" (Expected EEndOfLine))
-        |= movesParser definitions
+        |. spaces
+        |= exprParser arguments
+        |. spaces
+        |. newline
+        |= movesParser definitions arguments Embedded
         |. keywordEnd
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |. oneOf [ token (Token "\n" (Expected EEndOfLine)), end (Expected EEndOfInput) ]
 
 
-moveParser : Definitions -> Parser (Move Expr)
-moveParser definitions =
+moveParser : Definitions -> List Argument -> Parser (Move Expr)
+moveParser definitions arguments =
     succeed identity
-        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |. spaces
         |= oneOf
-            [ repeatParser definitions
-            , doMoveParser |> andThen (lookupDefinition definitions)
+            [ repeatParser definitions arguments
+            , doMoveParser arguments |> andThen (lookupDefinition definitions)
             ]
 
 
-actualsParser : Parser (List Expr)
-actualsParser =
+actualsParser : List Argument -> Parser (List Expr)
+actualsParser arguments =
     let
         helper result =
             oneOf
                 [ succeed (\arg -> Loop (arg :: result))
-                    |= exprParser
-                    |. chompWhile (\c -> c == ' ' || c == '\t')
+                    |= exprParser arguments
+                    |. spaces
                 , succeed () |> map (\() -> Done (List.reverse result))
                 ]
     in
@@ -143,13 +188,15 @@ argsParser =
             oneOf
                 [ succeed (\arg -> Loop (arg :: result))
                     |= argParser
-                    |. chompWhile (\c -> c == ' ' || c == '\t')
+                    |. spaces
                 , succeed () |> map (\() -> Done (List.reverse result))
                 ]
     in
     loop [] helper
 
 
+{-| A argument as it occurrs in the def line of a move definition.
+-}
 argParser : Parser Argument
 argParser =
     oneOf
@@ -158,6 +205,8 @@ argParser =
         ]
 
 
+{-| We just parsed a call of a move and are looking up the corresponding move.
+-}
 lookupDefinition : Definitions -> ( String, List Expr ) -> Parser (Move Expr)
 lookupDefinition definitions ( moveName, actualArgs ) =
     case Dict.get moveName definitions of
@@ -182,13 +231,14 @@ lookupDefinition definitions ( moveName, actualArgs ) =
                 succeed (Do d actualArgs)
 
 
-movesParser : Definitions -> Parser (List (Move Expr))
-movesParser definitions =
+movesParser : Definitions -> List Argument -> WhereAreWe -> Parser (List (Move Expr))
+movesParser definitions arguments whereAreWe =
     let
         helper result =
             oneOf
                 [ succeed (\cmd -> Loop (cmd :: result))
-                    |= moveParser definitions
+                    |= moveParser definitions arguments
+                    |. endOfStatement whereAreWe
                 , succeed () |> map (\() -> Done (List.reverse result))
                 ]
     in
@@ -212,7 +262,7 @@ definitionParser : Definitions -> Parser MoveDefinition
 definitionParser definitions =
     succeed (\name args moves -> { name = name, movesOrPrimitive = Moves moves, args = args })
         |. keywordDef
-        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |. spaces
         |= (moveNameParser
                 |> andThen
                     (\n ->
@@ -223,13 +273,12 @@ definitionParser definitions =
                             succeed n
                     )
            )
-        |. chompWhile (\c -> c == ' ' || c == '\t')
+        |. spaces
         |= argsParser
-        |. token (Token "\n" (Expected EEndOfLine))
-        |= movesParser definitions
+        |. newline
+        |= movesParser definitions [] Embedded
         |. keywordEnd
-        |. chompWhile (\c -> c == ' ' || c == '\t')
-        |. oneOf [ token (Token "\n" (Expected EEndOfLine)), end (Expected EEndOfInput) ]
+        |. endOfStatement Toplevel
 
 
 definitionsAndMoves : Dict String MoveDefinition -> Parser ( Definitions, List (Move Expr) )
@@ -237,7 +286,7 @@ definitionsAndMoves primitives =
     definitionsParser primitives
         |> andThen
             (\defs ->
-                movesParser defs
+                movesParser defs [] Toplevel
                     |> map (\moves -> ( defs, moves ))
             )
 
@@ -306,13 +355,16 @@ deadEndsToString text deadEnds =
                 Expected ex ->
                     "Expected " ++ expectationToString ex
 
+                NoSuchArgument name ->
+                    name ++ " looks like an argument, but no such argument was defined"
+
         relevantLineAndPlace row col =
             case List.Extra.getAt (row - 1) (String.lines text) of
                 Nothing ->
                     "THIS SHOULD NOT HAPPEN"
 
                 Just line ->
-                    String.fromInt row ++ "\n" ++ line ++ "\n" ++ String.repeat (col - 1) " " ++ "^\n"
+                    String.fromInt row ++ "x" ++ String.fromInt col ++ "\n" ++ line ++ "\n" ++ String.repeat (col - 1) " " ++ "^\n"
 
         deadEndToString { row, col, problems } =
             let
@@ -367,8 +419,8 @@ deadEndsToString text deadEnds =
         [] ->
             ""
 
-        de :: _ ->
-            deadEndToString de
+        des ->
+            String.join "\n" (List.map deadEndToString des)
 
 
 parseMoves : Definitions -> String -> Result String { moves : List (Move ExprValue), definitions : Definitions }
