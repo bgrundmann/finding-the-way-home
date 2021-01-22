@@ -1,0 +1,31 @@
+def deal from to
+     cut 1 from to
+end
+
+def deal-spectator-and-magician
+  deal deck spectator
+  deal deck magician
+end
+
+repeat 26 
+  deal-spectator-and-magician
+end
+cut 26 magician deck
+
+repeat 13
+  deal-spectator-and-magician
+end
+cut 13 magician deck
+
+repeat 6
+  deal-spectator-and-magician
+end
+deal deck spectator
+cut 6 magician deck
+
+repeat 3
+   deal-spectator-and-magician
+end
+cut 3 magician deck
+deal-spectator-and-magician
+deal deck spectator
