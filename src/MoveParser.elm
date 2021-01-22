@@ -258,9 +258,9 @@ definitionsParser primitives =
     loop primitives helper
 
 
-definitionParser : Definitions -> Parser MoveDefinition
-definitionParser definitions =
-    succeed (\name args moves -> { name = name, movesOrPrimitive = Moves moves, args = args })
+defLineParser : Definitions -> Parser { name : String, args : List Argument }
+defLineParser definitions =
+    succeed (\name args -> { name = name, args = args })
         |. keywordDef
         |. spaces
         |= (moveNameParser
@@ -276,9 +276,18 @@ definitionParser definitions =
         |. spaces
         |= argsParser
         |. newline
-        |= movesParser definitions [] Embedded
-        |. keywordEnd
-        |. endOfStatement Toplevel
+
+
+definitionParser : Definitions -> Parser MoveDefinition
+definitionParser definitions =
+    defLineParser definitions
+        |> andThen
+            (\{ name, args } ->
+                succeed (\moves -> { name = name, args = args, movesOrPrimitive = Moves moves })
+                    |= movesParser definitions args Embedded
+                    |. keywordEnd
+                    |. endOfStatement Toplevel
+            )
 
 
 definitionsAndMoves : Dict String MoveDefinition -> Parser ( Definitions, List (Move Expr) )
@@ -414,7 +423,6 @@ deadEndsToString text deadEnds =
             in
             relevantLineAndPlace row col ++ expectedProblemsString ++ otherProblemsString
     in
-    -- We always only deal with one problematic location at the time.
     case gatherDeadEndsByLocation deadEnds of
         [] ->
             ""
