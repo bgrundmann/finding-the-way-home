@@ -28,6 +28,13 @@ type Problem
     = UnknownMove String
     | NoSuchArgument String
     | Expected Expectation
+    | ExpectedForArgument
+        { moveName : String
+        , moveSignature : String
+        , argName : String
+        , argKind : ArgumentKind
+        , options : List Argument
+        }
     | DuplicateDefinition String
     | Problem String
 
@@ -104,14 +111,14 @@ endOfStatement whereAreWe =
             newline
 
 
-pileNameParser : Parser String
-pileNameParser =
-    variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '_', reserved = Set.empty, expecting = Expected EPileName }
+pileNameParser : Problem -> Parser String
+pileNameParser problem =
+    variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '_', reserved = Set.empty, expecting = problem }
 
 
-numberNameParser : Parser String
-numberNameParser =
-    variable { start = Char.isUpper, inner = \c -> Char.isUpper c || c == '_', reserved = Set.empty, expecting = Expected ENumberName }
+numberNameParser : Problem -> Parser String
+numberNameParser problem =
+    variable { start = Char.isUpper, inner = \c -> Char.isUpper c || c == '_', reserved = Set.empty, expecting = problem }
 
 
 moveNameParser : Parser String
@@ -119,30 +126,72 @@ moveNameParser =
     variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = Expected EMoveName }
 
 
-exprParser : List Argument -> Parser Expr
-exprParser arguments =
+exprParser : List Argument -> String -> String -> Argument -> Parser Expr
+exprParser argumentsOfEnclosingDefinition moveName moveSignature expectedArgument =
+    {- TODO: add expected argument here -}
     let
         maybeArgument whenNot name =
-            case List.Extra.find (\( _, a ) -> a.name == name) (List.indexedMap Tuple.pair arguments) of
+            case List.Extra.find (\( _, a ) -> a.name == name) (List.indexedMap Tuple.pair argumentsOfEnclosingDefinition) of
                 Nothing ->
                     whenNot name
 
-                Just ( ndx, x ) ->
-                    succeed (ExprArgument { name = name, ndx = ndx })
+                Just ( ndx, arg ) ->
+                    succeed (ExprArgument { name = name, ndx = ndx, kind = arg.kind })
+
+        enclosingArgumentsOfTheRightKind =
+            List.filter (\a -> a.kind == expectedArgument.kind) argumentsOfEnclosingDefinition
+
+        argProblem =
+            ExpectedForArgument
+                { moveName = moveName
+                , moveSignature = moveSignature
+                , argName = expectedArgument.name
+                , argKind = expectedArgument.kind
+                , options = enclosingArgumentsOfTheRightKind
+                }
     in
-    oneOf
-        [ int (Expected EInt) (Expected EInt) |> map (\i -> ExprValue (Int i))
-        , numberNameParser |> andThen (maybeArgument (\n -> problem (NoSuchArgument n)))
-        , pileNameParser |> andThen (maybeArgument (\n -> succeed (ExprValue (Pile n))))
-        ]
+    case expectedArgument.kind of
+        KindInt ->
+            oneOf
+                [ int argProblem argProblem |> map (\i -> ExprValue (Int i))
+                , numberNameParser argProblem |> andThen (maybeArgument (\n -> problem (NoSuchArgument n)))
+                ]
+
+        KindPile ->
+            pileNameParser argProblem |> andThen (maybeArgument (\n -> succeed (ExprValue (Pile n))))
 
 
-doMoveParser : List Argument -> Parser ( String, List Expr )
-doMoveParser arguments =
-    succeed (\cmd args -> ( cmd, args ))
-        |= moveNameParser
+doMoveParser : Definitions -> List Argument -> Parser (Move Expr)
+doMoveParser definitions argumentsOfEnclosingDefinition =
+    moveNameParser
+        |> andThen (lookupDefinition definitions)
+        |> andThen (actualsParser argumentsOfEnclosingDefinition)
+
+
+actualsParser : List Argument -> MoveDefinition -> Parser (Move Expr)
+actualsParser argumentsOfEnclosingDefinition moveDefinition =
+    let
+        helper actuals expectedArgs =
+            case expectedArgs of
+                [] ->
+                    succeed (Do moveDefinition (List.reverse actuals))
+
+                expectedArg :: restExpectedArgs ->
+                    (exprParser
+                        argumentsOfEnclosingDefinition
+                        moveDefinition.name
+                        (Move.signature moveDefinition)
+                        expectedArg
+                        |. spaces
+                    )
+                        |> andThen
+                            (\expr ->
+                                helper (expr :: actuals) restExpectedArgs
+                            )
+    in
+    succeed identity
         |. spaces
-        |= actualsParser arguments
+        |= helper [] moveDefinition.args
 
 
 repeatParser : Definitions -> List Argument -> Parser (Move Expr)
@@ -150,7 +199,7 @@ repeatParser definitions arguments =
     succeed (\n moves -> Repeat n moves)
         |. keywordRepeat
         |. spaces
-        |= exprParser arguments
+        |= exprParser arguments "repeat" Move.repeatSignature { name = "N", kind = KindInt }
         |. spaces
         |. newline
         |= movesParser definitions arguments Embedded
@@ -163,22 +212,8 @@ moveParser definitions arguments =
         |. spaces
         |= oneOf
             [ repeatParser definitions arguments
-            , doMoveParser arguments |> andThen (lookupDefinition definitions)
+            , doMoveParser definitions arguments
             ]
-
-
-actualsParser : List Argument -> Parser (List Expr)
-actualsParser arguments =
-    let
-        helper result =
-            oneOf
-                [ succeed (\arg -> Loop (arg :: result))
-                    |= exprParser arguments
-                    |. spaces
-                , succeed () |> map (\() -> Done (List.reverse result))
-                ]
-    in
-    loop [] helper
 
 
 argsParser : Parser (List Argument)
@@ -200,35 +235,41 @@ argsParser =
 argParser : Parser Argument
 argParser =
     oneOf
-        [ pileNameParser |> map (\n -> { name = n, kind = KindPile })
-        , numberNameParser |> map (\n -> { name = n, kind = KindInt })
+        [ pileNameParser (Expected EPileName) |> map (\n -> { name = n, kind = KindPile })
+        , numberNameParser (Expected ENumberName) |> map (\n -> { name = n, kind = KindInt })
         ]
 
 
-{-| We just parsed a call of a move and are looking up the corresponding move.
+{-| We just parsed a move name and are looking up the corresponding move.
 -}
-lookupDefinition : Definitions -> ( String, List Expr ) -> Parser (Move Expr)
-lookupDefinition definitions ( moveName, actualArgs ) =
+lookupDefinition : Definitions -> String -> Parser MoveDefinition
+lookupDefinition definitions moveName =
     case Dict.get moveName definitions of
         Nothing ->
             problem (UnknownMove moveName)
 
-        Just ({ name, args } as d) ->
-            let
-                actualLen =
-                    List.length actualArgs
+        Just d ->
+            succeed d
 
-                expectedLen =
-                    List.length args
-            in
-            if expectedLen < actualLen then
-                problem (Problem (Move.signature d ++ ", more arguments then expected"))
 
-            else if actualLen < expectedLen then
-                problem (Problem (Move.signature d ++ ", less arguments then expected"))
 
-            else
-                succeed (Do d actualArgs)
+{-
+   let
+       actualLen =
+           List.length actualArgs
+
+       expectedLen =
+           List.length args
+   in
+   if expectedLen < actualLen then
+       problem (Problem (Move.signature d ++ ", more arguments then expected"))
+
+   else if actualLen < expectedLen then
+       problem (Problem (Move.signature d ++ ", less arguments then expected"))
+
+   else
+       succeed (Do d actualArgs)
+-}
 
 
 movesParser : Definitions -> List Argument -> WhereAreWe -> Parser (List (Move Expr))
@@ -366,6 +407,34 @@ deadEndsToString text deadEnds =
 
                 NoSuchArgument name ->
                     name ++ " looks like an argument, but no such argument was defined"
+
+                ExpectedForArgument { moveName, moveSignature, argName, argKind, options } ->
+                    case argKind of
+                        KindInt ->
+                            moveSignature
+                                ++ "\n\nTo "
+                                ++ moveName
+                                ++ " I need a number for "
+                                ++ argName
+                                ++ "\n"
+                                ++ "Type the number (e.g. 52)"
+                                ++ (case options of
+                                        [] ->
+                                            ""
+
+                                        l ->
+                                            " or one of " ++ String.join ", " (List.map .name l)
+                                   )
+
+                        KindPile ->
+                            moveSignature
+                                ++ "\n\nTo "
+                                ++ moveName
+                                ++ " I need a pilename for "
+                                ++ argName
+                                ++ "\n"
+                                ++ "These are the piles I know about: "
+                                ++ String.join ", " (List.map .name options)
 
         relevantLineAndPlace row col =
             case List.Extra.getAt (row - 1) (String.lines text) of

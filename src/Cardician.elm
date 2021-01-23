@@ -90,21 +90,7 @@ takeEmptyOk pileName =
 
 replace : PileName -> Pile -> Cardician ()
 replace pileName pile =
-    \world ->
-        let
-            loop res l =
-                case l of
-                    [] ->
-                        List.reverse (( pileName, pile ) :: res)
-
-                    ( pN, v ) :: ls ->
-                        if pN == pileName then
-                            List.reverse (( pN, pile ) :: res) ++ ls
-
-                        else
-                            loop (( pN, v ) :: res) ls
-        in
-        ( Ok (), loop [] world )
+    \image -> ( Ok (), Image.update pileName (\_ -> Just pile) image )
 
 
 {-| Put cards on top of given pile (or create a new pile if no pile exists)

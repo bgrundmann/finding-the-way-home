@@ -7,6 +7,7 @@ module Move exposing
     , MoveDefinition
     , MovesOrPrimitive(..)
     , primitives
+    , repeatSignature
     , signature
     , substituteArguments
     )
@@ -44,8 +45,13 @@ type Move arg
     | Do MoveDefinition (List arg)
 
 
+repeatSignature : String
+repeatSignature =
+    "repeat N\n  move1\n  move2\n  ...\nend"
+
+
 type Expr
-    = ExprArgument { name : String, ndx : Int }
+    = ExprArgument { name : String, ndx : Int, kind : ArgumentKind }
     | ExprValue ExprValue
 
 
@@ -57,6 +63,11 @@ type ExprValue
 type ArgumentKind
     = KindInt
     | KindPile
+
+
+type TypeError
+    = ExpectedPileGotInt
+    | ExpectedIntGotPile
 
 
 {-| The signature is a human readable representation of a definitions names and arguments.

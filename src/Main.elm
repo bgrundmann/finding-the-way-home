@@ -4,13 +4,14 @@ import Browser
 import Card exposing (Card, Pile, Suit, Value, poker_deck)
 import Cardician exposing (..)
 import Dict exposing (Dict)
-import Element exposing (Element, el, fill, height, padding, spacing, text, width)
+import Element exposing (Element, el, fill, fillPortion, height, minimum, padding, scrollbarY, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Html exposing (Html)
 import Image exposing (Image)
+import ImageEditor
 import List
 import Move exposing (ExprValue(..), Move(..), MovesOrPrimitive(..))
 import MoveParser
@@ -123,7 +124,7 @@ type PerformanceResult
 
 
 type alias Model =
-    { initialImage : Image
+    { initialImage : ImageEditor.State
     , movesText : String
     , performanceResult : PerformanceResult
     }
@@ -141,7 +142,7 @@ init _ =
         performanceResult =
             Performed [] initialImage
     in
-    ( { initialImage = initialImage, movesText = movesText, performanceResult = performanceResult }
+    ( { initialImage = ImageEditor.init initialImage, movesText = movesText, performanceResult = performanceResult }
     , Cmd.none
     )
 
@@ -152,6 +153,7 @@ init _ =
 
 type Msg
     = SetMoves String
+    | ImageEditorChanged ImageEditor.State
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -165,7 +167,7 @@ update msg model =
                             InvalidMoves whyInvalidMoves
 
                         Ok { moves, definitions } ->
-                            case apply moves model.initialImage of
+                            case apply moves (ImageEditor.getImage model.initialImage) of
                                 Err whyCannotPerform ->
                                     CannotPerform moves whyCannotPerform
 
@@ -173,6 +175,11 @@ update msg model =
                                     Performed moves i
             in
             ( { model | movesText = text, performanceResult = performanceResult }
+            , Cmd.none
+            )
+
+        ImageEditorChanged state ->
+            ( { model | initialImage = state }
             , Cmd.none
             )
 
@@ -208,10 +215,10 @@ view model =
                 ]
 
         initialImageView =
-            Image.view model.initialImage
+            ImageEditor.view ImageEditorChanged model.initialImage
 
         viewMessage title m =
-            Element.column [ width fill, height fill, spacing 10 ]
+            Element.column [ width fill, height (fillPortion 1), spacing 10 ]
                 [ el [ Font.bold, width fill ] (text title)
                 , el [ width fill, height fill, Font.family [ Font.monospace ] ] (text m)
                 ]
@@ -229,7 +236,7 @@ view model =
 
         movesView =
             Element.column [ width fill, height fill, spacing 10 ]
-                [ Input.multiline [ width fill, height fill, Border.color movesBorderColor ]
+                [ Input.multiline [ width fill, height (minimum 0 (fillPortion 2)), scrollbarY, Border.color movesBorderColor ]
                     { label = Input.labelAbove [] (Element.text "Moves")
                     , onChange = SetMoves
                     , text = model.movesText
@@ -242,7 +249,7 @@ view model =
         finalImageView =
             case model.performanceResult of
                 Performed _ finalImage ->
-                    Image.view finalImage
+                    Image.view text finalImage
 
                 InvalidMoves errorMsg ->
                     initialImageView
@@ -250,7 +257,7 @@ view model =
                 CannotPerform _ errorMsg ->
                     initialImageView
     in
-    Element.layout []
+    Element.layout [ width fill, height fill ]
         (Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]
             [ buttons
             , Element.row [ spacing 10, width fill, height fill ]
