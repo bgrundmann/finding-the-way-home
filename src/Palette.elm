@@ -1,4 +1,4 @@
-module Palette exposing (dangerousButton, regularButton)
+module Palette exposing (dangerousButton, greenBook, redBook, regularButton)
 
 import Element exposing (Attribute, padding, rgb255, spacing)
 import Element.Background as Background

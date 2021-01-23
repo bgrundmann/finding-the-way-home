@@ -15,6 +15,7 @@ import ImageEditor
 import List
 import Move exposing (ExprValue(..), Move(..), MovesOrPrimitive(..))
 import MoveParser
+import Palette exposing (greenBook, redBook)
 import Result
 
 
@@ -197,22 +198,11 @@ subscriptions model =
 -- VIEW
 
 
-blue =
-    Element.rgb255 238 238 238
-
-
 view : Model -> Html Msg
 view model =
     let
         buttons =
-            Element.row [ spacing 10 ]
-                [ Input.button
-                    [ Element.padding 10
-                    , Border.rounded 5
-                    , Background.color blue
-                    ]
-                    { label = text "Tamariz from phoenix", onPress = Just (SetMoves sample) }
-                ]
+            Element.none
 
         initialImageView =
             ImageEditor.view ImageEditorChanged model.initialImage
@@ -226,13 +216,13 @@ view model =
         ( movesBorderColor, infoText ) =
             case model.performanceResult of
                 Performed _ _ ->
-                    ( Element.rgb 0 255 0, viewMessage "Reference" defaultInfoText )
+                    ( greenBook, viewMessage "Reference" defaultInfoText )
 
                 InvalidMoves errorMsg ->
-                    ( Element.rgb 255 0 255, viewMessage "Error" errorMsg )
+                    ( redBook, viewMessage "Error" errorMsg )
 
                 CannotPerform _ errorMsg ->
-                    ( Element.rgb 255 0 0, viewMessage "Error" errorMsg )
+                    ( redBook, viewMessage "Error" errorMsg )
 
         movesView =
             Element.column [ width fill, height fill, spacing 10 ]
@@ -249,7 +239,7 @@ view model =
         finalImageView =
             case model.performanceResult of
                 Performed _ finalImage ->
-                    Image.view text finalImage
+                    el [ width fill, height fill ] (Image.view (\t -> el [ Font.bold ] (text t)) finalImage)
 
                 InvalidMoves errorMsg ->
                     initialImageView

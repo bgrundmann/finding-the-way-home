@@ -1,4 +1,4 @@
-module Image exposing (..)
+module Image exposing (Image, PileName, update, view)
 
 import Card exposing (Card, Pile)
 import Element exposing (Element, column, el, fill, height, paragraph, row, spacing, text, textColumn, width)
@@ -58,5 +58,5 @@ viewPile pile =
 
 view : (String -> Element msg) -> Image -> Element msg
 view viewPileName world =
-    column [ height fill, width fill, spacing 10 ]
-        (List.map (\( name, pile ) -> column [ height fill, width fill ] [ viewPileName name, viewPile pile ]) world)
+    column [ spacing 10 ]
+        (List.map (\( name, pile ) -> column [] [ viewPileName name, viewPile pile ]) world)

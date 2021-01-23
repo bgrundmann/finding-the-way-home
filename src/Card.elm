@@ -9,6 +9,33 @@ type alias Pile =
     List Card
 
 
+type alias RegularFace =
+    ( Value, Suit )
+
+
+type BackColor
+    = Red
+    | Green
+    | Blue
+
+
+type CardDesign
+    = Face RegularFace
+    | Back BackColor
+
+
+type alias Card =
+    { face : CardDesign
+    , back : CardDesign
+    , orientation : Orientation
+    }
+
+
+type Orientation
+    = FaceUp
+    | FaceDown
+
+
 poker_deck : Pile
 poker_deck =
     let
@@ -61,33 +88,6 @@ type Value
 all_values : List Value
 all_values =
     [ Ace, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King ]
-
-
-type alias RegularFace =
-    ( Value, Suit )
-
-
-type BackColor
-    = Red
-    | Green
-    | Blue
-
-
-type CardDesign
-    = Face RegularFace
-    | Back BackColor
-
-
-type alias Card =
-    { face : CardDesign
-    , back : CardDesign
-    , orientation : Orientation
-    }
-
-
-type Orientation
-    = FaceUp
-    | FaceDown
 
 
 turnOver c =
