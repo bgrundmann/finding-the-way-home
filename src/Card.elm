@@ -1,4 +1,4 @@
-module Card exposing (..)
+module Card exposing (Card, Pile, poker_deck, turnover, view)
 
 import Element exposing (Element, el, text)
 import Element.Font as Font
@@ -83,7 +83,8 @@ all_values =
     [ Ace, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King ]
 
 
-turnOver (Card { visible, hidden }) =
+turnover : Card -> Card
+turnover (Card { visible, hidden }) =
     Card { visible = hidden, hidden = visible }
 
 

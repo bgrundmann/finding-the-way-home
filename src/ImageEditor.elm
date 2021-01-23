@@ -1,16 +1,11 @@
 module ImageEditor exposing (State, getImage, init, view)
 
 import Card
-import Element exposing (Element, column, el, fill, height, padding, row, spacing, text, width)
-import Element.Background as Background
+import Element exposing (Element, column, el, fill, height, row, spacing, text, width)
 import Element.Font as Font
 import Element.Input as Input
 import Image exposing (Image, PileName, view)
 import Palette exposing (dangerousButton, regularButton)
-
-
-green =
-    Element.rgb255 0 87 45
 
 
 type State

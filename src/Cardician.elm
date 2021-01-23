@@ -1,10 +1,9 @@
 module Cardician exposing (Cardician, Error, andThen, andThenWithError, compose, cutOff, fail, perform, put, return, take, takeEmptyOk)
 
-import Card exposing (Card, Pile)
+import Card exposing (Pile)
 import Image exposing (Image, PileName)
 import List
-import List.Extra exposing (interweave, splitAt)
-import Result
+import List.Extra exposing (splitAt)
 
 
 {-| A Cardician changes the world and computes something else or fails terribly...
@@ -43,7 +42,7 @@ atomicErrorReporting m =
             Err _ ->
                 ( res, image )
 
-            Ok x ->
+            Ok _ ->
                 ( res, i )
 
 
@@ -96,7 +95,7 @@ perform cardician image =
 take : PileName -> Cardician Pile
 take pileName =
     \world ->
-        case List.partition (\( n, v ) -> n == pileName) world of
+        case List.partition (\( n, _ ) -> n == pileName) world of
             ( [], _ ) ->
                 fail ("No pile called " ++ pileName) world
 
@@ -112,7 +111,7 @@ takeEmptyOk pileName =
         |> andThenWithError
             (\pileOrError ->
                 case pileOrError of
-                    Err e ->
+                    Err _ ->
                         return []
 
                     Ok pile ->

@@ -1,13 +1,11 @@
 module MoveParser exposing (parseMoves)
 
-import Array exposing (Array)
 import Char
 import Dict exposing (Dict)
 import Dict.Extra
-import Image exposing (PileName)
 import List
 import List.Extra
-import Move exposing (..)
+import Move exposing (Argument, ArgumentKind(..), Expr(..), ExprValue(..), Move(..), MoveDefinition, MovesOrPrimitive(..))
 import Parser.Advanced exposing ((|.), (|=), Step(..), Token(..), andThen, chompWhile, end, int, loop, map, oneOf, problem, run, succeed, token, variable)
 import Set
 
@@ -40,8 +38,7 @@ type Problem
 
 
 type Expectation
-    = EInt
-    | EPileName
+    = EPileName
     | ENumberName
     | EEndOfInput
     | EKeyword String
@@ -384,9 +381,6 @@ deadEndsToString text deadEnds =
 
                 EEndOfInput ->
                     "the end"
-
-                EInt ->
-                    "a number (e.g. 3)"
 
                 EMoveName ->
                     "a move name (e.g. 'deal')"

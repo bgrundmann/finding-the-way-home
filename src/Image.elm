@@ -1,7 +1,7 @@
 module Image exposing (Image, PileName, update, view)
 
-import Card exposing (Card, Pile)
-import Element exposing (Element, column, el, fill, height, paragraph, row, spacing, text, textColumn, width)
+import Card exposing (Pile)
+import Element exposing (Element, column, el, paragraph, spacing, text, textColumn)
 import Element.Font as Font
 import List
 import List.Extra exposing (greedyGroupsOf)

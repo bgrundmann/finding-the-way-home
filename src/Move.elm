@@ -13,16 +13,17 @@ module Move exposing
     , substituteArguments
     )
 
-import Card exposing (Card, Pile)
+import Card exposing (Pile)
 import Cardician exposing (Cardician, andThen, fail)
-import Dict exposing (Dict)
 import Image exposing (PileName)
 import List.Extra
 import Result.Extra
 
 
 type alias Argument =
-    { name : String, kind : ArgumentKind }
+    { name : String
+    , kind : ArgumentKind
+    }
 
 
 type alias MoveDefinition =
@@ -30,10 +31,6 @@ type alias MoveDefinition =
     , args : List Argument
     , movesOrPrimitive : MovesOrPrimitive
     }
-
-
-type alias ArgDefinition =
-    { name : String, kind : ArgumentKind }
 
 
 type MovesOrPrimitive
@@ -44,11 +41,6 @@ type MovesOrPrimitive
 type Move arg
     = Repeat arg (List (Move arg))
     | Do MoveDefinition (List arg)
-
-
-repeatSignature : String
-repeatSignature =
-    "repeat N\n  move1\n  move2\n  ...\nend"
 
 
 type Expr
@@ -66,9 +58,9 @@ type ArgumentKind
     | KindPile
 
 
-type TypeError
-    = ExpectedPileGotInt
-    | ExpectedIntGotPile
+repeatSignature : String
+repeatSignature =
+    "repeat N\n  move1\n  move2\n  ...\nend"
 
 
 {-| The signature is a human readable representation of a definitions names and arguments.
@@ -119,7 +111,7 @@ substituteArguments actuals moves =
 
 turnover : Pile -> Pile
 turnover pile =
-    List.reverse (List.map Card.turnOver pile)
+    List.reverse (List.map Card.turnover pile)
 
 
 bugInTypeCheckerOrPrimitiveDef : String -> Cardician ()
@@ -152,6 +144,7 @@ primitiveCut args =
             bugInTypeCheckerOrPrimitiveDef "cut"
 
 
+primitives : List MoveDefinition
 primitives =
     let
         int name =

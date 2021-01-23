@@ -1,11 +1,10 @@
-module Main exposing (..)
+module Main exposing (main)
 
 import Browser
-import Card exposing (Card, Pile, Suit, Value, poker_deck)
-import Cardician exposing (..)
-import Dict exposing (Dict)
-import Element exposing (Element, el, fill, fillPortion, height, minimum, padding, scrollbarY, spacing, text, width)
-import Element.Background as Background
+import Card exposing (poker_deck)
+import Cardician
+import Dict
+import Element exposing (el, fill, fillPortion, height, minimum, padding, scrollbarY, spacing, text, width)
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
@@ -16,9 +15,9 @@ import List
 import Move exposing (ExprValue(..), Move(..), MovesOrPrimitive(..))
 import MoveParser
 import Palette exposing (greenBook, redBook)
-import Result
 
 
+defaultInfoText : String
 defaultInfoText =
     String.join "\n" (List.map Move.signature Move.primitives)
         ++ """
@@ -35,27 +34,12 @@ end
 """
 
 
-sample =
-    """def deal
-cut 1 deck table
-end
-"""
-
-
-type alias PileName =
-    String
-
-
-turnOver : Pile -> Pile
-turnOver pile =
-    List.reverse (List.map Card.turnOver pile)
-
-
 apply : List (Move ExprValue) -> Image -> Result Cardician.Error Image
 apply moves image =
-    perform (Move.cardicianFromMoves moves) image
+    Cardician.perform (Move.cardicianFromMoves moves) image
 
 
+main : Program () Model Msg
 main =
     Browser.element
         { init = init
@@ -137,7 +121,7 @@ update msg model =
                         Err whyInvalidMoves ->
                             InvalidMoves whyInvalidMoves (finalImageToDisplay model)
 
-                        Ok { moves, definitions } ->
+                        Ok { moves } ->
                             case apply moves (ImageEditor.getImage model.initialImage) of
                                 Err whyCannotPerform ->
                                     CannotPerform moves whyCannotPerform
@@ -160,7 +144,7 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Sub.none
 
 
