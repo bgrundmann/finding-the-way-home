@@ -24,49 +24,11 @@ type CardDesign
     | Back BackColor
 
 
-type alias Card =
-    { face : CardDesign
-    , back : CardDesign
-    , orientation : Orientation
-    }
-
-
-type Orientation
-    = FaceUp
-    | FaceDown
-
-
-poker_deck : Pile
-poker_deck =
-    let
-        all suit =
-            List.map (\v -> card v suit) all_values
-    in
-    all Clubs
-        ++ all Diamonds
-        ++ (all Hearts |> List.reverse)
-        ++ (all Spades |> List.reverse)
-
-
-
--- A red backed face up regular card
-
-
-card : Value -> Suit -> Card
-card value suit =
-    { face = Face ( value, suit ), back = Back Red, orientation = FaceUp }
-
-
 type Suit
     = Clubs
     | Spades
     | Hearts
     | Diamonds
-
-
-all_suits : List Suit
-all_suits =
-    [ Clubs, Hearts, Spades, Diamonds ]
 
 
 type Value
@@ -85,35 +47,49 @@ type Value
     | King
 
 
+{-| A playing card has two designs one on each side.
+A visible side and a side that is hidden.
+-}
+type Card
+    = Card { visible : CardDesign, hidden : CardDesign }
+
+
+{-| A red backed regular card. Face is visible.
+-}
+card : Value -> Suit -> Card
+card value suit =
+    Card { visible = Face ( value, suit ), hidden = Back Red }
+
+
+poker_deck : Pile
+poker_deck =
+    let
+        all suit =
+            List.map (\v -> card v suit) all_values
+    in
+    all Clubs
+        ++ all Diamonds
+        ++ (all Hearts |> List.reverse)
+        ++ (all Spades |> List.reverse)
+
+
+all_suits : List Suit
+all_suits =
+    [ Clubs, Hearts, Spades, Diamonds ]
+
+
 all_values : List Value
 all_values =
     [ Ace, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King ]
 
 
-turnOver c =
-    { c
-        | orientation =
-            case c.orientation of
-                FaceUp ->
-                    FaceDown
-
-                FaceDown ->
-                    FaceUp
-    }
+turnOver (Card { visible, hidden }) =
+    Card { visible = hidden, hidden = visible }
 
 
 view : Card -> Element msg
-view { face, back, orientation } =
-    let
-        d =
-            case orientation of
-                FaceUp ->
-                    face
-
-                FaceDown ->
-                    back
-    in
-    el [ Font.size 60 ] (viewCardDesign d)
+view (Card { visible }) =
+    el [ Font.size 60 ] (viewCardDesign visible)
 
 
 viewCardDesign : CardDesign -> Element msg
