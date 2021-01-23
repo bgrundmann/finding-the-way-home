@@ -2,6 +2,7 @@ module Image exposing (Image, PileName, update, view)
 
 import Card exposing (Card, Pile)
 import Element exposing (Element, column, el, fill, height, paragraph, row, spacing, text, textColumn, width)
+import Element.Font as Font
 import List
 import List.Extra exposing (greedyGroupsOf)
 
@@ -50,9 +51,19 @@ update pileName f image =
 
 viewPile : Pile -> Element msg
 viewPile pile =
+    let
+        numberedPile =
+            List.indexedMap (\n c -> ( n + 1, c )) pile
+
+        viewNumberedCard ( num, c ) =
+            column []
+                [ el [ Font.size 10 ] (text (String.fromInt num))
+                , Card.view c
+                ]
+    in
     textColumn []
-        (greedyGroupsOf 13 pile
-            |> List.map (\p -> paragraph [] (List.map Card.view p))
+        (greedyGroupsOf 13 numberedPile
+            |> List.map (\p -> paragraph [] (List.map viewNumberedCard p))
         )
 
 
