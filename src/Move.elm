@@ -6,6 +6,7 @@ module Move exposing
     , Move(..)
     , MoveDefinition
     , MovesOrPrimitive(..)
+    , cardicianFromMoves
     , primitives
     , repeatSignature
     , signature
@@ -165,3 +166,38 @@ primitives =
     [ prim "turnover" [ pile "pile" ] primitiveTurnover
     , prim "cut" [ int "N", pile "from", pile "to" ] primitiveCut
     ]
+
+
+{-| Create a cardician who can perform the given moves.
+-}
+cardician : Move ExprValue -> Cardician ()
+cardician move =
+    case move of
+        Repeat nExpr moves ->
+            case nExpr of
+                Int n ->
+                    cardicianFromMoves moves
+                        |> List.repeat n
+                        |> List.foldl Cardician.compose (Cardician.return ())
+
+                Pile _ ->
+                    Cardician.fail "Internal error: type checker failed"
+
+        Do { name, movesOrPrimitive, args } actuals ->
+            case movesOrPrimitive of
+                Moves moves ->
+                    case substituteArguments actuals moves of
+                        Err msg ->
+                            Cardician.fail ("Internal error: substitution failed " ++ msg)
+
+                        Ok substitutedMoves ->
+                            cardicianFromMoves substitutedMoves
+
+                Primitive p ->
+                    p actuals
+
+
+cardicianFromMoves : List (Move ExprValue) -> Cardician ()
+cardicianFromMoves moves =
+    List.map cardician moves
+        |> List.foldl Cardician.compose (Cardician.return ())
