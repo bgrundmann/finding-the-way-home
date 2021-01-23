@@ -51,21 +51,9 @@ turnOver pile =
     List.reverse (List.map Card.turnOver pile)
 
 
-apply : List (Move ExprValue) -> Image -> Result String Image
+apply : List (Move ExprValue) -> Image -> Result Cardician.Error Image
 apply moves image =
-    let
-        c =
-            Move.cardicianFromMoves moves
-
-        ( or_error, newImage ) =
-            perform c image
-    in
-    case or_error of
-        Err msg ->
-            Err msg
-
-        Ok () ->
-            Ok newImage
+    perform (Move.cardicianFromMoves moves) image
 
 
 main =
@@ -86,8 +74,8 @@ type alias ErrorMessage =
 
 
 type PerformanceResult
-    = InvalidMoves ErrorMessage
-    | CannotPerform (List (Move ExprValue)) ErrorMessage
+    = InvalidMoves ErrorMessage Image -- Image is the final image last time moves were ok
+    | CannotPerform (List (Move ExprValue)) Cardician.Error
     | Performed (List (Move ExprValue)) Image
 
 
@@ -119,6 +107,21 @@ init _ =
 -- UPDATE
 
 
+{-| What is the image we should currently display on the right hand side?
+-}
+finalImageToDisplay : Model -> Image
+finalImageToDisplay model =
+    case model.performanceResult of
+        InvalidMoves _ i ->
+            i
+
+        CannotPerform _ { lastImage } ->
+            lastImage
+
+        Performed _ image ->
+            image
+
+
 type Msg
     = SetMoves String
     | ImageEditorChanged ImageEditor.State
@@ -132,7 +135,7 @@ update msg model =
                 performanceResult =
                     case MoveParser.parseMoves (Move.primitives |> List.map (\d -> ( d.name, d )) |> Dict.fromList) text of
                         Err whyInvalidMoves ->
-                            InvalidMoves whyInvalidMoves
+                            InvalidMoves whyInvalidMoves (finalImageToDisplay model)
 
                         Ok { moves, definitions } ->
                             case apply moves (ImageEditor.getImage model.initialImage) of
@@ -185,16 +188,16 @@ view model =
                 Performed _ _ ->
                     ( greenBook, viewMessage "Reference" defaultInfoText )
 
-                InvalidMoves errorMsg ->
+                InvalidMoves errorMsg _ ->
                     ( redBook, viewMessage "Error" errorMsg )
 
-                CannotPerform _ errorMsg ->
-                    ( redBook, viewMessage "Error" errorMsg )
+                CannotPerform _ { message } ->
+                    ( redBook, viewMessage "Error" message )
 
         movesView =
             Element.column [ width fill, height fill, spacing 10 ]
                 [ Input.multiline [ width fill, height (minimum 0 (fillPortion 2)), scrollbarY, Border.color movesBorderColor ]
-                    { label = Input.labelAbove [] (Element.text "Moves")
+                    { label = Input.labelAbove [] (el [ Font.bold ] (text "Definitions & Moves"))
                     , onChange = SetMoves
                     , text = model.movesText
                     , placeholder = Nothing
@@ -204,15 +207,11 @@ view model =
                 ]
 
         finalImageView =
-            case model.performanceResult of
-                Performed _ finalImage ->
-                    el [ width fill, height fill ] (Image.view (\t -> el [ Font.bold ] (text t)) finalImage)
-
-                InvalidMoves errorMsg ->
-                    initialImageView
-
-                CannotPerform _ errorMsg ->
-                    initialImageView
+            let
+                finalImage =
+                    finalImageToDisplay model
+            in
+            el [ width fill, height fill ] (Image.view (\t -> el [ Font.bold ] (text t)) finalImage)
     in
     Element.layout [ width fill, height fill ]
         (Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]

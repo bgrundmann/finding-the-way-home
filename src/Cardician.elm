@@ -1,4 +1,4 @@
-module Cardician exposing (Cardician, andThen, andThenWithError, compose, cutOff, fail, faro, perform, put, return, take, takeEmptyOk)
+module Cardician exposing (Cardician, Error, andThen, andThenWithError, compose, cutOff, fail, perform, put, return, take, takeEmptyOk)
 
 import Card exposing (Card, Pile)
 import Image exposing (Image, PileName)
@@ -8,10 +8,16 @@ import Result
 
 
 {-| A Cardician changes the world and computes something else or fails terribly...
-Or with other words a State + Error Monad where the state is the Image
+Or with other words a State + Error Monad where the state is the Image.
 -}
 type alias Cardician a =
     Image -> ( Result String a, Image )
+
+
+type alias Error =
+    { lastImage : Image
+    , message : String
+    }
 
 
 return : a -> Cardician a
@@ -22,6 +28,23 @@ return x =
 fail : String -> Cardician a
 fail msg =
     \world -> ( Err msg, world )
+
+
+{-| If an Error happens, report the incoming Image and not any intermediate state.
+-}
+atomicErrorReporting : Cardician a -> Cardician a
+atomicErrorReporting m =
+    \image ->
+        let
+            ( res, i ) =
+                m image
+        in
+        case res of
+            Err _ ->
+                ( res, image )
+
+            Ok x ->
+                ( res, i )
 
 
 compose : Cardician a -> Cardician () -> Cardician a
@@ -54,9 +77,18 @@ andThenWithError f m =
         f res next_world
 
 
-perform : Cardician a -> Image -> ( Result String a, Image )
-perform cardician world =
-    cardician world
+perform : Cardician () -> Image -> Result Error Image
+perform cardician image =
+    let
+        ( res, lastImage ) =
+            cardician image
+    in
+    case res of
+        Err msg ->
+            Err { message = msg, lastImage = lastImage }
+
+        Ok () ->
+            Ok lastImage
 
 
 {-| Take the given pile.
@@ -66,7 +98,7 @@ take pileName =
     \world ->
         case List.partition (\( n, v ) -> n == pileName) world of
             ( [], _ ) ->
-                ( Err ("No pile called " ++ pileName), world )
+                fail ("No pile called " ++ pileName) world
 
             ( ( _, x ) :: _, newWorld ) ->
                 ( Ok x, newWorld )
@@ -108,28 +140,22 @@ put pileName cards =
 -}
 cutOff : Int -> PileName -> Cardician Pile
 cutOff n pileName =
-    take pileName
-        |> andThen
-            (\cards ->
-                let
-                    ( topHalf, lowerHalf ) =
-                        splitAt n cards
+    atomicErrorReporting
+        (take pileName
+            |> andThen
+                (\cards ->
+                    let
+                        ( topHalf, lowerHalf ) =
+                            splitAt n cards
 
-                    actualLen =
-                        List.length topHalf
-                in
-                if actualLen < n then
-                    fail ("Only " ++ String.fromInt actualLen ++ " cards in pile " ++ pileName ++ " , wanted to cut off " ++ String.fromInt n)
+                        actualLen =
+                            List.length topHalf
+                    in
+                    if actualLen < n then
+                        fail ("Only " ++ String.fromInt actualLen ++ " cards in pile " ++ pileName ++ " , wanted to cut off " ++ String.fromInt n)
 
-                else
-                    replace pileName lowerHalf
-                        |> andThen (\() -> return topHalf)
-            )
-
-
-{-| Faro packet1 into packet2, starting at the top, such that packet1 card is the new top card.
-Both packets to not need to be of the same length.
--}
-faro : Pile -> Pile -> Cardician Pile
-faro pile1 pile2 =
-    return (interweave pile1 pile2)
+                    else
+                        replace pileName lowerHalf
+                            |> andThen (\() -> return topHalf)
+                )
+        )
