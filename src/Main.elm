@@ -13,8 +13,36 @@ import Image exposing (Image)
 import ImageEditor
 import List
 import Move exposing (ExprValue(..), Move(..), MoveDefinition, MovesOrPrimitive(..))
-import MoveParser
+import MoveParser exposing (Definitions)
 import Palette exposing (greenBook, redBook)
+
+
+
+-- MODEL
+
+
+type alias ErrorMessage =
+    String
+
+
+
+-- In backwards mode we display the initial image on the right and evaluate the moves backwards
+
+
+type alias Model =
+    { initialImage : ImageEditor.State
+    , movesText : String
+    , movesAndDefinitions : Result ErrorMessage { moves : List (Move ExprValue), definitions : Definitions }
+    , performanceFailure : Maybe Cardician.Error
+    , finalImage : Image -- The last successfully computed final Image
+    , backwards : Bool
+    }
+
+
+type Msg
+    = SetMoves String
+    | ImageEditorChanged ImageEditor.State
+    | ToggleForwardsBackwards
 
 
 defaultInfoText : String
@@ -49,32 +77,6 @@ main =
         }
 
 
-
--- MODEL
-
-
-type alias ErrorMessage =
-    String
-
-
-type PerformanceResult
-    = InvalidMoves ErrorMessage Image -- Image is the final image last time moves were ok
-    | CannotPerform (List (Move ExprValue)) Cardician.Error
-    | Performed (List (Move ExprValue)) Image
-
-
-
--- In backwards mode we display the initial image on the right and evaluate the moves backwards
-
-
-type alias Model =
-    { initialImage : ImageEditor.State
-    , movesText : String
-    , backwards : Bool
-    , performanceResult : PerformanceResult
-    }
-
-
 init : () -> ( Model, Cmd Msg )
 init _ =
     let
@@ -83,42 +85,16 @@ init _ =
 
         movesText =
             ""
-
-        performanceResult =
-            Performed [] initialImage
     in
     ( { initialImage = ImageEditor.init initialImage
+      , finalImage = initialImage
       , movesText = movesText
-      , performanceResult = performanceResult
+      , movesAndDefinitions = Ok { moves = [], definitions = Dict.empty }
+      , performanceFailure = Nothing
       , backwards = False
       }
     , Cmd.none
     )
-
-
-
--- UPDATE
-
-
-{-| What is the image we should currently display on the right hand side?
--}
-finalImageToDisplay : Model -> Image
-finalImageToDisplay model =
-    case model.performanceResult of
-        InvalidMoves _ i ->
-            i
-
-        CannotPerform _ { lastImage } ->
-            lastImage
-
-        Performed _ image ->
-            image
-
-
-type Msg
-    = SetMoves String
-    | ImageEditorChanged ImageEditor.State
-    | ToggleForwardsBackwards
 
 
 primitivesDict : Dict String MoveDefinition
@@ -126,39 +102,49 @@ primitivesDict =
     Move.primitives |> List.map (\d -> ( d.name, d )) |> Dict.fromList
 
 
+{-| Parse the moves text and update the model accordingly. This does NOT apply the moves.
+-}
+parseMoves : Model -> Model
+parseMoves model =
+    { model | movesAndDefinitions = MoveParser.parseMoves primitivesDict model.movesText }
+
+
+applyMoves : Model -> Model
+applyMoves model =
+    case model.movesAndDefinitions of
+        Err _ ->
+            model
+
+        Ok { moves } ->
+            let
+                maybeBackwardsMoves =
+                    if model.backwards then
+                        Move.backwardsMoves identity moves
+
+                    else
+                        moves
+            in
+            case apply maybeBackwardsMoves (ImageEditor.getImage model.initialImage) of
+                Err whyCannotPerform ->
+                    { model | performanceFailure = Just whyCannotPerform, finalImage = whyCannotPerform.lastImage }
+
+                Ok i ->
+                    { model | finalImage = i, performanceFailure = Nothing }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         SetMoves text ->
-            let
-                performanceResult =
-                    case MoveParser.parseMoves primitivesDict text of
-                        Err whyInvalidMoves ->
-                            InvalidMoves whyInvalidMoves (finalImageToDisplay model)
-
-                        Ok { moves } ->
-                            let
-                                maybeBackwardsMoves =
-                                    if model.backwards then
-                                        Move.backwardsMoves identity moves
-
-                                    else
-                                        moves
-                            in
-                            case apply maybeBackwardsMoves (ImageEditor.getImage model.initialImage) of
-                                Err whyCannotPerform ->
-                                    CannotPerform moves whyCannotPerform
-
-                                Ok i ->
-                                    Performed moves i
-            in
-            ( { model | movesText = text, performanceResult = performanceResult }
+            ( { model | movesText = text }
+                |> parseMoves
+                |> applyMoves
             , Cmd.none
             )
 
         ImageEditorChanged state ->
-            -- TODO: reapply moves
             ( { model | initialImage = state }
+                |> applyMoves
             , Cmd.none
             )
 
@@ -170,10 +156,15 @@ toggleForwardsBackwards : Model -> Model
 toggleForwardsBackwards model =
     let
         newInitialImage =
-            finalImageToDisplay model
+            model.finalImage
     in
-    -- TODO: reapply moves
-    { model | initialImage = ImageEditor.init newInitialImage, backwards = not model.backwards }
+    -- reapplyMoves will take care of updating performanceFailure
+    { model
+        | initialImage = ImageEditor.init newInitialImage
+        , backwards = not model.backwards
+        , finalImage = newInitialImage
+    }
+        |> applyMoves
 
 
 
@@ -192,16 +183,19 @@ subscriptions _ =
 view : Model -> Html Msg
 view model =
     let
-        buttons =
+        directionButton =
             let
                 directionLabel =
                     if model.backwards then
-                        "Go forwards"
+                        "☚"
 
                     else
-                        "Go backwards"
+                        "☛"
             in
-            row [ width fill ] [ Input.button Palette.regularButton { onPress = Just ToggleForwardsBackwards, label = text directionLabel } ]
+            Input.button [ Font.size 35, Font.color Palette.blueBook, padding 10 ]
+                { onPress = Just ToggleForwardsBackwards
+                , label = text directionLabel
+                }
 
         initialImageView =
             ImageEditor.view ImageEditorChanged model.initialImage
@@ -213,20 +207,20 @@ view model =
                 ]
 
         ( movesBorderColor, infoText ) =
-            case model.performanceResult of
-                Performed _ _ ->
+            case ( model.movesAndDefinitions, model.performanceFailure ) of
+                ( Ok _, Nothing ) ->
                     ( greenBook, viewMessage "Reference" defaultInfoText )
 
-                InvalidMoves errorMsg _ ->
-                    ( redBook, viewMessage "Error" errorMsg )
+                ( Ok _, Just { message } ) ->
+                    ( redBook, viewMessage "Failure during performance" message )
 
-                CannotPerform _ { message } ->
-                    ( redBook, viewMessage "Error" message )
+                ( Err errorMsg, _ ) ->
+                    ( redBook, viewMessage "That makes no sense" errorMsg )
 
         movesView =
             Element.column [ width fill, height fill, spacing 10 ]
                 [ Input.multiline [ width fill, height (minimum 0 (fillPortion 2)), scrollbarY, Border.color movesBorderColor ]
-                    { label = Input.labelAbove [] (el [ Font.bold ] (text "Definitions & Moves"))
+                    { label = Input.labelAbove [] (row [ spacing 40 ] [ el [ Font.bold ] (text "Definitions & Moves"), directionButton ])
                     , onChange = SetMoves
                     , text = model.movesText
                     , placeholder = Nothing
@@ -236,11 +230,7 @@ view model =
                 ]
 
         finalImageView =
-            let
-                finalImage =
-                    finalImageToDisplay model
-            in
-            el [ width fill, height fill ] (Image.view (\t -> el [ Font.bold ] (text t)) finalImage)
+            el [ width fill, height fill ] (Image.view (\t -> el [ Font.bold ] (text t)) model.finalImage)
 
         mainElements =
             if model.backwards then
@@ -251,8 +241,7 @@ view model =
     in
     Element.layout [ width fill, height fill ]
         (Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]
-            [ buttons
-            , Element.row [ spacing 10, width fill, height fill ]
+            [ Element.row [ spacing 10, width fill, height fill ]
                 mainElements
             ]
         )

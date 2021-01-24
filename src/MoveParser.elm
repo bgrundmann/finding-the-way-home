@@ -1,4 +1,4 @@
-module MoveParser exposing (parseMoves)
+module MoveParser exposing (Definitions, parseMoves)
 
 import Char
 import Dict exposing (Dict)
