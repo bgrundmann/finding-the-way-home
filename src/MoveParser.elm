@@ -343,7 +343,7 @@ parser primitives =
     definitionsAndMoves primitives
         |> andThen
             (\( defs, moves ) ->
-                case Move.substituteArguments [] moves of
+                case Move.substituteArguments identity [] moves of
                     Err msg ->
                         problem (Problem msg)
 

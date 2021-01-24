@@ -6,6 +6,7 @@ module Move exposing
     , Move(..)
     , MoveDefinition
     , MovesOrPrimitive(..)
+    , backwardsMoves
     , cardicianFromMoves
     , primitives
     , repeatSignature
@@ -35,7 +36,12 @@ type alias MoveDefinition =
 
 type MovesOrPrimitive
     = Moves (List (Move Expr))
-    | Primitive (List ExprValue -> Cardician ())
+    | Primitive Primitive
+
+
+type Primitive
+    = Cut
+    | Turnover
 
 
 type Move arg
@@ -74,8 +80,8 @@ signature { name, args } =
 The passed in Array must match the the args Array of the definition
 the list of moves are part of. Or be the empty array.
 -}
-substituteArguments : List ExprValue -> List (Move Expr) -> Result String (List (Move ExprValue))
-substituteArguments actuals moves =
+substituteArguments : (ExprValue -> a) -> List a -> List (Move Expr) -> Result String (List (Move a))
+substituteArguments packValue actuals moves =
     let
         substExpr expr =
             case expr of
@@ -88,14 +94,14 @@ substituteArguments actuals moves =
                             Ok value
 
                 ExprValue v ->
-                    Ok v
+                    Ok (packValue v)
 
         substMove move =
             case move of
                 Repeat arg rmoves ->
                     Result.map2 Repeat
                         (substExpr arg)
-                        (substituteArguments actuals rmoves)
+                        (substituteArguments packValue actuals rmoves)
 
                 Do def exprs ->
                     Result.map (\values -> Do def values)
@@ -103,6 +109,43 @@ substituteArguments actuals moves =
     in
     List.map substMove moves
         |> Result.Extra.combine
+
+
+backwards : (ExprValue -> a) -> Move a -> Move a
+backwards packValue move =
+    case move of
+        Repeat arg moves ->
+            Repeat arg (backwardsMoves packValue moves)
+
+        Do def exprs ->
+            case ( def.movesOrPrimitive, exprs ) of
+                ( Primitive Cut, [ n, from, to ] ) ->
+                    Do def [ n, to, from ]
+
+                ( Primitive Turnover, [ _ ] ) ->
+                    move
+
+                ( Moves moves, _ ) ->
+                    let
+                        movesWithArguments =
+                            substituteArguments packValue exprs moves
+                    in
+                    case movesWithArguments of
+                        Ok mvs ->
+                            -- Using Repeat 1 moves to turn a list of moves into a single move
+                            Repeat (packValue (Int 1)) (backwardsMoves packValue mvs)
+
+                        Err _ ->
+                            move
+
+                ( _, _ ) ->
+                    -- Can not happen because of the type checker
+                    move
+
+
+backwardsMoves : (ExprValue -> a) -> List (Move a) -> List (Move a)
+backwardsMoves packValue moves =
+    List.reverse (List.map (backwards packValue) moves)
 
 
 
@@ -114,50 +157,84 @@ turnover pile =
     List.reverse (List.map Card.turnover pile)
 
 
-bugInTypeCheckerOrPrimitiveDef : String -> Cardician ()
-bugInTypeCheckerOrPrimitiveDef name =
+bugInTypeCheckerOrPrimitiveDef : Primitive -> Cardician ()
+bugInTypeCheckerOrPrimitiveDef p =
+    let
+        name =
+            case p of
+                Cut ->
+                    "cut"
+
+                Turnover ->
+                    "turnover"
+    in
     fail ("Bug in type checker or definition of " ++ name)
 
 
-primitiveTurnover : List ExprValue -> Cardician ()
-primitiveTurnover args =
-    case args of
-        [ Pile name ] ->
-            Cardician.take name
-                |> andThen
-                    (\cards ->
-                        Cardician.put name (turnover cards)
-                    )
+decodeActuals :
+    { turnover : PileName -> a, cut : Int -> PileName -> PileName -> a, decodingError : Primitive -> a }
+    -> Primitive
+    -> List ExprValue
+    -> a
+decodeActuals handlers p actuals =
+    case ( p, actuals ) of
+        ( Turnover, [ Pile name ] ) ->
+            handlers.turnover name
 
-        _ ->
-            bugInTypeCheckerOrPrimitiveDef "turnover"
+        ( Cut, [ Int n, Pile from, Pile to ] ) ->
+            handlers.cut n from to
+
+        ( _, _ ) ->
+            handlers.decodingError p
 
 
-primitiveCut : List ExprValue -> Cardician ()
-primitiveCut args =
-    case args of
-        [ Int n, Pile from, Pile to ] ->
-            Cardician.cutOff n from
-                |> andThen (Cardician.put to)
+cardicianOfPrimitive : Primitive -> List ExprValue -> Cardician ()
+cardicianOfPrimitive =
+    decodeActuals
+        { turnover =
+            \name ->
+                Cardician.take name
+                    |> andThen
+                        (\cards ->
+                            Cardician.put name (turnover cards)
+                        )
+        , cut =
+            \n from to ->
+                Cardician.cutOff n from
+                    |> andThen (Cardician.put to)
+        , decodingError = bugInTypeCheckerOrPrimitiveDef
+        }
 
-        _ ->
-            bugInTypeCheckerOrPrimitiveDef "cut"
+
+intArg : String -> Argument
+intArg name =
+    { name = name, kind = KindInt }
+
+
+pileArg : String -> Argument
+pileArg name =
+    { name = name, kind = KindPile }
+
+
+primitive : String -> List Argument -> Primitive -> MoveDefinition
+primitive name args p =
+    { name = name, args = args, movesOrPrimitive = Primitive p }
+
+
+primitiveTurnover : MoveDefinition
+primitiveTurnover =
+    primitive "turnover" [ pileArg "pile" ] Turnover
+
+
+primitiveCut : MoveDefinition
+primitiveCut =
+    primitive "cut" [ intArg "N", pileArg "from", pileArg "to" ] Cut
 
 
 primitives : List MoveDefinition
 primitives =
-    let
-        int name =
-            { name = name, kind = KindInt }
-
-        pile name =
-            { name = name, kind = KindPile }
-
-        prim name args p =
-            { name = name, args = args, movesOrPrimitive = Primitive p }
-    in
-    [ prim "turnover" [ pile "pile" ] primitiveTurnover
-    , prim "cut" [ int "N", pile "from", pile "to" ] primitiveCut
+    [ primitiveCut
+    , primitiveTurnover
     ]
 
 
@@ -179,7 +256,7 @@ cardician move =
         Do { name, movesOrPrimitive, args } actuals ->
             case movesOrPrimitive of
                 Moves moves ->
-                    case substituteArguments actuals moves of
+                    case substituteArguments identity actuals moves of
                         Err msg ->
                             Cardician.fail ("Internal error: substitution failed " ++ msg)
 
@@ -187,7 +264,7 @@ cardician move =
                             cardicianFromMoves substitutedMoves
 
                 Primitive p ->
-                    p actuals
+                    cardicianOfPrimitive p actuals
 
 
 cardicianFromMoves : List (Move ExprValue) -> Cardician ()

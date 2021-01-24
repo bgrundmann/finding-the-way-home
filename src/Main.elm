@@ -3,8 +3,8 @@ module Main exposing (main)
 import Browser
 import Card exposing (poker_deck)
 import Cardician
-import Dict
-import Element exposing (el, fill, fillPortion, height, minimum, padding, scrollbarY, spacing, text, width)
+import Dict exposing (Dict)
+import Element exposing (el, fill, fillPortion, height, minimum, padding, row, scrollbarY, spacing, text, width)
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
@@ -12,7 +12,7 @@ import Html exposing (Html)
 import Image exposing (Image)
 import ImageEditor
 import List
-import Move exposing (ExprValue(..), Move(..), MovesOrPrimitive(..))
+import Move exposing (ExprValue(..), Move(..), MoveDefinition, MovesOrPrimitive(..))
 import MoveParser
 import Palette exposing (greenBook, redBook)
 
@@ -63,9 +63,14 @@ type PerformanceResult
     | Performed (List (Move ExprValue)) Image
 
 
+
+-- In backwards mode we display the initial image on the right and evaluate the moves backwards
+
+
 type alias Model =
     { initialImage : ImageEditor.State
     , movesText : String
+    , backwards : Bool
     , performanceResult : PerformanceResult
     }
 
@@ -82,7 +87,11 @@ init _ =
         performanceResult =
             Performed [] initialImage
     in
-    ( { initialImage = ImageEditor.init initialImage, movesText = movesText, performanceResult = performanceResult }
+    ( { initialImage = ImageEditor.init initialImage
+      , movesText = movesText
+      , performanceResult = performanceResult
+      , backwards = False
+      }
     , Cmd.none
     )
 
@@ -109,6 +118,12 @@ finalImageToDisplay model =
 type Msg
     = SetMoves String
     | ImageEditorChanged ImageEditor.State
+    | ToggleForwardsBackwards
+
+
+primitivesDict : Dict String MoveDefinition
+primitivesDict =
+    Move.primitives |> List.map (\d -> ( d.name, d )) |> Dict.fromList
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -117,12 +132,20 @@ update msg model =
         SetMoves text ->
             let
                 performanceResult =
-                    case MoveParser.parseMoves (Move.primitives |> List.map (\d -> ( d.name, d )) |> Dict.fromList) text of
+                    case MoveParser.parseMoves primitivesDict text of
                         Err whyInvalidMoves ->
                             InvalidMoves whyInvalidMoves (finalImageToDisplay model)
 
                         Ok { moves } ->
-                            case apply moves (ImageEditor.getImage model.initialImage) of
+                            let
+                                maybeBackwardsMoves =
+                                    if model.backwards then
+                                        Move.backwardsMoves identity moves
+
+                                    else
+                                        moves
+                            in
+                            case apply maybeBackwardsMoves (ImageEditor.getImage model.initialImage) of
                                 Err whyCannotPerform ->
                                     CannotPerform moves whyCannotPerform
 
@@ -134,9 +157,23 @@ update msg model =
             )
 
         ImageEditorChanged state ->
+            -- TODO: reapply moves
             ( { model | initialImage = state }
             , Cmd.none
             )
+
+        ToggleForwardsBackwards ->
+            ( toggleForwardsBackwards model, Cmd.none )
+
+
+toggleForwardsBackwards : Model -> Model
+toggleForwardsBackwards model =
+    let
+        newInitialImage =
+            finalImageToDisplay model
+    in
+    -- TODO: reapply moves
+    { model | initialImage = ImageEditor.init newInitialImage, backwards = not model.backwards }
 
 
 
@@ -156,7 +193,15 @@ view : Model -> Html Msg
 view model =
     let
         buttons =
-            Element.none
+            let
+                directionLabel =
+                    if model.backwards then
+                        "Go forwards"
+
+                    else
+                        "Go backwards"
+            in
+            row [ width fill ] [ Input.button Palette.regularButton { onPress = Just ToggleForwardsBackwards, label = text directionLabel } ]
 
         initialImageView =
             ImageEditor.view ImageEditorChanged model.initialImage
@@ -196,14 +241,18 @@ view model =
                     finalImageToDisplay model
             in
             el [ width fill, height fill ] (Image.view (\t -> el [ Font.bold ] (text t)) finalImage)
+
+        mainElements =
+            if model.backwards then
+                [ finalImageView, movesView, initialImageView ]
+
+            else
+                [ initialImageView, movesView, finalImageView ]
     in
     Element.layout [ width fill, height fill ]
         (Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]
             [ buttons
             , Element.row [ spacing 10, width fill, height fill ]
-                [ initialImageView
-                , movesView
-                , finalImageView
-                ]
+                mainElements
             ]
         )
