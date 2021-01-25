@@ -1,4 +1,4 @@
-module Image exposing (Image, PileName, update, view)
+module Image exposing (Image, PileName, names, renamePile, update, view)
 
 import Card exposing (Pile)
 import Element exposing (Element, column, el, paragraph, spacing, text, textColumn)
@@ -19,6 +19,26 @@ type alias PileName =
 
 type alias Image =
     List ( PileName, Pile )
+
+
+names : Image -> List String
+names i =
+    List.map (\( n, _ ) -> n) i
+
+
+{-| Rename oldname to newname. Does nothing if no pile has oldname.
+-}
+renamePile : PileName -> PileName -> Image -> Image
+renamePile oldName newName image =
+    List.map
+        (\( n, v ) ->
+            if oldName == n then
+                ( newName, v )
+
+            else
+                ( n, v )
+        )
+        image
 
 
 update : PileName -> (Maybe Pile -> Maybe Pile) -> Image -> Image

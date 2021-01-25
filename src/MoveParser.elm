@@ -1,4 +1,4 @@
-module MoveParser exposing (Definitions, parseMoves)
+module MoveParser exposing (Definitions, parseMoves, validatePileName)
 
 import Char
 import Dict exposing (Dict)
@@ -502,3 +502,15 @@ parseMoves primitives text =
 
         Err deadEnds ->
             Err (deadEndsToString text deadEnds)
+
+
+{-| Nothing if s is a valid pilename, Just errorMessage otherwise
+-}
+validatePileName : String -> Maybe String
+validatePileName s =
+    case run (pileNameParser (Expected EPileName) |. end (Expected EEndOfInput)) s of
+        Ok res ->
+            Nothing
+
+        Err _ ->
+            Just "A pilename should look like this: deck, deck2, table, ..."
