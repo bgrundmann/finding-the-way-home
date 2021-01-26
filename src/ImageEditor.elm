@@ -11,9 +11,14 @@ import MoveParser exposing (validatePileName)
 import Palette exposing (dangerousButton, regularButton)
 
 
+type Editing
+    = NotEditing
+    | EditingPileName EditingPileNameState
+
+
 type alias State =
     { image : Image
-    , editingPileName : Maybe EditingPileNameState
+    , editing : Editing
     }
 
 
@@ -33,7 +38,7 @@ type Msg
 
 init : Image -> State
 init i =
-    { image = i, editingPileName = Nothing }
+    { image = i, editing = NotEditing }
 
 
 isNameUsed : Image -> String -> Bool
@@ -86,8 +91,8 @@ update msg state =
                                 Nothing
             in
             { state
-                | editingPileName =
-                    Just
+                | editing =
+                    EditingPileName
                         { oldName = oldName
                         , newName = newName
                         , errorMessage = errorMessage
@@ -95,17 +100,17 @@ update msg state =
             }
 
         SaveNewPileName ->
-            case state.editingPileName of
-                Nothing ->
+            case state.editing of
+                NotEditing ->
                     state
 
-                Just { oldName, newName, errorMessage } ->
+                EditingPileName { oldName, newName, errorMessage } ->
                     case errorMessage of
                         Just _ ->
                             state
 
                         Nothing ->
-                            { state | image = Image.renamePile oldName newName state.image, editingPileName = Nothing }
+                            { state | image = Image.renamePile oldName newName state.image, editing = NotEditing }
 
         Add ->
             { state | image = Image.update (findUnusedName state.image "deck") (\_ -> Just Card.poker_deck) state.image }
@@ -118,15 +123,15 @@ getImage { image } =
 
 ifEditingThisPileName : String -> State -> Maybe EditingPileNameState
 ifEditingThisPileName pileName state =
-    case state.editingPileName of
-        Just ({ oldName } as s) ->
+    case state.editing of
+        EditingPileName ({ oldName } as s) ->
             if pileName == oldName then
                 Just s
 
             else
                 Nothing
 
-        Nothing ->
+        NotEditing ->
             Nothing
 
 
