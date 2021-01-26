@@ -14,6 +14,7 @@ import Palette exposing (dangerousButton, regularButton)
 type Editing
     = NotEditing
     | EditingPileName EditingPileNameState
+    | EditingPile EditingPileState
 
 
 type alias State =
@@ -29,9 +30,17 @@ type alias EditingPileNameState =
     }
 
 
+type alias EditingPileState =
+    { pileName : String
+    , text : String
+    }
+
+
 type Msg
     = Delete PileName
     | Add
+    | StartEditPile String
+    | EditPile EditingPileState
     | EditPileName { oldName : String, newName : String }
     | SaveNewPileName
 
@@ -104,6 +113,9 @@ update msg state =
                 NotEditing ->
                     state
 
+                EditingPile _ ->
+                    state
+
                 EditingPileName { oldName, newName, errorMessage } ->
                     case errorMessage of
                         Just _ ->
@@ -111,6 +123,17 @@ update msg state =
 
                         Nothing ->
                             { state | image = Image.renamePile oldName newName state.image, editing = NotEditing }
+
+        StartEditPile pileName ->
+            let
+                -- TODO: Introduce Pile.elm and move appropriate functions there
+                text =
+                    ""
+            in
+            { state | editing = EditingPile { pileName = pileName, text = text } }
+
+        EditPile newState ->
+            { state | editing = EditingPile newState }
 
         Add ->
             { state | image = Image.update (findUnusedName state.image "deck") (\_ -> Just Card.poker_deck) state.image }
@@ -130,6 +153,9 @@ ifEditingThisPileName pileName state =
 
             else
                 Nothing
+
+        EditingPile _ ->
+            Nothing
 
         NotEditing ->
             Nothing
@@ -193,6 +219,17 @@ view toMsg state =
         event msg =
             update msg state
                 |> toMsg
+
+        pilesView =
+            Image.piles state.image
+                |> List.map
+                    (\( pileName, pile ) ->
+                        column [ spacing 10 ]
+                            [ viewPileNameAndButtons toMsg state pileName
+                            , Image.viewPile pile
+                            ]
+                    )
+                |> column [ spacing 10 ]
     in
     column [ width fill, height fill, spacing 10 ]
         [ Image.view (viewPileNameAndButtons toMsg state) state.image
