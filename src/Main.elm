@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Card exposing (poker_deck)
+import Card
 import Cardician
 import Dict exposing (Dict)
 import Element exposing (el, fill, fillPortion, height, minimum, padding, row, scrollbarY, spacing, text, width)
@@ -15,6 +15,7 @@ import List
 import Move exposing (ExprValue(..), Move(..), MoveDefinition, MovesOrPrimitive(..))
 import MoveParser exposing (Definitions)
 import Palette exposing (greenBook, redBook)
+import Pile
 
 
 
@@ -41,7 +42,7 @@ type alias Model =
 
 type Msg
     = SetMoves String
-    | ImageEditorChanged ImageEditor.State
+    | ImageEditorChanged ImageEditor.Msg
     | ToggleForwardsBackwards
 
 
@@ -81,7 +82,7 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     let
         initialImage =
-            [ ( "deck", poker_deck ) ]
+            [ ( "deck", Pile.poker_deck ) ]
 
         movesText =
             ""
@@ -142,8 +143,8 @@ update msg model =
             , Cmd.none
             )
 
-        ImageEditorChanged state ->
-            ( { model | initialImage = state }
+        ImageEditorChanged imageEditorMsg ->
+            ( { model | initialImage = ImageEditor.update imageEditorMsg model.initialImage }
                 |> applyMoves
             , Cmd.none
             )

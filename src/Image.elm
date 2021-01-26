@@ -1,10 +1,11 @@
-module Image exposing (Image, PileName, names, piles, renamePile, update, view, viewPile)
+module Image exposing (Image, PileName, get, names, piles, renamePile, update, view, viewPile)
 
-import Card exposing (Pile)
+import Card
 import Element exposing (Element, column, el, paragraph, spacing, text, textColumn)
 import Element.Font as Font
 import List
 import List.Extra exposing (greedyGroupsOf)
+import Pile exposing (Pile)
 
 
 
@@ -29,6 +30,16 @@ names i =
 piles : Image -> List ( String, Pile )
 piles image =
     image
+
+
+get : PileName -> Image -> Maybe Pile
+get pileName image =
+    case List.filter (\( n, _ ) -> n == pileName) image of
+        [] ->
+            Nothing
+
+        ( _, x ) :: _ ->
+            Just x
 
 
 {-| Rename oldname to newname. Does nothing if no pile has oldname.

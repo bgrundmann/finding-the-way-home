@@ -14,10 +14,11 @@ module Move exposing
     , substituteArguments
     )
 
-import Card exposing (Pile)
+import Card
 import Cardician exposing (Cardician, andThen, fail)
 import Image exposing (PileName)
 import List.Extra
+import Pile exposing (Pile)
 import Result.Extra
 
 

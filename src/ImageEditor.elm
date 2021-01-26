@@ -1,4 +1,4 @@
-module ImageEditor exposing (State, getImage, init, view)
+module ImageEditor exposing (Msg, State, getImage, init, update, view)
 
 import Card
 import Element exposing (Element, column, el, fill, height, row, spacing, text, width)
@@ -7,8 +7,10 @@ import Element.Font as Font
 import Element.Input as Input
 import ElmUiUtils exposing (onKey)
 import Image exposing (Image, PileName, view)
+import List.Extra
 import MoveParser exposing (validatePileName)
 import Palette exposing (dangerousButton, regularButton)
+import Pile
 
 
 type Editing
@@ -39,10 +41,10 @@ type alias EditingPileState =
 type Msg
     = Delete PileName
     | Add
-    | StartEditPile String
+    | StartEditPile PileName
     | EditPile EditingPileState
     | EditPileName { oldName : String, newName : String }
-    | SaveNewPileName
+    | Save
 
 
 init : Image -> State
@@ -78,7 +80,7 @@ findUnusedName image prefix =
 
 update : Msg -> State -> State
 update msg state =
-    case msg of
+    case Debug.log "ImageEditor.update" msg of
         Delete pileName ->
             { state | image = Image.update pileName (\_ -> Nothing) state.image }
 
@@ -108,13 +110,17 @@ update msg state =
                         }
             }
 
-        SaveNewPileName ->
+        Save ->
             case state.editing of
                 NotEditing ->
                     state
 
-                EditingPile _ ->
-                    state
+                EditingPile { pileName, text } ->
+                    let
+                        cards =
+                            Pile.poker_deck
+                    in
+                    { state | image = Image.update pileName (always (Just cards)) state.image, editing = NotEditing }
 
                 EditingPileName { oldName, newName, errorMessage } ->
                     case errorMessage of
@@ -126,9 +132,13 @@ update msg state =
 
         StartEditPile pileName ->
             let
-                -- TODO: Introduce Pile.elm and move appropriate functions there
                 text =
-                    ""
+                    Image.get pileName state.image
+                        |> Maybe.withDefault []
+                        |> List.map Card.toString
+                        |> List.Extra.greedyGroupsOf 13
+                        |> List.map (String.join " ")
+                        |> String.join "\n"
             in
             { state | editing = EditingPile { pileName = pileName, text = text } }
 
@@ -136,7 +146,12 @@ update msg state =
             { state | editing = EditingPile newState }
 
         Add ->
-            { state | image = Image.update (findUnusedName state.image "deck") (\_ -> Just Card.poker_deck) state.image }
+            { state
+                | image =
+                    Image.update (findUnusedName state.image "deck")
+                        (\_ -> Just Pile.poker_deck)
+                        state.image
+            }
 
 
 getImage : State -> Image
@@ -161,20 +176,16 @@ ifEditingThisPileName pileName state =
             Nothing
 
 
-viewPileNameAndButtons : (State -> msg) -> State -> String -> Element msg
+viewPileNameAndButtons : (Msg -> msg) -> State -> String -> Element msg
 viewPileNameAndButtons toMsg state pileName =
     let
-        event msg =
-            update msg state
-                |> toMsg
-
         pileNameLabelOrEditor =
             case ifEditingThisPileName pileName state of
                 Nothing ->
                     Input.button []
                         { onPress =
                             EditPileName { oldName = pileName, newName = pileName }
-                                |> event
+                                |> toMsg
                                 |> Just
                         , label = text pileName
                         }
@@ -191,7 +202,7 @@ viewPileNameAndButtons toMsg state pileName =
                     in
                     Input.text
                         ([ onKey
-                            { enter = SaveNewPileName |> event |> Just
+                            { enter = Save |> toMsg |> Just
                             , escape = Nothing
                             }
                          ]
@@ -203,35 +214,70 @@ viewPileNameAndButtons toMsg state pileName =
                         , onChange =
                             \s ->
                                 EditPileName { oldName = pileName, newName = s }
-                                    |> event
+                                    |> toMsg
                         }
+
+        editButton =
+            case ifEditingThisPile pileName state of
+                Nothing ->
+                    Input.button regularButton { onPress = StartEditPile pileName |> toMsg |> Just, label = text "Edit" }
+
+                Just _ ->
+                    Input.button regularButton { onPress = Save |> toMsg |> Just, label = text "Save" }
     in
     row [ width fill, spacing 5 ]
         [ el [ width fill, Font.bold ] pileNameLabelOrEditor
-        , Input.button regularButton { onPress = Nothing, label = text "Edit" }
-        , Input.button dangerousButton { onPress = Delete pileName |> event |> Just, label = text "Delete" }
+        , editButton
+        , Input.button dangerousButton { onPress = Delete pileName |> toMsg |> Just, label = text "Delete" }
         ]
 
 
-view : (State -> msg) -> State -> Element msg
+ifEditingThisPile : String -> State -> Maybe EditingPileState
+ifEditingThisPile name state =
+    case state.editing of
+        NotEditing ->
+            Nothing
+
+        EditingPileName _ ->
+            Nothing
+
+        EditingPile ({ pileName } as s) ->
+            if pileName == name then
+                Just s
+
+            else
+                Nothing
+
+
+view : (Msg -> msg) -> State -> Element msg
 view toMsg state =
     let
-        event msg =
-            update msg state
-                |> toMsg
-
         pilesView =
             Image.piles state.image
                 |> List.map
                     (\( pileName, pile ) ->
-                        column [ spacing 10 ]
+                        column [ spacing 10, width fill ]
                             [ viewPileNameAndButtons toMsg state pileName
-                            , Image.viewPile pile
+                            , case ifEditingThisPile pileName state of
+                                Nothing ->
+                                    Image.viewPile pile
+
+                                Just { text } ->
+                                    Input.multiline [ width fill ]
+                                        { label = Input.labelHidden "pile"
+                                        , text = text
+                                        , placeholder = Nothing
+                                        , onChange =
+                                            \s ->
+                                                EditPile { pileName = pileName, text = s }
+                                                    |> toMsg
+                                        , spellcheck = False
+                                        }
                             ]
                     )
-                |> column [ spacing 10 ]
+                |> column [ width fill, spacing 10 ]
     in
     column [ width fill, height fill, spacing 10 ]
-        [ Image.view (viewPileNameAndButtons toMsg state) state.image
-        , Input.button regularButton { onPress = Add |> event |> Just, label = text "Add" }
+        [ pilesView
+        , Input.button regularButton { onPress = Add |> toMsg |> Just, label = text "Add" }
         ]

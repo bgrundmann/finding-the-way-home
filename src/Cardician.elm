@@ -1,9 +1,10 @@
 module Cardician exposing (Cardician, Error, andThen, andThenWithError, compose, cutOff, fail, perform, put, return, take, takeEmptyOk)
 
-import Card exposing (Pile)
+import Card
 import Image exposing (Image, PileName)
 import List
 import List.Extra exposing (splitAt)
+import Pile exposing (Pile)
 
 
 {-| A Cardician changes the world and computes something else or fails terribly...

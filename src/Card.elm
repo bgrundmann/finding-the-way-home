@@ -1,13 +1,21 @@
-module Card exposing (Card, Pile, cardParser, poker_deck, turnover, view)
+module Card exposing
+    ( Card
+    , CardDesign(..)
+    , Suit(..)
+    , Value(..)
+    , all_suits
+    , all_values
+    , card
+    , cardParser
+    , toString
+    , turnover
+    , view
+    )
 
 import Element exposing (Element, el, text)
 import Element.Font as Font
 import List
-import Parser exposing (Parser, succeed)
-
-
-type alias Pile =
-    List Card
+import Parser exposing ((|.), (|=), Parser, map, oneOf, succeed, symbol)
 
 
 type alias RegularFace =
@@ -60,18 +68,6 @@ type Card
 card : Value -> Suit -> Card
 card value suit =
     Card { visible = Face ( value, suit ), hidden = Back Red }
-
-
-poker_deck : Pile
-poker_deck =
-    let
-        all suit =
-            List.map (\v -> card v suit) all_values
-    in
-    all Clubs
-        ++ all Diamonds
-        ++ (all Hearts |> List.reverse)
-        ++ (all Spades |> List.reverse)
 
 
 all_suits : List Suit
@@ -278,6 +274,57 @@ suitToString s =
             "D"
 
 
+suitParser : Parser Suit
+suitParser =
+    oneOf
+        [ symbol "C" |> map (always Clubs)
+        , symbol "H" |> map (always Hearts)
+        , symbol "S" |> map (always Spades)
+        , symbol "D" |> map (always Diamonds)
+        ]
+
+
+valueParser : Parser Value
+valueParser =
+    oneOf
+        [ symbol "A" |> map (always Ace)
+        , symbol "2" |> map (always Two)
+        , symbol "3" |> map (always Three)
+        , symbol "4" |> map (always Four)
+        , symbol "5" |> map (always Five)
+        , symbol "6" |> map (always Six)
+        , symbol "7" |> map (always Seven)
+        , symbol "8" |> map (always Eight)
+        , symbol "9" |> map (always Nine)
+        , symbol "10" |> map (always Ten)
+        , symbol "J" |> map (always Jack)
+        , symbol "Q" |> map (always Queen)
+        , symbol "K" |> map (always King)
+        ]
+
+
+cardDesignParser : Parser CardDesign
+cardDesignParser =
+    oneOf
+        [ succeed (\value suit -> Face ( value, suit ))
+            |= valueParser
+            |= suitParser
+        , succeed Back
+            |= oneOf
+                [ symbol "R" |> map (always Red)
+                , symbol "G" |> map (always Green)
+                , symbol "B" |> map (always Blue)
+                ]
+        ]
+
+
 cardParser : Parser Card
 cardParser =
-    succeed (Card { visible = Face ( Ace, Spades ), hidden = Back Red })
+    succeed (\visible hidden -> Card { visible = visible, hidden = hidden })
+        |= cardDesignParser
+        |= oneOf
+            [ succeed identity
+                |. symbol "/"
+                |= cardDesignParser
+            , succeed (Back Red)
+            ]
