@@ -1,8 +1,9 @@
-module Card exposing (Card, Pile, poker_deck, turnover, view)
+module Card exposing (Card, Pile, cardParser, poker_deck, turnover, view)
 
 import Element exposing (Element, el, text)
 import Element.Font as Font
 import List
+import Parser exposing (Parser, succeed)
 
 
 type alias Pile =
@@ -188,3 +189,95 @@ viewRegularFace ( value, suit ) =
                 |> text
     in
     el [ Font.color color ] c
+
+
+
+-- Serialisation
+
+
+toString : Card -> String
+toString (Card { visible, hidden }) =
+    case hidden of
+        Back Red ->
+            cardDesignToString visible
+
+        _ ->
+            cardDesignToString visible ++ "/" ++ cardDesignToString hidden
+
+
+cardDesignToString : CardDesign -> String
+cardDesignToString design =
+    case design of
+        Face ( value, suit ) ->
+            valueToString value ++ suitToString suit
+
+        Back Red ->
+            "R"
+
+        Back Blue ->
+            "B"
+
+        Back Green ->
+            "G"
+
+
+valueToString v =
+    case v of
+        Ace ->
+            "A"
+
+        Two ->
+            "2"
+
+        Three ->
+            "3"
+
+        Four ->
+            "4"
+
+        Five ->
+            "5"
+
+        Six ->
+            "6"
+
+        Seven ->
+            "7"
+
+        Eight ->
+            "8"
+
+        Nine ->
+            "9"
+
+        Ten ->
+            "10"
+
+        Jack ->
+            "J"
+
+        Queen ->
+            "Q"
+
+        King ->
+            "K"
+
+
+suitToString s =
+    case s of
+        Clubs ->
+            "C"
+
+        Hearts ->
+            "H"
+
+        Spades ->
+            "S"
+
+        Diamonds ->
+            "D"
+
+
+cardParser : Parser Card
+cardParser =
+    succeed (Card { visible = Face ( Ace, Spades ), hidden = Back Red })
