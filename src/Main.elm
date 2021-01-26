@@ -242,7 +242,7 @@ view model =
     in
     Element.layout [ width fill, height fill ]
         (Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]
-            [ Element.row [ spacing 10, width fill, height fill ]
+            [ Element.row [ spacing 20, width fill, height fill ]
                 mainElements
             ]
         )

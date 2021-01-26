@@ -116,11 +116,15 @@ update msg state =
                     state
 
                 EditingPile { pileName, text } ->
-                    let
-                        cards =
-                            Pile.poker_deck
-                    in
-                    { state | image = Image.update pileName (always (Just cards)) state.image, editing = NotEditing }
+                    case Debug.log "Pile.fromString" <| Pile.fromString text of
+                        Err e ->
+                            state
+
+                        Ok cards ->
+                            { state
+                                | image = Image.update pileName (always (Just cards)) state.image
+                                , editing = NotEditing
+                            }
 
                 EditingPileName { oldName, newName, errorMessage } ->
                     case errorMessage of
@@ -135,10 +139,7 @@ update msg state =
                 text =
                     Image.get pileName state.image
                         |> Maybe.withDefault []
-                        |> List.map Card.toString
-                        |> List.Extra.greedyGroupsOf 13
-                        |> List.map (String.join " ")
-                        |> String.join "\n"
+                        |> Pile.toString
             in
             { state | editing = EditingPile { pileName = pileName, text = text } }
 
