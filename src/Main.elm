@@ -4,17 +4,36 @@ import Browser
 import Card
 import Cardician
 import Dict exposing (Dict)
-import Element exposing (el, fill, fillPortion, height, minimum, padding, row, scrollbarY, spacing, text, width)
+import Element
+    exposing
+        ( Element
+        , column
+        , el
+        , fill
+        , fillPortion
+        , height
+        , minimum
+        , mouseOver
+        , padding
+        , row
+        , scale
+        , scrollbarY
+        , spacing
+        , text
+        , width
+        )
+import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
+import File.Download as Download
 import Html exposing (Html)
 import Image exposing (Image)
 import ImageEditor
 import List
 import Move exposing (ExprValue(..), Move(..), MoveDefinition, MovesOrPrimitive(..))
 import MoveParser exposing (Definitions)
-import Palette exposing (greenBook, redBook)
+import Palette exposing (greenBook, redBook, white)
 import Pile
 
 
@@ -44,6 +63,7 @@ type Msg
     = SetMoves String
     | ImageEditorChanged ImageEditor.Msg
     | ToggleForwardsBackwards
+    | Save
 
 
 defaultInfoText : String
@@ -155,6 +175,13 @@ update msg model =
         ToggleForwardsBackwards ->
             ( toggleForwardsBackwards model, Cmd.none )
 
+        Save ->
+            ( model, save model )
+
+
+save model =
+    Download.string "moves.txt" "text/text" model.movesText
+
 
 toggleForwardsBackwards : Model -> Model
 toggleForwardsBackwards model =
@@ -182,6 +209,15 @@ subscriptions _ =
 
 
 -- VIEW
+
+
+topBar : Model -> Element Msg
+topBar model =
+    row [ spacing 10, padding 10, Background.color greenBook, Font.color white, width fill ]
+        [ el [ Font.bold ] (text "Virtual Denis Behr")
+        , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Save", onPress = Just Save }
+        , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Load", onPress = Nothing }
+        ]
 
 
 view : Model -> Html Msg
@@ -243,9 +279,11 @@ view model =
             else
                 [ initialImageView, movesView, finalImageView ]
     in
-    Element.layout [ width fill, height fill ]
-        (Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]
-            [ Element.row [ spacing 20, width fill, height fill ]
-                mainElements
+    Element.layout [ width fill, height fill ] <|
+        column [ width fill, height fill ]
+            [ topBar model
+            , Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]
+                [ Element.row [ spacing 20, width fill, height fill ]
+                    mainElements
+                ]
             ]
-        )

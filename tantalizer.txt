@@ -1,31 +1,41 @@
+def stud_deal from to
+   cut 1 from temp
+   turnover temp
+   cut 1 temp to
+end
+
+def out_faro deck
+    cut 26 deck upper
+    repeat 26
+      stud_deal upper temp
+      stud_deal deck temp
+    end
+    cut 52 temp deck
+    turnover deck
+end
+
 def deal from to
      cut 1 from to
 end
 
-def deal-spectator-and-magician
-  deal deck spectator
-  deal deck magician
+def deal2 N deck pile1 pile2
+    repeat N
+        deal deck pile1
+        deal deck pile2
+    end
 end
 
-repeat 26 
-  deal-spectator-and-magician
+def tantalizer deck spectator magician 
+    deal2 26 deck spectator magician
+    cut 26 magician deck
+    deal2 13 deck spectator magician
+    cut 13 magician deck
+    deal2 6 deck spectator magician
+    deal deck spectator
+    cut 6 magician deck
+    deal2 3 deck spectator magician
+    cut 3 magician deck
+    deal deck spectator
+    deal deck magician
+    deal deck spectator
 end
-cut 26 magician deck
-
-repeat 13
-  deal-spectator-and-magician
-end
-cut 13 magician deck
-
-repeat 6
-  deal-spectator-and-magician
-end
-deal deck spectator
-cut 6 magician deck
-
-repeat 3
-   deal-spectator-and-magician
-end
-cut 3 magician deck
-deal-spectator-and-magician
-deal deck spectator
