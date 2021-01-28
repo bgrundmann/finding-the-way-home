@@ -122,7 +122,19 @@ takeEmptyOk pileName =
 
 replace : PileName -> Pile -> Cardician ()
 replace pileName pile =
-    \image -> ( Ok (), Image.update pileName (\_ -> Just pile) image )
+    \image ->
+        ( Ok ()
+        , Image.update pileName
+            (\_ ->
+                case pile of
+                    [] ->
+                        Nothing
+
+                    _ ->
+                        Just pile
+            )
+            image
+        )
 
 
 {-| Put cards on top of given pile (or create a new pile if no pile exists)

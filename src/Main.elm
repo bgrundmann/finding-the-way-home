@@ -56,10 +56,13 @@ repeat N
   ...
 end
 
-def move-name pile|N ...
+def moveName pile|N ...
+  [doc ...]
   move1
   ...
 end
+
+ignore move
 """
 
 

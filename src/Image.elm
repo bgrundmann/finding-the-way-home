@@ -93,7 +93,7 @@ viewPile pile =
 
         viewNumberedCard ( num, c ) =
             column []
-                [ el [ Font.size 10 ] (text (String.fromInt num))
+                [ el [ Font.size 10, Element.centerX ] (text (String.fromInt num))
                 , Card.view c
                 ]
     in

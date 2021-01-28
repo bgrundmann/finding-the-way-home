@@ -31,6 +31,7 @@ type alias Argument =
 type alias MoveDefinition =
     { name : String
     , args : List Argument
+    , doc : String
     , movesOrPrimitive : MovesOrPrimitive
     }
 
@@ -219,7 +220,7 @@ pileArg name =
 
 primitive : String -> List Argument -> Primitive -> MoveDefinition
 primitive name args p =
-    { name = name, args = args, movesOrPrimitive = Primitive p }
+    { name = name, args = args, movesOrPrimitive = Primitive p, doc = "" }
 
 
 primitiveTurnover : MoveDefinition

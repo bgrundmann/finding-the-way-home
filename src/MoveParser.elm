@@ -5,8 +5,37 @@ import Dict exposing (Dict)
 import Dict.Extra
 import List
 import List.Extra
-import Move exposing (Argument, ArgumentKind(..), Expr(..), ExprValue(..), Move(..), MoveDefinition, MovesOrPrimitive(..))
-import Parser.Advanced exposing ((|.), (|=), Step(..), Token(..), andThen, chompWhile, end, int, loop, map, oneOf, problem, run, succeed, token, variable)
+import Move
+    exposing
+        ( Argument
+        , ArgumentKind(..)
+        , Expr(..)
+        , ExprValue(..)
+        , Move(..)
+        , MoveDefinition
+        , MovesOrPrimitive(..)
+        )
+import Parser.Advanced
+    exposing
+        ( (|.)
+        , (|=)
+        , Step(..)
+        , Token(..)
+        , andThen
+        , chompUntil
+        , chompWhile
+        , end
+        , getChompedString
+        , int
+        , loop
+        , map
+        , oneOf
+        , problem
+        , run
+        , succeed
+        , token
+        , variable
+        )
 import Set
 
 
@@ -27,8 +56,7 @@ type Problem
     | NoSuchArgument String
     | Expected Expectation
     | ExpectedForArgument
-        { moveName : String
-        , moveSignature : String
+        { move : Maybe MoveDefinition -- Nothing => Repeat
         , argName : String
         , argKind : ArgumentKind
         , options : List Argument
@@ -51,7 +79,7 @@ type alias Definitions =
 
 
 keywords =
-    Set.fromList [ "repeat", "end", "def" ]
+    Set.fromList [ "repeat", "end", "def", "ignore", "doc" ]
 
 
 keyword string =
@@ -123,8 +151,8 @@ moveNameParser =
     variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = Expected EMoveName }
 
 
-exprParser : List Argument -> String -> String -> Argument -> Parser Expr
-exprParser argumentsOfEnclosingDefinition moveName moveSignature expectedArgument =
+exprParser : List Argument -> Maybe MoveDefinition -> Argument -> Parser Expr
+exprParser argumentsOfEnclosingDefinition move expectedArgument =
     {- TODO: add expected argument here -}
     let
         maybeArgument whenNot name =
@@ -140,8 +168,7 @@ exprParser argumentsOfEnclosingDefinition moveName moveSignature expectedArgumen
 
         argProblem =
             ExpectedForArgument
-                { moveName = moveName
-                , moveSignature = moveSignature
+                { move = move
                 , argName = expectedArgument.name
                 , argKind = expectedArgument.kind
                 , options = enclosingArgumentsOfTheRightKind
@@ -176,8 +203,7 @@ actualsParser argumentsOfEnclosingDefinition moveDefinition =
                 expectedArg :: restExpectedArgs ->
                     (exprParser
                         argumentsOfEnclosingDefinition
-                        moveDefinition.name
-                        (Move.signature moveDefinition)
+                        (Just moveDefinition)
                         expectedArg
                         |. spaces
                     )
@@ -196,17 +222,20 @@ repeatParser definitions arguments =
     succeed (\n moves -> Repeat n moves)
         |. keywordRepeat
         |. spaces
-        |= exprParser arguments "repeat" Move.repeatSignature { name = "N", kind = KindInt }
+        |= exprParser arguments Nothing { name = "N", kind = KindInt }
         |. spaces
         |. newline
         |= movesParser definitions arguments Embedded
         |. keywordEnd
 
 
-moveParser : Definitions -> List Argument -> Parser (Move Expr)
+moveParser : Definitions -> List Argument -> Parser (Maybe (Move Expr))
 moveParser definitions arguments =
-    succeed identity
-        |. spaces
+    succeed (\ignoref p -> ignoref p)
+        |= oneOf
+            [ (keyword "ignore" |. spaces) |> map (\() -> always Nothing)
+            , succeed () |> map (\() -> Just)
+            ]
         |= oneOf
             [ repeatParser definitions arguments
             , doMoveParser definitions arguments
@@ -274,7 +303,15 @@ movesParser definitions arguments whereAreWe =
     let
         helper result =
             oneOf
-                [ succeed (\cmd -> Loop (cmd :: result))
+                [ succeed
+                    (\maybeMove ->
+                        case maybeMove of
+                            Nothing ->
+                                Loop result
+
+                            Just move ->
+                                Loop (move :: result)
+                    )
                     |= moveParser definitions arguments
                     |. endOfStatement whereAreWe
                 , succeed () |> map (\() -> Done (List.reverse result))
@@ -316,12 +353,27 @@ defLineParser definitions =
         |. newline
 
 
+docParser : Parser String
+docParser =
+    succeed identity
+        |. spaces
+        |= oneOf
+            [ succeed identity
+                |. keyword "doc"
+                |. spaces
+                |= (chompWhile (\c -> c /= '\n') |> getChompedString)
+                |. newline
+            , succeed () |> map (always "")
+            ]
+
+
 definitionParser : Definitions -> Parser MoveDefinition
 definitionParser definitions =
     defLineParser definitions
         |> andThen
             (\{ name, args } ->
-                succeed (\moves -> { name = name, args = args, movesOrPrimitive = Moves moves })
+                succeed (\doc moves -> { name = name, args = args, movesOrPrimitive = Moves moves, doc = doc })
+                    |= docParser
                     |= movesParser definitions args Embedded
                     |. keywordEnd
                     |. endOfStatement Toplevel
@@ -402,13 +454,22 @@ deadEndsToString text deadEnds =
                 NoSuchArgument name ->
                     name ++ " looks like an argument, but no such argument was defined"
 
-                ExpectedForArgument { moveName, moveSignature, argName, argKind, options } ->
+                ExpectedForArgument { move, argName, argKind, options } ->
+                    let
+                        ( moveSignature, doc ) =
+                            case move of
+                                Nothing ->
+                                    ( Move.repeatSignature, "Repeat the given moves N times" )
+
+                                Just m ->
+                                    ( Move.signature m, m.doc )
+                    in
                     case argKind of
                         KindInt ->
                             moveSignature
-                                ++ "\n\nTo "
-                                ++ moveName
-                                ++ " I need a number for "
+                                ++ "\n\n"
+                                ++ doc
+                                ++ "\n\nI need a number for "
                                 ++ argName
                                 ++ "\n"
                                 ++ "Type the number (e.g. 52)"
@@ -422,9 +483,9 @@ deadEndsToString text deadEnds =
 
                         KindPile ->
                             moveSignature
-                                ++ "\n\nTo "
-                                ++ moveName
-                                ++ " I need a pilename for "
+                                ++ "\n\n"
+                                ++ doc
+                                ++ "\n\nI need a pilename for "
                                 ++ argName
                                 ++ "\n"
                                 ++ "These are the piles I know about: "
@@ -436,7 +497,7 @@ deadEndsToString text deadEnds =
                     "THIS SHOULD NOT HAPPEN"
 
                 Just line ->
-                    String.fromInt row ++ "x" ++ String.fromInt col ++ "\n" ++ line ++ "\n" ++ String.repeat (col - 1) " " ++ "^\n"
+                    line ++ "\n" ++ String.repeat (col - 1) " " ++ "^\n"
 
         deadEndToString { row, col, problems } =
             let
