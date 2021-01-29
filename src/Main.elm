@@ -25,6 +25,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
+import Eval
 import File.Download as Download
 import Html exposing (Html)
 import Image exposing (Image)
@@ -34,6 +35,7 @@ import Move exposing (ExprValue(..), Move(..), MoveDefinition, UserDefinedOrPrim
 import MoveParser exposing (Definitions)
 import Palette exposing (greenBook, redBook, white)
 import Pile
+import Primitives exposing (primitives)
 
 
 
@@ -71,7 +73,7 @@ type Msg
 
 defaultInfoText : String
 defaultInfoText =
-    String.join "\n" (List.map Move.signature Move.primitives)
+    String.join "\n" (List.map Move.signature (primitives |> Dict.values))
         ++ """
 
 repeat N
@@ -91,7 +93,7 @@ ignore move
 
 apply : List (Move ExprValue) -> Image -> Result Cardician.Error Image
 apply moves image =
-    Cardician.perform (Move.cardicianFromMoves moves) image
+    Cardician.perform (Eval.cardicianFromMoves moves) image
 
 
 main : Program () Model Msg
@@ -124,16 +126,11 @@ init _ =
     )
 
 
-primitivesDict : Dict String MoveDefinition
-primitivesDict =
-    Move.primitives |> List.map (\d -> ( d.name, d )) |> Dict.fromList
-
-
 {-| Parse the moves text and update the model accordingly. This does NOT apply the moves.
 -}
 parseMoves : Model -> Model
 parseMoves model =
-    { model | movesAndDefinitions = MoveParser.parseMoves primitivesDict model.movesText }
+    { model | movesAndDefinitions = MoveParser.parseMoves primitives model.movesText }
 
 
 applyMoves : Model -> Model
@@ -218,7 +215,7 @@ subscriptions _ =
 topBar : Model -> Element Msg
 topBar _ =
     row [ spacing 10, padding 10, Background.color greenBook, Font.color white, width fill ]
-        [ el [ Font.bold ] (text "Virtual Denis Behr")
+        [ el [ Font.bold ] (text "🍺 Virtual Denis Behr")
         , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Save", onPress = Just Save }
         , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Load", onPress = Nothing }
         ]
@@ -236,7 +233,7 @@ view model =
                     else
                         "☛"
             in
-            Input.button [ Font.size 35, Font.color Palette.blueBook, padding 10 ]
+            Input.button [ Font.size 35, Font.color Palette.blueBook, padding 10, mouseOver [ scale 1.1 ] ]
                 { onPress = Just ToggleForwardsBackwards
                 , label = text directionLabel
                 }
@@ -264,7 +261,13 @@ view model =
         movesView =
             Element.column [ width fill, height fill, spacing 10 ]
                 [ Input.multiline [ width fill, height (minimum 0 (fillPortion 2)), scrollbarY, Border.color movesBorderColor ]
-                    { label = Input.labelAbove [] (row [ spacing 40 ] [ el [ Font.bold ] (text "Definitions & Moves"), directionButton ])
+                    { label =
+                        Input.labelAbove []
+                            (row [ spacing 40 ]
+                                [ el [ Font.bold ] (text "Definitions & Moves")
+                                , directionButton
+                                ]
+                            )
                     , onChange = SetMoves
                     , text = model.movesText
                     , placeholder = Nothing

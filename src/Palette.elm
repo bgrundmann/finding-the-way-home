@@ -1,6 +1,6 @@
 module Palette exposing (blueBook, dangerousButton, greenBook, redBook, regularButton, white)
 
-import Element exposing (Attribute, padding, rgb255)
+import Element exposing (Attribute, mouseOver, padding, rgb255, scale)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
@@ -28,9 +28,9 @@ white =
 
 regularButton : List (Attribute msg)
 regularButton =
-    [ Background.color blueBook, Font.color white, padding 5, Border.rounded 3 ]
+    [ mouseOver [ scale 1.1 ], Background.color blueBook, Font.color white, padding 5, Border.rounded 3 ]
 
 
 dangerousButton : List (Attribute msg)
 dangerousButton =
-    [ Background.color redBook, Font.color white, padding 5, Border.rounded 3 ]
+    [ mouseOver [ scale 1.1 ], Background.color redBook, Font.color white, padding 5, Border.rounded 3 ]

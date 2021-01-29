@@ -5,10 +5,9 @@ module Move exposing
     , ExprValue(..)
     , Move(..)
     , MoveDefinition
+    , Primitive(..)
     , UserDefinedOrPrimitive(..)
     , backwardsMoves
-    , cardicianFromMoves
-    , primitives
     , repeatSignature
     , signature
     , substituteArguments
@@ -16,6 +15,7 @@ module Move exposing
 
 import Card
 import Cardician exposing (Cardician, andThen, fail)
+import Dict
 import Image exposing (PileName)
 import List.Extra
 import Pile exposing (Pile)
@@ -154,128 +154,3 @@ backwards packValue move =
 backwardsMoves : (ExprValue -> a) -> List (Move a) -> List (Move a)
 backwardsMoves packValue moves =
     List.reverse (List.map (backwards packValue) moves)
-
-
-
---- Primitives
-
-
-turnover : Pile -> Pile
-turnover pile =
-    List.reverse (List.map Card.turnover pile)
-
-
-bugInTypeCheckerOrPrimitiveDef : Primitive -> Cardician ()
-bugInTypeCheckerOrPrimitiveDef p =
-    let
-        name =
-            case p of
-                Cut ->
-                    "cut"
-
-                Turnover ->
-                    "turnover"
-    in
-    fail ("Bug in type checker or definition of " ++ name)
-
-
-decodeActuals :
-    { turnover : PileName -> a, cut : Int -> PileName -> PileName -> a, decodingError : Primitive -> a }
-    -> Primitive
-    -> List ExprValue
-    -> a
-decodeActuals handlers p actuals =
-    case ( p, actuals ) of
-        ( Turnover, [ Pile name ] ) ->
-            handlers.turnover name
-
-        ( Cut, [ Int n, Pile from, Pile to ] ) ->
-            handlers.cut n from to
-
-        ( _, _ ) ->
-            handlers.decodingError p
-
-
-cardicianOfPrimitive : Primitive -> List ExprValue -> Cardician ()
-cardicianOfPrimitive =
-    decodeActuals
-        { turnover =
-            \name ->
-                Cardician.take name
-                    |> andThen
-                        (\cards ->
-                            Cardician.put name (turnover cards)
-                        )
-        , cut =
-            \n from to ->
-                Cardician.cutOff n from
-                    |> andThen (Cardician.put to)
-        , decodingError = bugInTypeCheckerOrPrimitiveDef
-        }
-
-
-intArg : String -> Argument
-intArg name =
-    { name = name, kind = KindInt }
-
-
-pileArg : String -> Argument
-pileArg name =
-    { name = name, kind = KindPile }
-
-
-primitive : String -> List Argument -> Primitive -> MoveDefinition
-primitive name args p =
-    { name = name, args = args, body = Primitive p, doc = "" }
-
-
-primitiveTurnover : MoveDefinition
-primitiveTurnover =
-    primitive "turnover" [ pileArg "pile" ] Turnover
-
-
-primitiveCut : MoveDefinition
-primitiveCut =
-    primitive "cut" [ intArg "N", pileArg "from", pileArg "to" ] Cut
-
-
-primitives : List MoveDefinition
-primitives =
-    [ primitiveCut
-    , primitiveTurnover
-    ]
-
-
-{-| Create a cardician who can perform the given moves.
--}
-cardician : Move ExprValue -> Cardician ()
-cardician move =
-    case move of
-        Repeat nExpr moves ->
-            case nExpr of
-                Int n ->
-                    cardicianFromMoves moves
-                        |> List.repeat n
-                        |> List.foldl Cardician.compose (Cardician.return ())
-
-                Pile _ ->
-                    Cardician.fail "Internal error: type checker failed"
-
-        Do { body } actuals ->
-            case body of
-                UserDefined { moves } ->
-                    case substituteArguments identity actuals moves of
-                        Err msg ->
-                            Cardician.fail ("Internal error: substitution failed " ++ msg)
-
-                        Ok substitutedMoves ->
-                            cardicianFromMoves substitutedMoves
-
-                Primitive p ->
-                    cardicianOfPrimitive p actuals
-
-
-cardicianFromMoves : List (Move ExprValue) -> Cardician ()
-cardicianFromMoves moves =
-    List.map cardician moves
-        |> List.foldl Cardician.compose (Cardician.return ())

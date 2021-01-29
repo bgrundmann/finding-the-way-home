@@ -77,6 +77,16 @@ type alias Definitions =
     Dict String MoveDefinition
 
 
+{-| The ParseEnv guides the parsers into making decisions. Unlike context which is
+used by to augment the error messages. That said if the Elm parser library provided
+a way to read the context I would have used that.
+-}
+type alias ParseEnv =
+    { whereAreWe : WhereAreWe -- Tells us if End Of Input is ok or not
+    , definitions : Definitions
+    }
+
+
 keywords =
     Set.fromList [ "repeat", "end", "def", "ignore", "doc" ]
 
@@ -125,9 +135,9 @@ type WhereAreWe
 
 {-| The end of a statement is a newline character. Or at the toplevel the end of the file is also ok.
 -}
-endOfStatement : WhereAreWe -> Parser ()
-endOfStatement whereAreWe =
-    case whereAreWe of
+endOfStatement : ParseEnv -> Parser ()
+endOfStatement env =
+    case env.whereAreWe of
         Toplevel ->
             oneOf [ newline, end (Expected EEndOfInput) ]
 
@@ -184,10 +194,10 @@ exprParser argumentsOfEnclosingDefinition move expectedArgument =
             pileNameParser argProblem |> andThen (maybeArgument (\n -> succeed (ExprValue (Pile n))))
 
 
-doMoveParser : Definitions -> List Argument -> Parser (Move Expr)
-doMoveParser definitions argumentsOfEnclosingDefinition =
+doMoveParser : ParseEnv -> List Argument -> Parser (Move Expr)
+doMoveParser env argumentsOfEnclosingDefinition =
     moveNameParser
-        |> andThen (lookupDefinition definitions)
+        |> andThen (lookupDefinition env.definitions)
         |> andThen (actualsParser argumentsOfEnclosingDefinition)
 
 
@@ -216,28 +226,28 @@ actualsParser argumentsOfEnclosingDefinition moveDefinition =
         |= helper [] moveDefinition.args
 
 
-repeatParser : Definitions -> List Argument -> Parser (Move Expr)
-repeatParser definitions arguments =
+repeatParser : ParseEnv -> List Argument -> Parser (Move Expr)
+repeatParser env arguments =
     succeed (\n moves -> Repeat n moves)
         |. keywordRepeat
         |. spaces
         |= exprParser arguments Nothing { name = "N", kind = KindInt }
         |. spaces
         |. newline
-        |= movesParser definitions arguments Embedded
+        |= movesParser { env | whereAreWe = Embedded } arguments
         |. keywordEnd
 
 
-moveParser : Definitions -> List Argument -> Parser (Maybe (Move Expr))
-moveParser definitions arguments =
+moveParser : ParseEnv -> List Argument -> Parser (Maybe (Move Expr))
+moveParser env arguments =
     succeed (\ignoref p -> ignoref p)
         |= oneOf
             [ (keyword "ignore" |. spaces) |> map (\() -> always Nothing)
             , succeed () |> map (\() -> Just)
             ]
         |= oneOf
-            [ repeatParser definitions arguments
-            , doMoveParser definitions arguments
+            [ repeatParser env arguments
+            , doMoveParser env arguments
             ]
 
 
@@ -297,8 +307,8 @@ lookupDefinition definitions moveName =
 -}
 
 
-movesParser : Definitions -> List Argument -> WhereAreWe -> Parser (List (Move Expr))
-movesParser definitions arguments whereAreWe =
+movesParser : ParseEnv -> List Argument -> Parser (List (Move Expr))
+movesParser env arguments =
     let
         helper result =
             oneOf
@@ -311,36 +321,46 @@ movesParser definitions arguments whereAreWe =
                             Just move ->
                                 Loop (move :: result)
                     )
-                    |= moveParser definitions arguments
-                    |. endOfStatement whereAreWe
+                    |= moveParser env arguments
+                    |. endOfStatement env
                 , succeed () |> map (\() -> Done (List.reverse result))
                 ]
     in
     loop [] helper
 
 
-definitionsParser : Dict String MoveDefinition -> Parser Definitions
-definitionsParser primitives =
+definitionsParser : ParseEnv -> Parser Definitions
+definitionsParser env =
     let
-        helper definitions =
+        helper ( localDefs, e ) =
             oneOf
-                [ succeed (\def -> Loop (Dict.insert def.name def definitions))
-                    |= definitionParser definitions
-                , succeed () |> map (\() -> Done definitions)
+                [ succeed
+                    (\def ->
+                        let
+                            newLocalDefs =
+                                Dict.insert def.name def localDefs
+
+                            newDefinitions =
+                                Dict.insert def.name def e.definitions
+                        in
+                        Loop ( newLocalDefs, { e | definitions = newDefinitions } )
+                    )
+                    |= definitionParser e
+                , succeed () |> map (\() -> Done localDefs)
                 ]
     in
-    loop primitives helper
+    loop ( Dict.empty, env ) helper
 
 
-defLineParser : Definitions -> Parser { name : String, args : List Argument }
-defLineParser definitions =
+defLineParser : ParseEnv -> Parser { name : String, args : List Argument }
+defLineParser env =
     succeed (\name args -> { name = name, args = args })
         |. keywordDef
         |. spaces
         |= (moveNameParser
                 |> andThen
                     (\n ->
-                        if Dict.member n definitions then
+                        if Dict.member n env.definitions then
                             problem (DuplicateDefinition n)
 
                         else
@@ -366,9 +386,9 @@ docParser =
             ]
 
 
-definitionParser : Definitions -> Parser MoveDefinition
-definitionParser definitions =
-    defLineParser definitions
+definitionParser : ParseEnv -> Parser MoveDefinition
+definitionParser env =
+    defLineParser env
         |> andThen
             (\{ name, args } ->
                 succeed
@@ -380,25 +400,25 @@ definitionParser definitions =
                         }
                     )
                     |= docParser
-                    |= movesParser definitions args Embedded
+                    |= movesParser { env | whereAreWe = Embedded } args
                     |. keywordEnd
-                    |. endOfStatement Toplevel
+                    |. endOfStatement env
             )
 
 
-definitionsAndMoves : Dict String MoveDefinition -> Parser ( Definitions, List (Move Expr) )
-definitionsAndMoves primitives =
-    definitionsParser primitives
+definitionsAndMoves : ParseEnv -> Parser ( Definitions, List (Move Expr) )
+definitionsAndMoves env =
+    definitionsParser env
         |> andThen
             (\defs ->
-                movesParser defs [] Toplevel
+                movesParser { env | definitions = Dict.union defs env.definitions } []
                     |> map (\moves -> ( defs, moves ))
             )
 
 
-parser : Dict String MoveDefinition -> Parser { definitions : Definitions, moves : List (Move ExprValue) }
-parser primitives =
-    definitionsAndMoves primitives
+parser : ParseEnv -> Parser { definitions : Definitions, moves : List (Move ExprValue) }
+parser env =
+    definitionsAndMoves env
         |> andThen
             (\( defs, moves ) ->
                 case Move.substituteArguments identity [] moves of
@@ -563,7 +583,7 @@ deadEndsToString text deadEnds =
 
 parseMoves : Definitions -> String -> Result String { moves : List (Move ExprValue), definitions : Definitions }
 parseMoves primitives text =
-    case run (parser primitives |. end (Expected EEndOfInput)) text of
+    case run (parser { definitions = primitives, whereAreWe = Toplevel } |. end (Expected EEndOfInput)) text of
         Ok m ->
             Ok m
 
