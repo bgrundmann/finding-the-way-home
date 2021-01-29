@@ -42,6 +42,7 @@ type Msg
     | StartEditPile PileName
     | EditPile EditingPileState
     | EditPileName { oldName : String, newName : String }
+    | CancelEditing
     | Save
 
 
@@ -107,6 +108,9 @@ update msg state =
                         , errorMessage = errorMessage
                         }
             }
+
+        CancelEditing ->
+            { state | editing = NotEditing }
 
         Save ->
             case state.editing of
@@ -202,7 +206,7 @@ viewPileNameAndButtons toMsg state pileName =
                     Input.text
                         (onKey
                             { enter = Save |> toMsg |> Just
-                            , escape = Nothing
+                            , escape = CancelEditing |> toMsg |> Just
                             }
                             :: maybeWarnColor
                         )
