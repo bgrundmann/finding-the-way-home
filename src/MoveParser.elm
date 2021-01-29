@@ -3,6 +3,7 @@ module MoveParser exposing (Definitions, parseMoves, validatePileName)
 import Char
 import Dict exposing (Dict)
 import Dict.Extra
+import Image exposing (PileName)
 import List
 import List.Extra
 import Move
@@ -79,11 +80,12 @@ type alias Definitions =
 
 {-| The ParseEnv guides the parsers into making decisions. Unlike context which is
 used by to augment the error messages. That said if the Elm parser library provided
-a way to read the context I would have used that.
+a way to read the context during parsing we could have used that.
 -}
 type alias ParseEnv =
     { whereAreWe : WhereAreWe -- Tells us if End Of Input is ok or not
     , definitions : Definitions
+    , arguments : List Argument -- The list of arguments to the current definition
     }
 
 
@@ -160,12 +162,11 @@ moveNameParser =
     variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = Expected EMoveName }
 
 
-exprParser : List Argument -> Maybe MoveDefinition -> Argument -> Parser Expr
-exprParser argumentsOfEnclosingDefinition move expectedArgument =
-    {- TODO: add expected argument here -}
+exprParser : ParseEnv -> Maybe MoveDefinition -> Argument -> Parser Expr
+exprParser env move expectedArgument =
     let
         maybeArgument whenNot name =
-            case List.Extra.find (\( _, a ) -> a.name == name) (List.indexedMap Tuple.pair argumentsOfEnclosingDefinition) of
+            case List.Extra.find (\( _, a ) -> a.name == name) (List.indexedMap Tuple.pair env.arguments) of
                 Nothing ->
                     whenNot name
 
@@ -173,7 +174,7 @@ exprParser argumentsOfEnclosingDefinition move expectedArgument =
                     succeed (ExprArgument { name = name, ndx = ndx, kind = arg.kind })
 
         enclosingArgumentsOfTheRightKind =
-            List.filter (\a -> a.kind == expectedArgument.kind) argumentsOfEnclosingDefinition
+            List.filter (\a -> a.kind == expectedArgument.kind) env.arguments
 
         argProblem =
             ExpectedForArgument
@@ -194,15 +195,15 @@ exprParser argumentsOfEnclosingDefinition move expectedArgument =
             pileNameParser argProblem |> andThen (maybeArgument (\n -> succeed (ExprValue (Pile n))))
 
 
-doMoveParser : ParseEnv -> List Argument -> Parser (Move Expr)
-doMoveParser env argumentsOfEnclosingDefinition =
+doMoveParser : ParseEnv -> Parser (Move Expr)
+doMoveParser env =
     moveNameParser
         |> andThen (lookupDefinition env.definitions)
-        |> andThen (actualsParser argumentsOfEnclosingDefinition)
+        |> andThen (actualsParser env)
 
 
-actualsParser : List Argument -> MoveDefinition -> Parser (Move Expr)
-actualsParser argumentsOfEnclosingDefinition moveDefinition =
+actualsParser : ParseEnv -> MoveDefinition -> Parser (Move Expr)
+actualsParser env moveDefinition =
     let
         helper actuals expectedArgs =
             case expectedArgs of
@@ -211,7 +212,7 @@ actualsParser argumentsOfEnclosingDefinition moveDefinition =
 
                 expectedArg :: restExpectedArgs ->
                     (exprParser
-                        argumentsOfEnclosingDefinition
+                        env
                         (Just moveDefinition)
                         expectedArg
                         |. spaces
@@ -226,28 +227,28 @@ actualsParser argumentsOfEnclosingDefinition moveDefinition =
         |= helper [] moveDefinition.args
 
 
-repeatParser : ParseEnv -> List Argument -> Parser (Move Expr)
-repeatParser env arguments =
+repeatParser : ParseEnv -> Parser (Move Expr)
+repeatParser env =
     succeed (\n moves -> Repeat n moves)
         |. keywordRepeat
         |. spaces
-        |= exprParser arguments Nothing { name = "N", kind = KindInt }
+        |= exprParser env Nothing { name = "N", kind = KindInt }
         |. spaces
         |. newline
-        |= movesParser { env | whereAreWe = Embedded } arguments
+        |= movesParser { env | whereAreWe = Embedded }
         |. keywordEnd
 
 
-moveParser : ParseEnv -> List Argument -> Parser (Maybe (Move Expr))
-moveParser env arguments =
+moveParser : ParseEnv -> Parser (Maybe (Move Expr))
+moveParser env =
     succeed (\ignoref p -> ignoref p)
         |= oneOf
             [ (keyword "ignore" |. spaces) |> map (\() -> always Nothing)
             , succeed () |> map (\() -> Just)
             ]
         |= oneOf
-            [ repeatParser env arguments
-            , doMoveParser env arguments
+            [ repeatParser env
+            , doMoveParser env
             ]
 
 
@@ -287,28 +288,8 @@ lookupDefinition definitions moveName =
             succeed d
 
 
-
-{-
-   let
-       actualLen =
-           List.length actualArgs
-
-       expectedLen =
-           List.length args
-   in
-   if expectedLen < actualLen then
-       problem (Problem (Move.signature d ++ ", more arguments then expected"))
-
-   else if actualLen < expectedLen then
-       problem (Problem (Move.signature d ++ ", less arguments then expected"))
-
-   else
-       succeed (Do d actualArgs)
--}
-
-
-movesParser : ParseEnv -> List Argument -> Parser (List (Move Expr))
-movesParser env arguments =
+movesParser : ParseEnv -> Parser (List (Move Expr))
+movesParser env =
     let
         helper result =
             oneOf
@@ -321,7 +302,7 @@ movesParser env arguments =
                             Just move ->
                                 Loop (move :: result)
                     )
-                    |= moveParser env arguments
+                    |= moveParser env
                     |. endOfStatement env
                 , succeed () |> map (\() -> Done (List.reverse result))
                 ]
@@ -400,7 +381,7 @@ definitionParser env =
                         }
                     )
                     |= docParser
-                    |= movesParser { env | whereAreWe = Embedded } args
+                    |= movesParser { env | arguments = args, whereAreWe = Embedded }
                     |. keywordEnd
                     |. endOfStatement env
             )
@@ -411,7 +392,7 @@ definitionsAndMoves env =
     definitionsParser env
         |> andThen
             (\defs ->
-                movesParser { env | definitions = Dict.union defs env.definitions } []
+                movesParser { env | definitions = Dict.union defs env.definitions }
                     |> map (\moves -> ( defs, moves ))
             )
 
@@ -581,9 +562,18 @@ deadEndsToString text deadEnds =
             String.join "\n" (List.map deadEndToString des)
 
 
+{-| Parse a list of definitions and moves as written at the toplevel of a program.
+-}
 parseMoves : Definitions -> String -> Result String { moves : List (Move ExprValue), definitions : Definitions }
 parseMoves primitives text =
-    case run (parser { definitions = primitives, whereAreWe = Toplevel } |. end (Expected EEndOfInput)) text of
+    let
+        env =
+            { definitions = primitives
+            , whereAreWe = Toplevel
+            , arguments = []
+            }
+    in
+    case run (parser env |. end (Expected EEndOfInput)) text of
         Ok m ->
             Ok m
 
