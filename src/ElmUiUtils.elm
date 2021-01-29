@@ -25,7 +25,7 @@ onKey { enter, escape } =
                             succeedIfInteresting enter
 
                         else if key == "Escape" then
-                            succeedIfInteresting enter
+                            succeedIfInteresting escape
 
                         else
                             Decode.fail "Not the enter or escape key"

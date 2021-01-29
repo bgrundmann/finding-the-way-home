@@ -1,7 +1,6 @@
 module Main exposing (main)
 
 import Browser
-import Card
 import Cardician
 import Dict exposing (Dict)
 import Element
@@ -31,7 +30,7 @@ import Html exposing (Html)
 import Image exposing (Image)
 import ImageEditor
 import List
-import Move exposing (ExprValue(..), Move(..), MoveDefinition, MovesOrPrimitive(..))
+import Move exposing (ExprValue(..), Move(..), MoveDefinition, UserDefinedOrPrimitive(..))
 import MoveParser exposing (Definitions)
 import Palette exposing (greenBook, redBook, white)
 import Pile
@@ -52,7 +51,11 @@ type alias ErrorMessage =
 type alias Model =
     { initialImage : ImageEditor.State
     , movesText : String
-    , movesAndDefinitions : Result ErrorMessage { moves : List (Move ExprValue), definitions : Definitions }
+    , movesAndDefinitions :
+        Result ErrorMessage
+            { moves : List (Move ExprValue)
+            , definitions : Definitions
+            }
     , performanceFailure : Maybe Cardician.Error
     , finalImage : Image -- The last successfully computed final Image
     , backwards : Bool
@@ -179,6 +182,7 @@ update msg model =
             ( model, save model )
 
 
+save : Model -> Cmd Msg
 save model =
     Download.string "moves.txt" "text/text" model.movesText
 
@@ -212,7 +216,7 @@ subscriptions _ =
 
 
 topBar : Model -> Element Msg
-topBar model =
+topBar _ =
     row [ spacing 10, padding 10, Background.color greenBook, Font.color white, width fill ]
         [ el [ Font.bold ] (text "Virtual Denis Behr")
         , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Save", onPress = Just Save }

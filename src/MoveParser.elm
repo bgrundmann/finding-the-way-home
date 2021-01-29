@@ -13,7 +13,7 @@ import Move
         , ExprValue(..)
         , Move(..)
         , MoveDefinition
-        , MovesOrPrimitive(..)
+        , UserDefinedOrPrimitive(..)
         )
 import Parser.Advanced
     exposing
@@ -22,7 +22,6 @@ import Parser.Advanced
         , Step(..)
         , Token(..)
         , andThen
-        , chompUntil
         , chompWhile
         , end
         , getChompedString
@@ -372,7 +371,14 @@ definitionParser definitions =
     defLineParser definitions
         |> andThen
             (\{ name, args } ->
-                succeed (\doc moves -> { name = name, args = args, movesOrPrimitive = Moves moves, doc = doc })
+                succeed
+                    (\doc moves ->
+                        { name = name
+                        , args = args
+                        , body = UserDefined { moves = moves, definitions = [] }
+                        , doc = doc
+                        }
+                    )
                     |= docParser
                     |= movesParser definitions args Embedded
                     |. keywordEnd

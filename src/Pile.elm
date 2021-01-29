@@ -1,6 +1,6 @@
 module Pile exposing (Pile, fromString, pileParser, poker_deck, toString)
 
-import Card exposing (Card, Suit(..), Value(..), all_suits, all_values, card, cardParser)
+import Card exposing (Card, Suit(..), Value(..), all_values, card, cardParser)
 import List.Extra
 import Parser exposing ((|.), (|=), Parser, Step(..), loop, map, oneOf, spaces, succeed)
 

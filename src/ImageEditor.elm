@@ -1,13 +1,11 @@
 module ImageEditor exposing (Msg, State, getImage, init, update, view)
 
-import Card
 import Element exposing (Element, column, el, fill, height, row, spacing, text, width)
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import ElmUiUtils exposing (onKey)
 import Image exposing (Image, PileName, view)
-import List.Extra
 import MoveParser exposing (validatePileName)
 import Palette exposing (dangerousButton, regularButton)
 import Pile
@@ -80,7 +78,7 @@ findUnusedName image prefix =
 
 update : Msg -> State -> State
 update msg state =
-    case Debug.log "ImageEditor.update" msg of
+    case msg of
         Delete pileName ->
             { state | image = Image.update pileName (\_ -> Nothing) state.image }
 
@@ -116,8 +114,8 @@ update msg state =
                     state
 
                 EditingPile { pileName, text } ->
-                    case Debug.log "Pile.fromString" <| Pile.fromString text of
-                        Err e ->
+                    case Pile.fromString text of
+                        Err _ ->
                             state
 
                         Ok cards ->
@@ -202,12 +200,11 @@ viewPileNameAndButtons toMsg state pileName =
                                     [ Border.color Palette.redBook ]
                     in
                     Input.text
-                        ([ onKey
+                        (onKey
                             { enter = Save |> toMsg |> Just
                             , escape = Nothing
                             }
-                         ]
-                            ++ maybeWarnColor
+                            :: maybeWarnColor
                         )
                         { label = Input.labelHidden "PileName"
                         , placeholder = Nothing

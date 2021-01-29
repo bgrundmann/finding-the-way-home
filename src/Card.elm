@@ -14,7 +14,6 @@ module Card exposing
 
 import Element exposing (Element, el, text)
 import Element.Font as Font
-import List
 import Parser exposing ((|.), (|=), Parser, map, oneOf, succeed, symbol)
 
 
@@ -217,6 +216,7 @@ cardDesignToString design =
             "G"
 
 
+valueToString : Value -> String
 valueToString v =
     case v of
         Ace ->
@@ -259,6 +259,7 @@ valueToString v =
             "K"
 
 
+suitToString : Suit -> String
 suitToString s =
     case s of
         Clubs ->

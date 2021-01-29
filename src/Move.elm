@@ -5,7 +5,7 @@ module Move exposing
     , ExprValue(..)
     , Move(..)
     , MoveDefinition
-    , MovesOrPrimitive(..)
+    , UserDefinedOrPrimitive(..)
     , backwardsMoves
     , cardicianFromMoves
     , primitives
@@ -32,12 +32,18 @@ type alias MoveDefinition =
     { name : String
     , args : List Argument
     , doc : String
-    , movesOrPrimitive : MovesOrPrimitive
+    , body : UserDefinedOrPrimitive
     }
 
 
-type MovesOrPrimitive
-    = Moves (List (Move Expr))
+type alias UserDefinedMove =
+    { definitions : List MoveDefinition
+    , moves : List (Move Expr)
+    }
+
+
+type UserDefinedOrPrimitive
+    = UserDefined UserDefinedMove
     | Primitive Primitive
 
 
@@ -120,14 +126,14 @@ backwards packValue move =
             Repeat arg (backwardsMoves packValue moves)
 
         Do def exprs ->
-            case ( def.movesOrPrimitive, exprs ) of
+            case ( def.body, exprs ) of
                 ( Primitive Cut, [ n, from, to ] ) ->
                     Do def [ n, to, from ]
 
                 ( Primitive Turnover, [ _ ] ) ->
                     move
 
-                ( Moves moves, _ ) ->
+                ( UserDefined { moves }, _ ) ->
                     let
                         movesWithArguments =
                             substituteArguments packValue exprs moves
@@ -220,7 +226,7 @@ pileArg name =
 
 primitive : String -> List Argument -> Primitive -> MoveDefinition
 primitive name args p =
-    { name = name, args = args, movesOrPrimitive = Primitive p, doc = "" }
+    { name = name, args = args, body = Primitive p, doc = "" }
 
 
 primitiveTurnover : MoveDefinition
@@ -255,9 +261,9 @@ cardician move =
                 Pile _ ->
                     Cardician.fail "Internal error: type checker failed"
 
-        Do { name, movesOrPrimitive, args } actuals ->
-            case movesOrPrimitive of
-                Moves moves ->
+        Do { body } actuals ->
+            case body of
+                UserDefined { moves } ->
                     case substituteArguments identity actuals moves of
                         Err msg ->
                             Cardician.fail ("Internal error: substitution failed " ++ msg)
