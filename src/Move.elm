@@ -10,7 +10,6 @@ module Move exposing
     , backwardsMoves
     , repeatSignature
     , signature
-    , substituteArguments
     )
 
 import Card
@@ -38,7 +37,7 @@ type alias MoveDefinition =
 
 type alias UserDefinedMove =
     { definitions : List MoveDefinition
-    , moves : List (Move Expr)
+    , moves : List Move
     }
 
 
@@ -52,13 +51,18 @@ type Primitive
     | Turnover
 
 
-type Move arg
-    = Repeat arg (List (Move arg))
-    | Do MoveDefinition (List arg)
+type Move
+    = Repeat Expr (List Move)
+    | Do MoveDefinition (List Expr)
 
 
 type Expr
-    = ExprArgument { name : String, ndx : Int, kind : ArgumentKind }
+    = ExprArgument
+        { name : String
+        , ndx : Int -- 0 is first argument
+        , up : Int -- 0 is the definition this is part of, 1 is 1 level up
+        , kind : ArgumentKind
+        }
     | ExprValue ExprValue
 
 
@@ -84,46 +88,11 @@ signature { name, args } =
     name ++ " " ++ String.join " " (args |> List.map .name)
 
 
-{-| Replace Arguments by their values.
-The passed in Array must match the the args Array of the definition
-the list of moves are part of. Or be the empty array.
--}
-substituteArguments : (ExprValue -> a) -> List a -> List (Move Expr) -> Result String (List (Move a))
-substituteArguments packValue actuals moves =
-    let
-        substExpr expr =
-            case expr of
-                ExprArgument { name, ndx } ->
-                    case List.Extra.getAt ndx actuals of
-                        Nothing ->
-                            Err ("Internal error -- couldn't get " ++ name ++ " at " ++ String.fromInt ndx)
-
-                        Just value ->
-                            Ok value
-
-                ExprValue v ->
-                    Ok (packValue v)
-
-        substMove move =
-            case move of
-                Repeat arg rmoves ->
-                    Result.map2 Repeat
-                        (substExpr arg)
-                        (substituteArguments packValue actuals rmoves)
-
-                Do def exprs ->
-                    Result.map (\values -> Do def values)
-                        (List.map substExpr exprs |> Result.Extra.combine)
-    in
-    List.map substMove moves
-        |> Result.Extra.combine
-
-
-backwards : (ExprValue -> a) -> Move a -> Move a
-backwards packValue move =
+backwards : Move -> Move
+backwards move =
     case move of
         Repeat arg moves ->
-            Repeat arg (backwardsMoves packValue moves)
+            Repeat arg (backwardsMoves moves)
 
         Do def exprs ->
             case ( def.body, exprs ) of
@@ -133,24 +102,52 @@ backwards packValue move =
                 ( Primitive Turnover, [ _ ] ) ->
                     move
 
-                ( UserDefined { moves }, _ ) ->
-                    let
-                        movesWithArguments =
-                            substituteArguments packValue exprs moves
-                    in
-                    case movesWithArguments of
-                        Ok mvs ->
-                            -- Using Repeat 1 moves to turn a list of moves into a single move
-                            Repeat (packValue (Int 1)) (backwardsMoves packValue mvs)
-
-                        Err _ ->
-                            move
+                ( UserDefined u, _ ) ->
+                    Do { def | body = UserDefined { u | moves = backwardsMoves u.moves } } exprs
 
                 ( _, _ ) ->
                     -- Can not happen because of the type checker
                     move
 
 
-backwardsMoves : (ExprValue -> a) -> List (Move a) -> List (Move a)
-backwardsMoves packValue moves =
-    List.reverse (List.map (backwards packValue) moves)
+backwardsMoves : List Move -> List Move
+backwardsMoves moves =
+    List.reverse (List.map backwards moves)
+
+
+
+{-
+   {-| Replace Arguments by their values.
+   The passed in Array must match the the args Array of the definition
+   the list of moves are part of. Or be the empty array.
+   -}
+   substituteArguments : (ExprValue -> a) -> List a -> List (Move Expr) -> Result String (List (Move a))
+   substituteArguments packValue actuals moves =
+       let
+           substExpr expr =
+               case expr of
+                   ExprArgument { name, ndx, up } ->
+                       case List.Extra.getAt ndx actuals of
+                           Nothing ->
+                               Err ("Internal error -- couldn't get " ++ name ++ " at " ++ String.fromInt ndx)
+
+                           Just value ->
+                               Ok value
+
+                   ExprValue v ->
+                       Ok (packValue v)
+
+           substMove move =
+               case move of
+                   Repeat arg rmoves ->
+                       Result.map2 Repeat
+                           (substExpr arg)
+                           (substituteArguments packValue actuals rmoves)
+
+                   Do def exprs ->
+                       Result.map (\values -> Do def values)
+                           (List.map substExpr exprs |> Result.Extra.combine)
+       in
+       List.map substMove moves
+           |> Result.Extra.combine
+-}

@@ -17,8 +17,8 @@ import Test exposing (..)
 -- This is the big end to End test.
 
 
-testEndToEnd : String -> { initial : String, final : String, moves : String } -> Test
-testEndToEnd label { initial, final, moves } =
+testEndToEnd : String -> { initial : String, final : String, moves : String, backwards : Bool } -> Test
+testEndToEnd label { initial, final, moves, backwards } =
     test label <|
         \() ->
             let
@@ -51,9 +51,16 @@ testEndToEnd label { initial, final, moves } =
 
                         initialImage =
                             [ ( "deck", initialPile ) ]
+
+                        movesToApply =
+                            if backwards then
+                                Move.backwardsMoves parsedMoves
+
+                            else
+                                parsedMoves
                     in
                     case
-                        Cardician.perform (Eval.cardicianFromMoves parsedMoves) initialImage
+                        Cardician.perform (Eval.cardicianFromMoves movesToApply) initialImage
                             |> Result.mapError .message
                     of
                         Err _ ->
@@ -78,5 +85,12 @@ suite =
             { initial = Pile.poker_deck |> Pile.toString
             , final = mnemonica
             , moves = Tamariz.tamariz
+            , backwards = False
+            }
+        , testEndToEnd "tamariz backwards"
+            { initial = mnemonica
+            , final = Pile.poker_deck |> Pile.toString
+            , moves = Tamariz.tamariz
+            , backwards = True
             }
         ]

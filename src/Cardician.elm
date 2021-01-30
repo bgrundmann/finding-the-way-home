@@ -7,7 +7,8 @@ import Pile exposing (Pile)
 
 
 {-| A Cardician changes the world and computes something else or fails terribly...
-Or with other words a State + Error Monad where the state is the Image.
+Or with other words a Reader + State + Error Monad where the state is the Image,
+and the Reader is for the environment
 -}
 type alias Cardician a =
     Image -> ( Result String a, Image )

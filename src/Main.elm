@@ -55,7 +55,7 @@ type alias Model =
     , movesText : String
     , movesAndDefinitions :
         Result ErrorMessage
-            { moves : List (Move ExprValue)
+            { moves : List Move
             , definitions : Definitions
             }
     , performanceFailure : Maybe Cardician.Error
@@ -91,7 +91,7 @@ ignore move
 """
 
 
-apply : List (Move ExprValue) -> Image -> Result Cardician.Error Image
+apply : List Move -> Image -> Result Cardician.Error Image
 apply moves image =
     Cardician.perform (Eval.cardicianFromMoves moves) image
 
@@ -130,7 +130,11 @@ init _ =
 -}
 parseMoves : Model -> Model
 parseMoves model =
-    { model | movesAndDefinitions = MoveParser.parseMoves primitives model.movesText }
+    { model
+        | movesAndDefinitions =
+            MoveParser.parseMoves primitives model.movesText
+                |> Result.map (\{ definitions, moves } -> { definitions = MoveParser.definitionsFromList definitions, moves = moves })
+    }
 
 
 applyMoves : Model -> Model
@@ -143,7 +147,7 @@ applyMoves model =
             let
                 maybeBackwardsMoves =
                     if model.backwards then
-                        Move.backwardsMoves identity moves
+                        Move.backwardsMoves moves
 
                     else
                         moves
