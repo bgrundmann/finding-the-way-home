@@ -1,6 +1,6 @@
 module Eval exposing (eval)
 
-import EvalResult exposing (EvalResult, reportError)
+import EvalResult exposing (EvalResult, addBacktrace, reportError)
 import Image exposing (Image)
 import List.Extra
 import Move exposing (Expr(..), ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
@@ -57,6 +57,7 @@ evalWithEnv env image move =
                                         result
                     in
                     helper times image
+                        |> addBacktrace loc
 
                 Pile _ ->
                     reportError image "INTERNAL ERROR: Type checker failed"
@@ -69,9 +70,11 @@ evalWithEnv env image move =
             case body of
                 Primitive p ->
                     Primitives.eval image p actualValues
+                        |> addBacktrace loc
 
                 UserDefined { moves } ->
                     evalListWithEnv (actualValues :: env) image moves
+                        |> addBacktrace loc
 
 
 evalListWithEnv : Env -> Image -> List Move -> EvalResult

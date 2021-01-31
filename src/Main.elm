@@ -27,7 +27,9 @@ import Element.Input as Input
 import ElmUiUtils exposing (wrapped)
 import Eval
 import EvalResult exposing (EvalResult)
+import File exposing (File)
 import File.Download as Download
+import File.Select as Select
 import Html exposing (Html)
 import Image exposing (Image)
 import ImageEditor
@@ -37,6 +39,7 @@ import MoveParser exposing (Definitions)
 import Palette exposing (greenBook, redBook, white)
 import Pile
 import Primitives exposing (primitives)
+import Task
 
 
 
@@ -70,6 +73,9 @@ type Msg
     | ImageEditorChanged ImageEditor.Msg
     | ToggleForwardsBackwards
     | Save
+    | SelectLoad
+    | Load File
+    | GotLoad String
 
 
 defaultInfoText : String
@@ -192,6 +198,19 @@ update msg model =
         Save ->
             ( model, save model )
 
+        SelectLoad ->
+            ( model, Select.file [ "text/text" ] Load )
+
+        Load file ->
+            ( model, Task.perform GotLoad (File.toString file) )
+
+        GotLoad content ->
+            ( { model | movesText = content }
+                |> parseMoves
+                |> applyMoves
+            , Cmd.none
+            )
+
 
 save : Model -> Cmd Msg
 save model =
@@ -231,7 +250,7 @@ topBar _ =
     row [ spacing 10, padding 10, Background.color greenBook, Font.color white, width fill ]
         [ el [ Font.bold ] (text "🍺 Virtual Denis Behr")
         , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Save", onPress = Just Save }
-        , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Load", onPress = Nothing }
+        , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Load", onPress = Just SelectLoad }
         ]
 
 
