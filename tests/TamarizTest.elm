@@ -62,7 +62,7 @@ testEndToEnd label { initial, final, moves, backwards } =
                             Eval.eval initialImage movesToApply
                     in
                     case result.error of
-                        Just message ->
+                        Just { message } ->
                             Expect.fail message
 
                         Nothing ->

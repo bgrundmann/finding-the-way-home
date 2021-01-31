@@ -25,6 +25,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Eval
+import EvalResult exposing (EvalResult)
 import File.Download as Download
 import Html exposing (Html)
 import Image exposing (Image)
@@ -90,7 +91,7 @@ ignore move
 """
 
 
-apply : List Move -> Image -> Eval.EvalResult
+apply : List Move -> Image -> EvalResult
 apply moves image =
     Eval.eval image moves
 
@@ -156,10 +157,16 @@ applyMoves model =
             in
             case result.error of
                 Just whyCannotPerform ->
-                    { model | performanceFailure = Just whyCannotPerform, finalImage = result.lastImage }
+                    { model
+                        | performanceFailure = Just whyCannotPerform.message
+                        , finalImage = result.lastImage
+                    }
 
                 Nothing ->
-                    { model | finalImage = result.lastImage, performanceFailure = Nothing }
+                    { model
+                        | finalImage = result.lastImage
+                        , performanceFailure = Nothing
+                    }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )

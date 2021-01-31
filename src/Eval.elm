@@ -1,5 +1,6 @@
-module Eval exposing (EvalResult, eval)
+module Eval exposing (eval)
 
+import EvalResult exposing (EvalResult, reportError)
 import Image exposing (Image)
 import List.Extra
 import Move exposing (Expr(..), ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
@@ -8,12 +9,6 @@ import Primitives
 
 type alias Env =
     List (List ExprValue)
-
-
-type alias EvalResult =
-    { lastImage : Image
-    , error : Maybe String
-    }
 
 
 evalWithEnv : Env -> Image -> Move -> EvalResult
@@ -64,7 +59,7 @@ evalWithEnv env image move =
                     helper times image
 
                 Pile _ ->
-                    { lastImage = image, error = Just "INTERNAL ERROR: Typechecker failure" }
+                    reportError image "INTERNAL ERROR: Type checker failed"
 
         Do loc { body } actuals ->
             let

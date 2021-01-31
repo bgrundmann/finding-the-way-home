@@ -2,6 +2,7 @@ module Primitives exposing (eval, primitiveCut, primitiveTurnover, primitives)
 
 import Card
 import Dict exposing (Dict)
+import EvalResult exposing (EvalResult, reportError)
 import Image exposing (Image, PileName)
 import List.Extra
 import Move
@@ -44,7 +45,7 @@ decodeActuals handlers p actuals =
             handlers.decodingError p
 
 
-eval : Image -> Primitive -> List ExprValue -> { lastImage : Image, error : Maybe String }
+eval : Image -> Primitive -> List ExprValue -> EvalResult
 eval image =
     decodeActuals
         { turnover =
@@ -55,7 +56,7 @@ eval image =
                 in
                 case pile of
                     Nothing ->
-                        { lastImage = image, error = Just ("No pile called " ++ name) }
+                        reportError image ("No pile called " ++ name)
 
                     Just p ->
                         { lastImage = Image.put name (turnover p) newImage, error = Nothing }
@@ -71,7 +72,7 @@ eval image =
                     in
                     case pile of
                         Nothing ->
-                            { lastImage = image, error = Just ("No pile called " ++ from) }
+                            reportError image ("No pile called " ++ from)
 
                         Just cards ->
                             let
@@ -82,9 +83,14 @@ eval image =
                                     List.length topHalf
                             in
                             if actualLen < n then
-                                { lastImage = image
-                                , error = Just ("Only " ++ String.fromInt actualLen ++ " cards in pile " ++ from ++ " , wanted to cut off " ++ String.fromInt n)
-                                }
+                                reportError image
+                                    ("Only "
+                                        ++ String.fromInt actualLen
+                                        ++ " cards in pile "
+                                        ++ from
+                                        ++ " , wanted to cut off "
+                                        ++ String.fromInt n
+                                    )
 
                             else
                                 { lastImage =
@@ -93,7 +99,9 @@ eval image =
                                         |> Image.put to topHalf
                                 , error = Nothing
                                 }
-        , decodingError = \_ -> { lastImage = image, error = Just "Internal error: type checker failed" }
+        , decodingError =
+            \_ ->
+                reportError image "INTERNAL ERROR: type checker failed"
         }
 
 
