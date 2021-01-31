@@ -115,19 +115,19 @@ pileArg name =
     { name = name, kind = KindPile }
 
 
-primitive : String -> List Argument -> Primitive -> MoveDefinition
-primitive name args p =
-    { name = name, args = args, body = Primitive p, doc = "" }
+primitive : String -> List Argument -> Primitive -> String -> MoveDefinition
+primitive name args p doc =
+    { name = name, args = args, body = Primitive p, doc = doc }
 
 
 primitiveTurnover : MoveDefinition
 primitiveTurnover =
-    primitive "turnover" [ pileArg "pile" ] Turnover
+    primitive "turnover" [ pileArg "pile" ] Turnover "turnover pile (what was hidden becomes visible)"
 
 
 primitiveCut : MoveDefinition
 primitiveCut =
-    primitive "cut" [ intArg "N", pileArg "from", pileArg "to" ] Cut
+    primitive "cut" [ intArg "N", pileArg "a", pileArg "b" ] Cut "cut N cards from a to b"
 
 
 primitives : Dict String MoveDefinition

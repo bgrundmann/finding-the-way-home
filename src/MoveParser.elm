@@ -480,11 +480,30 @@ parser env =
 
 gatherDeadEndsByLocation : List DeadEnd -> List { row : Int, col : Int, problems : List Problem }
 gatherDeadEndsByLocation deadEnds =
+    let
+        -- Problem lists are always small, so this is fine
+        -- even so it is quadratic.  Also note that this is
+        -- only the list of problems at the same location
+        dedupProblems problems =
+            case problems of
+                [] ->
+                    []
+
+                [ x ] ->
+                    [ x ]
+
+                x :: xs ->
+                    if List.member x xs then
+                        dedupProblems xs
+
+                    else
+                        x :: dedupProblems xs
+    in
     Dict.Extra.groupBy (\d -> ( d.row, d.col )) deadEnds
         |> Dict.toList
         |> List.map
             (\( ( row, col ), ds ) ->
-                { row = row, col = col, problems = List.map .problem ds }
+                { row = row, col = col, problems = List.map .problem ds |> dedupProblems }
             )
 
 
@@ -538,7 +557,7 @@ deadEndsToString text deadEnds =
                     case argKind of
                         KindInt ->
                             moveSignature
-                                ++ "\n\n"
+                                ++ "\n"
                                 ++ doc
                                 ++ "\n\nI need a number for "
                                 ++ argName
@@ -557,7 +576,7 @@ deadEndsToString text deadEnds =
 
                         KindPile ->
                             moveSignature
-                                ++ "\n\n"
+                                ++ "\n"
                                 ++ doc
                                 ++ "\n\nI need a pilename for "
                                 ++ argName
@@ -603,7 +622,7 @@ deadEndsToString text deadEnds =
                 expectedProblemsString =
                     case List.reverse expectedProblems of
                         [] ->
-                            "\n"
+                            ""
 
                         [ ex ] ->
                             "Expected " ++ expectationToString ex ++ "\n"
@@ -614,7 +633,7 @@ deadEndsToString text deadEnds =
                 otherProblemsString =
                     case otherProblems of
                         [] ->
-                            "\n"
+                            ""
 
                         others ->
                             String.join "\n" (List.map problemToString others)

@@ -256,13 +256,13 @@ view model =
             ImageEditor.view ImageEditorChanged model.initialImage
 
         viewMessage title m =
-            Element.column [ width fill, height (fillPortion 1), spacing 10 ]
+            Element.column [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, spacing 10 ]
                 [ el [ Font.bold, width fill ] (text title)
                 , el [ width fill, height fill, Font.family [ Font.monospace ] ] (text m)
                 ]
 
         viewErrorMessage title error =
-            Element.column [ width fill, height (fillPortion 1), spacing 10 ]
+            Element.column [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, spacing 10 ]
                 [ el [ Font.bold, width fill ] (text title)
                 , el [ width fill, height fill, Font.family [ Font.monospace ] ] (wrapped error)
                 ]
