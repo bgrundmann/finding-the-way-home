@@ -16,7 +16,7 @@ import Move
         , MoveDefinition
         , UserDefinedOrPrimitive(..)
         )
-import MoveParseError exposing (Context, DeadEnd, Expectation(..), Problem(..), deadEndsToString)
+import MoveParseError exposing (Context, DeadEnd, Expectation(..), MoveParseError, Problem(..))
 import Parser.Advanced
     exposing
         ( (|.)
@@ -454,7 +454,7 @@ parser env =
 parseMoves :
     Definitions
     -> String
-    -> Result String { moves : List Move, definitions : List MoveDefinition }
+    -> Result MoveParseError { moves : List Move, definitions : List MoveDefinition }
 parseMoves primitives text =
     let
         env =
@@ -465,7 +465,7 @@ parseMoves primitives text =
             Ok m
 
         Err deadEnds ->
-            Err (deadEndsToString text deadEnds)
+            Err deadEnds
 
 
 {-| Nothing if s is a valid pilename, Just errorMessage otherwise

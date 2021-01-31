@@ -5,6 +5,7 @@ import Eval
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
 import Move
+import MoveParseError exposing (MoveParseError)
 import MoveParser
 import Pile
 import Primitives exposing (primitives)
@@ -29,6 +30,7 @@ testEndToEnd label { initial, final, moves, backwards } =
                                     |> Result.andThen
                                         (\finalPile ->
                                             MoveParser.parseMoves primitives moves
+                                                |> Result.mapError Debug.toString
                                                 |> Result.map
                                                     (\parsedMoves ->
                                                         { initialPile = initialPile
@@ -40,8 +42,8 @@ testEndToEnd label { initial, final, moves, backwards } =
                             )
             in
             case parseResult of
-                Err _ ->
-                    Expect.fail "Parser failed"
+                Err err ->
+                    Expect.fail ("Parser failed: " ++ err)
 
                 Ok { initialPile, finalPile, parsedMoves } ->
                     let

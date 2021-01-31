@@ -35,6 +35,7 @@ import Image exposing (Image)
 import ImageEditor
 import List
 import Move exposing (ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
+import MoveParseError exposing (MoveParseError)
 import MoveParser exposing (Definitions)
 import Palette exposing (greenBook, redBook, white)
 import Pile
@@ -44,13 +45,6 @@ import Task
 
 
 -- MODEL
-
-
-type alias ErrorMessage =
-    String
-
-
-
 -- In backwards mode we display the initial image on the right and evaluate the moves backwards
 
 
@@ -58,7 +52,7 @@ type alias Model =
     { initialImage : ImageEditor.State
     , movesText : String
     , movesAndDefinitions :
-        Result ErrorMessage
+        Result MoveParseError
             { moves : List Move
             , definitions : Definitions
             }
@@ -295,7 +289,10 @@ view model =
                     ( redBook, viewErrorMessage "Failure during performance" message )
 
                 ( Err errorMsg, _ ) ->
-                    ( redBook, viewErrorMessage "That makes no sense" errorMsg )
+                    ( redBook
+                    , viewErrorMessage "That makes no sense"
+                        (MoveParseError.toString model.movesText errorMsg)
+                    )
 
         movesView =
             Element.column [ width fill, height fill, spacing 10 ]

@@ -1,4 +1,4 @@
-module MoveParseError exposing (Context, DeadEnd, Expectation(..), Problem(..), deadEndsToString)
+module MoveParseError exposing (Context, DeadEnd, Expectation(..), MoveParseError, Problem(..), toString)
 
 import Dict
 import Dict.Extra
@@ -9,6 +9,10 @@ import Parser.Advanced
 
 type alias Context =
     ()
+
+
+type alias MoveParseError =
+    List DeadEnd
 
 
 type alias DeadEnd =
@@ -66,8 +70,8 @@ gatherDeadEndsByLocation deadEnds =
             )
 
 
-deadEndsToString : String -> List DeadEnd -> String
-deadEndsToString text deadEnds =
+toString : String -> List DeadEnd -> String
+toString text deadEnds =
     let
         expectationToString ex =
             case ex of

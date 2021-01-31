@@ -4,6 +4,7 @@ import Dict
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
 import Move exposing (ArgumentKind(..), Expr(..), ExprValue(..), Move(..), MoveDefinition, UserDefinedOrPrimitive(..))
+import MoveParseError exposing (MoveParseError)
 import MoveParser
 import Primitives exposing (primitiveCut, primitiveTurnover, primitives)
 import Tamariz
@@ -13,12 +14,12 @@ import Test exposing (..)
 parseOk :
     List MoveDefinition
     -> List Move
-    -> Result String { definitions : List MoveDefinition, moves : List Move }
+    -> Result MoveParseError { definitions : List MoveDefinition, moves : List Move }
     -> Expectation
 parseOk expectedDefinitions expectedMoves result =
     case result of
-        Err msg ->
-            Expect.fail ("Expected ok got parse error:\n" ++ msg)
+        Err err ->
+            Expect.fail ("Expected ok got parse error:\n" ++ Debug.toString err)
 
         Ok res ->
             Expect.all
