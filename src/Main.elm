@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Dict exposing (Dict)
+import Dict
 import Element
     exposing
         ( Element
@@ -30,7 +30,7 @@ import Html exposing (Html)
 import Image exposing (Image)
 import ImageEditor
 import List
-import Move exposing (ExprValue(..), Move(..), MoveDefinition, UserDefinedOrPrimitive(..))
+import Move exposing (ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
 import MoveParser exposing (Definitions)
 import Palette exposing (greenBook, redBook, white)
 import Pile

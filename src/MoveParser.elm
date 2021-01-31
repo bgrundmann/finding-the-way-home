@@ -3,7 +3,6 @@ module MoveParser exposing (Definitions, definitionsFromList, parseMoves, valida
 import Char
 import Dict exposing (Dict)
 import Dict.Extra
-import Image exposing (PileName)
 import List
 import List.Extra
 import Move
@@ -63,7 +62,6 @@ type Problem
         , options : List String
         }
     | DuplicateDefinition String
-    | Problem String
 
 
 type Expectation
@@ -94,7 +92,14 @@ type alias ParseEnv =
     { level : Int -- 0 == toplevel, 1 == first def, ... (note that Argument.up is the other way around)
     , toplevel : Bool
     , definitions : Definitions -- A dictionary of all the moves that are in scope, local and global
-    , arguments : Dict String { level : Int, ndx : Int, kind : ArgumentKind } -- arguments to the current scope
+    , arguments :
+        Dict String
+            { level : Int
+            , ndx : Int
+            , kind : ArgumentKind
+            }
+
+    -- arguments to the current scope
     }
 
 
@@ -153,22 +158,27 @@ toplevelEnv primitives =
     }
 
 
+keywords : Set.Set String
 keywords =
     Set.fromList [ "repeat", "end", "def", "ignore", "doc" ]
 
 
+keyword : String -> Parser ()
 keyword string =
     Parser.Advanced.keyword (Token string (Expected (EKeyword string)))
 
 
+keywordEnd : Parser ()
 keywordEnd =
     keyword "end"
 
 
+keywordDef : Parser ()
 keywordDef =
     keyword "def"
 
 
+keywordRepeat : Parser ()
 keywordRepeat =
     keyword "repeat"
 
@@ -506,9 +516,6 @@ deadEndsToString text deadEnds =
                 UnknownMove n ->
                     "Don't know how to do '" ++ n ++ "'"
 
-                Problem msg ->
-                    msg
-
                 DuplicateDefinition d ->
                     "You already know how to '" ++ d ++ "'"
 
@@ -646,7 +653,7 @@ parseMoves primitives text =
 validatePileName : String -> Maybe String
 validatePileName s =
     case run (pileNameParser (Expected EPileName) |. end (Expected EEndOfInput)) s of
-        Ok res ->
+        Ok _ ->
             Nothing
 
         Err _ ->

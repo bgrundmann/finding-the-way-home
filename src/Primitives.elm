@@ -93,7 +93,7 @@ eval image =
                                         |> Image.put to topHalf
                                 , error = Nothing
                                 }
-        , decodingError = \p -> { lastImage = image, error = Just "Internal error: type checker failed" }
+        , decodingError = \_ -> { lastImage = image, error = Just "Internal error: type checker failed" }
         }
 
 

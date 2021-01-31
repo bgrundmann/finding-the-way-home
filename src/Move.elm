@@ -13,12 +13,8 @@ module Move exposing
     , signature
     )
 
-import Card
-import Dict
 import Image exposing (PileName)
-import List.Extra
 import Pile exposing (Pile)
-import Result.Extra
 
 
 type alias Argument =
