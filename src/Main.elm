@@ -24,6 +24,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
+import ElmUiUtils exposing (wrapped)
 import Eval
 import EvalResult exposing (EvalResult)
 import File.Download as Download
@@ -260,16 +261,22 @@ view model =
                 , el [ width fill, height fill, Font.family [ Font.monospace ] ] (text m)
                 ]
 
+        viewErrorMessage title error =
+            Element.column [ width fill, height (fillPortion 1), spacing 10 ]
+                [ el [ Font.bold, width fill ] (text title)
+                , el [ width fill, height fill, Font.family [ Font.monospace ] ] (wrapped error)
+                ]
+
         ( movesBorderColor, infoText ) =
             case ( model.movesAndDefinitions, model.performanceFailure ) of
                 ( Ok _, Nothing ) ->
                     ( greenBook, viewMessage "Reference" defaultInfoText )
 
                 ( Ok _, Just message ) ->
-                    ( redBook, viewMessage "Failure during performance" message )
+                    ( redBook, viewErrorMessage "Failure during performance" message )
 
                 ( Err errorMsg, _ ) ->
-                    ( redBook, viewMessage "That makes no sense" errorMsg )
+                    ( redBook, viewErrorMessage "That makes no sense" errorMsg )
 
         movesView =
             Element.column [ width fill, height fill, spacing 10 ]
