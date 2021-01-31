@@ -1,4 +1,4 @@
-module Image exposing (Image, PileName, get, names, piles, renamePile, update, view, viewPile)
+module Image exposing (Image, PileName, get, names, piles, put, renamePile, take, update, view, viewPile)
 
 import Card
 import Element exposing (Element, column, el, paragraph, spacing, text, textColumn)
@@ -11,7 +11,7 @@ import Pile exposing (Pile)
 
 -- For a cardician at any given point the Image we present to the audience is just
 -- piles of cards..
--- Each pile has a name
+-- Each pile has a name.
 
 
 type alias PileName =
@@ -32,6 +32,8 @@ piles image =
     image
 
 
+{-| Return the pile with the given Name.
+-}
 get : PileName -> Image -> Maybe Pile
 get pileName image =
     case List.filter (\( n, _ ) -> n == pileName) image of
@@ -40,6 +42,29 @@ get pileName image =
 
         ( _, x ) :: _ ->
             Just x
+
+
+{-| Remove the given pile from the image.
+-}
+take : PileName -> Image -> ( Maybe Pile, Image )
+take pileName image =
+    case List.partition (\( n, _ ) -> n == pileName) image of
+        ( [], newImage ) ->
+            ( Nothing, newImage )
+
+        ( ( _, x ) :: _, newImage ) ->
+            ( Just x, newImage )
+
+
+{-| Put pile on top of the cards in pilename, creating pilename if necessary.
+-}
+put : PileName -> Pile -> Image -> Image
+put pileName pile image =
+    update pileName
+        (\alreadyThere ->
+            Just (pile ++ Maybe.withDefault [] alreadyThere)
+        )
+        image
 
 
 {-| Rename oldname to newname. Does nothing if no pile has oldname.
@@ -67,6 +92,9 @@ update pileName f image =
                         Nothing ->
                             List.reverse res
 
+                        Just [] ->
+                            List.reverse res
+
                         Just newPile ->
                             List.reverse res ++ [ ( pileName, newPile ) ]
 
@@ -74,6 +102,9 @@ update pileName f image =
                     if pN == pileName then
                         case f (Just v) of
                             Nothing ->
+                                List.reverse res ++ ls
+
+                            Just [] ->
                                 List.reverse res ++ ls
 
                             Just newPile ->

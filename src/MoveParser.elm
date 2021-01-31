@@ -12,6 +12,7 @@ import Move
         , ArgumentKind(..)
         , Expr(..)
         , ExprValue(..)
+        , Location
         , Move(..)
         , MoveDefinition
         , UserDefinedOrPrimitive(..)
@@ -252,20 +253,29 @@ exprParser env move expectedArgument =
             pileNameParser argProblem |> andThen (maybeArgument (\n -> succeed (ExprValue (Pile n))))
 
 
+getLocation : Parser Location
+getLocation =
+    Parser.Advanced.getRow |> map (\row -> { row = row })
+
+
 doMoveParser : ParseEnv -> Parser Move
 doMoveParser env =
-    moveNameParser
-        |> andThen (lookupDefinition env.definitions)
-        |> andThen (actualsParser env)
+    getLocation
+        |> andThen
+            (\location ->
+                moveNameParser
+                    |> andThen (lookupDefinition env.definitions)
+                    |> andThen (actualsParser env location)
+            )
 
 
-actualsParser : ParseEnv -> MoveDefinition -> Parser Move
-actualsParser env moveDefinition =
+actualsParser : ParseEnv -> Location -> MoveDefinition -> Parser Move
+actualsParser env location moveDefinition =
     let
         helper actuals expectedArgs =
             case expectedArgs of
                 [] ->
-                    succeed (Do moveDefinition (List.reverse actuals))
+                    succeed (Do location moveDefinition (List.reverse actuals))
 
                 expectedArg :: restExpectedArgs ->
                     (exprParser
@@ -286,7 +296,8 @@ actualsParser env moveDefinition =
 
 repeatParser : ParseEnv -> Parser Move
 repeatParser env =
-    succeed (\n moves -> Repeat n moves)
+    succeed (\location n moves -> Repeat location n moves)
+        |= getLocation
         |. keywordRepeat
         |. spaces
         |= exprParser env Nothing { name = "N", kind = KindInt }

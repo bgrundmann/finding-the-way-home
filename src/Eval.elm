@@ -1,6 +1,6 @@
-module Eval exposing (cardician, cardicianFromMoves)
+module Eval exposing (EvalResult, eval)
 
-import Cardician exposing (Cardician)
+import Image exposing (Image)
 import List.Extra
 import Move exposing (Expr(..), ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
 import Primitives
@@ -10,8 +10,14 @@ type alias Env =
     List (List ExprValue)
 
 
-cardicianWithEnv : Env -> Move -> Cardician ()
-cardicianWithEnv env move =
+type alias EvalResult =
+    { lastImage : Image
+    , error : Maybe String
+    }
+
+
+evalWithEnv : Env -> Image -> Move -> EvalResult
+evalWithEnv env image move =
     let
         replaceArgumentByValue e expr =
             case expr of
@@ -35,81 +41,67 @@ cardicianWithEnv env move =
                             v
     in
     case move of
-        Repeat expr moves ->
+        Repeat loc expr moves ->
             case replaceArgumentByValue env expr of
-                Int n ->
-                    cardicianFromMovesWithEnv env moves
-                        |> List.repeat n
-                        |> List.foldl Cardician.compose (Cardician.return ())
+                Int times ->
+                    let
+                        helper n currentImage =
+                            if n <= 0 then
+                                { lastImage = currentImage, error = Nothing }
+
+                            else
+                                let
+                                    result =
+                                        evalListWithEnv env currentImage moves
+                                in
+                                case result.error of
+                                    Nothing ->
+                                        helper (n - 1) result.lastImage
+
+                                    Just _ ->
+                                        result
+                    in
+                    helper times image
 
                 Pile _ ->
-                    Cardician.fail "Internal error: type checker failed"
+                    { lastImage = image, error = Just "INTERNAL ERROR: Typechecker failure" }
 
-        Do { body } actuals ->
+        Do loc { body } actuals ->
             let
                 actualValues =
                     List.map (replaceArgumentByValue env) actuals
             in
             case body of
                 Primitive p ->
-                    Primitives.cardicianOfPrimitive p actualValues
+                    Primitives.eval image p actualValues
 
                 UserDefined { moves } ->
-                    cardicianFromMovesWithEnv (actualValues :: env) moves
+                    evalListWithEnv (actualValues :: env) image moves
 
 
-cardicianFromMovesWithEnv : Env -> List Move -> Cardician ()
-cardicianFromMovesWithEnv env moves =
-    List.map (cardicianWithEnv env) moves
-        |> List.foldl Cardician.compose (Cardician.return ())
+evalListWithEnv : Env -> Image -> List Move -> EvalResult
+evalListWithEnv env image moves =
+    let
+        helper currentImage remainingMoves =
+            case remainingMoves of
+                [] ->
+                    { lastImage = currentImage, error = Nothing }
+
+                m :: newRemainingMoves ->
+                    let
+                        result =
+                            evalWithEnv env currentImage m
+                    in
+                    case result.error of
+                        Nothing ->
+                            helper result.lastImage newRemainingMoves
+
+                        Just _ ->
+                            result
+    in
+    helper image moves
 
 
-cardicianFromMoves : List Move -> Cardician ()
-cardicianFromMoves moves =
-    cardicianFromMovesWithEnv [] moves
-
-
-cardician : Move -> Cardician ()
-cardician move =
-    cardicianWithEnv [] move
-
-
-
-{-
-
-   {-| Create a cardician who can perform the given moves.
-   -}
-   cardician : Move ExprValue -> Cardician ()
-   cardician move =
-       case move of
-           Repeat nExpr moves ->
-               case nExpr of
-                   Int n ->
-                       cardicianFromMoves moves
-                           |> List.repeat n
-                           |> List.foldl Cardician.compose (Cardician.return ())
-
-                   Pile _ ->
-                       Cardician.fail "Internal error: type checker failed"
-
-           Do { body } actuals ->
-               case body of
-                   UserDefined { moves } ->
-                       -- TODO: Move Move.substituteArguments here
-                       case Move.substituteArguments identity actuals moves of
-                           Err msg ->
-                               Cardician.fail ("Internal error: substitution failed " ++ msg)
-
-                           Ok substitutedMoves ->
-                               cardicianFromMoves substitutedMoves
-
-                   Primitive p ->
-                       Primitives.cardicianOfPrimitive p actuals
-
-
-   cardicianFromMoves : List (Move ExprValue) -> Cardician ()
-   cardicianFromMoves moves =
-       List.map cardician moves
-           |> List.foldl Cardician.compose (Cardician.return ())
-
--}
+eval : Image -> List Move -> EvalResult
+eval image moves =
+    evalListWithEnv [] image moves

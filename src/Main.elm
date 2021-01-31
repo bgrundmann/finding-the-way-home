@@ -1,7 +1,6 @@
 module Main exposing (main)
 
 import Browser
-import Cardician
 import Dict exposing (Dict)
 import Element
     exposing
@@ -58,7 +57,7 @@ type alias Model =
             { moves : List Move
             , definitions : Definitions
             }
-    , performanceFailure : Maybe Cardician.Error
+    , performanceFailure : Maybe String
     , finalImage : Image -- The last successfully computed final Image
     , backwards : Bool
     }
@@ -91,9 +90,9 @@ ignore move
 """
 
 
-apply : List Move -> Image -> Result Cardician.Error Image
+apply : List Move -> Image -> Eval.EvalResult
 apply moves image =
-    Cardician.perform (Eval.cardicianFromMoves moves) image
+    Eval.eval image moves
 
 
 main : Program () Model Msg
@@ -151,13 +150,16 @@ applyMoves model =
 
                     else
                         moves
-            in
-            case apply maybeBackwardsMoves (ImageEditor.getImage model.initialImage) of
-                Err whyCannotPerform ->
-                    { model | performanceFailure = Just whyCannotPerform, finalImage = whyCannotPerform.lastImage }
 
-                Ok i ->
-                    { model | finalImage = i, performanceFailure = Nothing }
+                result =
+                    apply maybeBackwardsMoves (ImageEditor.getImage model.initialImage)
+            in
+            case result.error of
+                Just whyCannotPerform ->
+                    { model | performanceFailure = Just whyCannotPerform, finalImage = result.lastImage }
+
+                Nothing ->
+                    { model | finalImage = result.lastImage, performanceFailure = Nothing }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -256,7 +258,7 @@ view model =
                 ( Ok _, Nothing ) ->
                     ( greenBook, viewMessage "Reference" defaultInfoText )
 
-                ( Ok _, Just { message } ) ->
+                ( Ok _, Just message ) ->
                     ( redBook, viewMessage "Failure during performance" message )
 
                 ( Err errorMsg, _ ) ->

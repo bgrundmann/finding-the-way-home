@@ -1,9 +1,9 @@
-module Primitives exposing (cardicianOfPrimitive, primitiveCut, primitiveTurnover, primitives)
+module Primitives exposing (eval, primitiveCut, primitiveTurnover, primitives)
 
 import Card
-import Cardician exposing (Cardician, andThen, fail)
 import Dict exposing (Dict)
-import Image exposing (PileName)
+import Image exposing (Image, PileName)
+import List.Extra
 import Move
     exposing
         ( Argument
@@ -27,20 +27,6 @@ turnover pile =
     List.reverse (List.map Card.turnover pile)
 
 
-bugInTypeCheckerOrPrimitiveDef : Primitive -> Cardician ()
-bugInTypeCheckerOrPrimitiveDef p =
-    let
-        name =
-            case p of
-                Cut ->
-                    "cut"
-
-                Turnover ->
-                    "turnover"
-    in
-    fail ("Bug in type checker or definition of " ++ name)
-
-
 decodeActuals :
     { turnover : PileName -> a, cut : Int -> PileName -> PileName -> a, decodingError : Primitive -> a }
     -> Primitive
@@ -58,21 +44,56 @@ decodeActuals handlers p actuals =
             handlers.decodingError p
 
 
-cardicianOfPrimitive : Primitive -> List ExprValue -> Cardician ()
-cardicianOfPrimitive =
+eval : Image -> Primitive -> List ExprValue -> { lastImage : Image, error : Maybe String }
+eval image =
     decodeActuals
         { turnover =
             \name ->
-                Cardician.take name
-                    |> andThen
-                        (\cards ->
-                            Cardician.put name (turnover cards)
-                        )
+                let
+                    ( pile, newImage ) =
+                        Image.take name image
+                in
+                case pile of
+                    Nothing ->
+                        { lastImage = image, error = Just ("No pile called " ++ name) }
+
+                    Just p ->
+                        { lastImage = Image.put name (turnover p) newImage, error = Nothing }
         , cut =
             \n from to ->
-                Cardician.cutOff n from
-                    |> andThen (Cardician.put to)
-        , decodingError = bugInTypeCheckerOrPrimitiveDef
+                if n == 0 then
+                    { lastImage = image, error = Nothing }
+
+                else
+                    let
+                        ( pile, imageAfterTake ) =
+                            Image.take from image
+                    in
+                    case pile of
+                        Nothing ->
+                            { lastImage = image, error = Just ("No pile called " ++ from) }
+
+                        Just cards ->
+                            let
+                                ( topHalf, lowerHalf ) =
+                                    List.Extra.splitAt n cards
+
+                                actualLen =
+                                    List.length topHalf
+                            in
+                            if actualLen < n then
+                                { lastImage = image
+                                , error = Just ("Only " ++ String.fromInt actualLen ++ " cards in pile " ++ from ++ " , wanted to cut off " ++ String.fromInt n)
+                                }
+
+                            else
+                                { lastImage =
+                                    imageAfterTake
+                                        |> Image.put from lowerHalf
+                                        |> Image.put to topHalf
+                                , error = Nothing
+                                }
+        , decodingError = \p -> { lastImage = image, error = Just "Internal error: type checker failed" }
         }
 
 

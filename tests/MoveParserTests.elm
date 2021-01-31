@@ -35,7 +35,8 @@ primitivesTests =
             \() ->
                 MoveParser.parseMoves primitives "cut 1 deck table"
                     |> parseOk []
-                        [ Move.Do primitiveCut
+                        [ Move.Do { row = 1 }
+                            primitiveCut
                             [ ExprValue (Int 1)
                             , ExprValue (Pile "deck")
                             , ExprValue (Pile "table")
@@ -44,7 +45,7 @@ primitivesTests =
         , test "turnover" <|
             \() ->
                 MoveParser.parseMoves primitives "turnover deck"
-                    |> parseOk [] [ Move.Do primitiveTurnover [ ExprValue (Pile "deck") ] ]
+                    |> parseOk [] [ Move.Do { row = 1 } primitiveTurnover [ ExprValue (Pile "deck") ] ]
         ]
 
 
@@ -54,13 +55,15 @@ repeatTest =
         \() ->
             MoveParser.parseMoves primitives "repeat 4\n  cut 1 deck table\n\n  turnover table\nend"
                 |> parseOk []
-                    [ Move.Repeat (ExprValue (Int 4))
-                        [ Move.Do primitiveCut
+                    [ Move.Repeat { row = 1 }
+                        (ExprValue (Int 4))
+                        [ Move.Do { row = 2 }
+                            primitiveCut
                             [ ExprValue (Int 1)
                             , ExprValue (Pile "deck")
                             , ExprValue (Pile "table")
                             ]
-                        , Move.Do primitiveTurnover [ ExprValue (Pile "table") ]
+                        , Move.Do { row = 4 } primitiveTurnover [ ExprValue (Pile "table") ]
                         ]
                     ]
 
@@ -78,7 +81,8 @@ defParserTest =
                         UserDefined
                             { definitions = []
                             , moves =
-                                [ Move.Do primitiveCut
+                                [ Move.Do { row = 3 }
+                                    primitiveCut
                                     [ ExprValue (Move.Int 1)
                                     , ExprArgument { kind = KindPile, name = "a", ndx = 0, up = 0 }
                                     , ExprArgument { kind = KindPile, name = "b", ndx = 1, up = 0 }
@@ -104,7 +108,8 @@ nestedDefUsingOuterTest =
                         UserDefined
                             { definitions = []
                             , moves =
-                                [ Move.Do primitiveCut
+                                [ Move.Do { row = 4 }
+                                    primitiveCut
                                     [ ExprValue (Move.Int 1)
                                     , ExprArgument { kind = KindPile, name = "a", ndx = 0, up = 1 }
                                     , ExprArgument { kind = KindPile, name = "b", ndx = 1, up = 1 }
@@ -123,7 +128,7 @@ nestedDefUsingOuterTest =
                                 [ nestedX
                                 ]
                             , moves =
-                                [ Move.Do nestedX []
+                                [ Move.Do { row = 6 } nestedX []
                                 ]
                             }
                     }
@@ -145,7 +150,8 @@ nestedDefVariablesTest =
                         UserDefined
                             { definitions = []
                             , moves =
-                                [ Move.Do primitiveCut
+                                [ Move.Do { row = 4 }
+                                    primitiveCut
                                     [ ExprValue (Move.Int 1)
                                     , ExprArgument { kind = KindPile, name = "a", ndx = 0, up = 0 }
                                     , ExprArgument { kind = KindPile, name = "b", ndx = 1, up = 1 }
@@ -164,7 +170,8 @@ nestedDefVariablesTest =
                                 [ nestedX
                                 ]
                             , moves =
-                                [ Move.Do nestedX
+                                [ Move.Do { row = 6 }
+                                    nestedX
                                     [ ExprArgument { kind = KindPile, name = "b", ndx = 1, up = 0 }
                                     ]
                                 ]

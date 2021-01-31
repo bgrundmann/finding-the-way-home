@@ -3,6 +3,7 @@ module Move exposing
     , ArgumentKind(..)
     , Expr(..)
     , ExprValue(..)
+    , Location
     , Move(..)
     , MoveDefinition
     , Primitive(..)
@@ -13,7 +14,6 @@ module Move exposing
     )
 
 import Card
-import Cardician exposing (Cardician, andThen, fail)
 import Dict
 import Image exposing (PileName)
 import List.Extra
@@ -41,6 +41,10 @@ type alias UserDefinedMove =
     }
 
 
+type alias Location =
+    { row : Int }
+
+
 type UserDefinedOrPrimitive
     = UserDefined UserDefinedMove
     | Primitive Primitive
@@ -52,8 +56,8 @@ type Primitive
 
 
 type Move
-    = Repeat Expr (List Move)
-    | Do MoveDefinition (List Expr)
+    = Repeat Location Expr (List Move)
+    | Do Location MoveDefinition (List Expr)
 
 
 type Expr
@@ -91,19 +95,19 @@ signature { name, args } =
 backwards : Move -> Move
 backwards move =
     case move of
-        Repeat arg moves ->
-            Repeat arg (backwardsMoves moves)
+        Repeat loc arg moves ->
+            Repeat loc arg (backwardsMoves moves)
 
-        Do def exprs ->
+        Do loc def exprs ->
             case ( def.body, exprs ) of
                 ( Primitive Cut, [ n, from, to ] ) ->
-                    Do def [ n, to, from ]
+                    Do loc def [ n, to, from ]
 
                 ( Primitive Turnover, [ _ ] ) ->
                     move
 
                 ( UserDefined u, _ ) ->
-                    Do { def | body = UserDefined { u | moves = backwardsMoves u.moves } } exprs
+                    Do loc { def | body = UserDefined { u | moves = backwardsMoves u.moves } } exprs
 
                 ( _, _ ) ->
                     -- Can not happen because of the type checker
@@ -113,41 +117,3 @@ backwards move =
 backwardsMoves : List Move -> List Move
 backwardsMoves moves =
     List.reverse (List.map backwards moves)
-
-
-
-{-
-   {-| Replace Arguments by their values.
-   The passed in Array must match the the args Array of the definition
-   the list of moves are part of. Or be the empty array.
-   -}
-   substituteArguments : (ExprValue -> a) -> List a -> List (Move Expr) -> Result String (List (Move a))
-   substituteArguments packValue actuals moves =
-       let
-           substExpr expr =
-               case expr of
-                   ExprArgument { name, ndx, up } ->
-                       case List.Extra.getAt ndx actuals of
-                           Nothing ->
-                               Err ("Internal error -- couldn't get " ++ name ++ " at " ++ String.fromInt ndx)
-
-                           Just value ->
-                               Ok value
-
-                   ExprValue v ->
-                       Ok (packValue v)
-
-           substMove move =
-               case move of
-                   Repeat arg rmoves ->
-                       Result.map2 Repeat
-                           (substExpr arg)
-                           (substituteArguments packValue actuals rmoves)
-
-                   Do def exprs ->
-                       Result.map (\values -> Do def values)
-                           (List.map substExpr exprs |> Result.Extra.combine)
-       in
-       List.map substMove moves
-           |> Result.Extra.combine
--}

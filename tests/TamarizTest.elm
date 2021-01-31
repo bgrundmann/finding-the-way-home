@@ -1,6 +1,5 @@
 module TamarizTest exposing (..)
 
-import Cardician
 import Dict
 import Eval
 import Expect exposing (Expectation)
@@ -58,16 +57,16 @@ testEndToEnd label { initial, final, moves, backwards } =
 
                             else
                                 parsedMoves
-                    in
-                    case
-                        Cardician.perform (Eval.cardicianFromMoves movesToApply) initialImage
-                            |> Result.mapError .message
-                    of
-                        Err _ ->
-                            Expect.fail "Performance failed"
 
-                        Ok finalImage ->
-                            Expect.equal expectedFinalImage finalImage
+                        result =
+                            Eval.eval initialImage movesToApply
+                    in
+                    case result.error of
+                        Just message ->
+                            Expect.fail message
+
+                        Nothing ->
+                            Expect.equal expectedFinalImage result.lastImage
 
 
 mnemonica : String
