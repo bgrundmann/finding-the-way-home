@@ -24,6 +24,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
+import Element.Lazy
 import ElmUiUtils exposing (wrapped)
 import Eval
 import EvalResult exposing (EvalResult)
@@ -239,8 +240,8 @@ subscriptions _ =
 -- VIEW
 
 
-topBar : Model -> Element Msg
-topBar _ =
+topBar : Element Msg
+topBar =
     row [ spacing 10, padding 10, Background.color greenBook, Font.color white, width fill ]
         [ el [ Font.bold ] (text "🍺 Virtual Denis Behr")
         , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Save", onPress = Just Save }
@@ -266,7 +267,7 @@ view model =
                 }
 
         initialImageView =
-            ImageEditor.view ImageEditorChanged model.initialImage
+            Element.Lazy.lazy2 ImageEditor.view ImageEditorChanged model.initialImage
 
         viewMessage title m =
             Element.column [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, spacing 10 ]
@@ -316,7 +317,7 @@ view model =
                 ]
 
         finalImageView =
-            el [ width fill, height fill ] (Image.view (\t -> el [ Font.bold ] (text t)) model.finalImage)
+            el [ width fill, height fill ] (Element.Lazy.lazy2 Image.view (\t -> el [ Font.bold ] (text t)) model.finalImage)
 
         mainElements =
             if model.backwards then
@@ -327,7 +328,7 @@ view model =
     in
     Element.layout [ width fill, height fill ] <|
         column [ width fill, height fill ]
-            [ topBar model
+            [ topBar
             , Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]
                 [ Element.row [ spacing 20, width fill, height fill ]
                     mainElements
