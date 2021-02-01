@@ -145,11 +145,10 @@ view source deadEnds =
                                                 row [] [ text " or ", mono x ]
 
                                             l ->
-                                                row []
-                                                    [ text " or one of "
-                                                    , paragraph []
-                                                        (l |> List.map mono |> List.intersperse (text ", "))
-                                                    ]
+                                                paragraph [ spacing 5 ]
+                                                    (text " or one of "
+                                                        :: (l |> List.map mono |> List.intersperse (text ", "))
+                                                    )
                                         ]
                                     ]
                                 ]
@@ -162,10 +161,18 @@ view source deadEnds =
                                     ]
                                 , column [ spacing 5 ]
                                     [ row [] [ text "I need a pilename for ", mono argName ]
-                                    , row []
-                                        [ text "These are the piles I know about: "
-                                        , paragraph [] (options |> List.map mono |> List.intersperse (text ", "))
-                                        ]
+                                    , case options of
+                                        [] ->
+                                            Element.none
+
+                                        piles ->
+                                            paragraph [ spacing 5 ]
+                                                (text "These are the piles I know about: "
+                                                    :: (piles
+                                                            |> List.map mono
+                                                            |> List.intersperse (text ", ")
+                                                       )
+                                                )
                                     ]
                                 ]
 
