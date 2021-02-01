@@ -3,6 +3,7 @@ module Image exposing (Image, PileName, get, names, piles, put, renamePile, take
 import Card
 import Element exposing (Element, column, el, paragraph, spacing, text, textColumn)
 import Element.Font as Font
+import Element.Keyed
 import List
 import List.Extra exposing (greedyGroupsOf)
 import Pile exposing (Pile)
@@ -136,5 +137,5 @@ viewPile pile =
 
 view : (String -> Element msg) -> Image -> Element msg
 view viewPileName world =
-    column [ spacing 10 ]
-        (List.map (\( name, pile ) -> column [] [ viewPileName name, viewPile pile ]) world)
+    Element.Keyed.column [ spacing 10 ]
+        (List.map (\( name, pile ) -> ( name, column [] [ viewPileName name, viewPile pile ] )) world)
