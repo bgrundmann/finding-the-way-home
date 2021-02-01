@@ -2,9 +2,8 @@ module MoveParseError exposing (Context, DeadEnd, Expectation(..), MoveParseErro
 
 import Dict
 import Dict.Extra
-import Element exposing (Element, column, el, fill, height, paragraph, row, spacing, text, width)
+import Element exposing (Element, column, el, fill, height, paragraph, row, spacing, text, textColumn, width)
 import Element.Font as Font
-import ElmUiUtils exposing (wrapped, wrappedWithIndent)
 import List.Extra
 import Move exposing (ArgumentKind(..), MoveDefinition)
 import Parser.Advanced
@@ -24,7 +23,7 @@ type alias DeadEnd =
 
 type Problem
     = UnknownMove String
-    | NoSuchArgument String
+    | NoSuchArgument { name : String, kind : ArgumentKind }
     | Expected Expectation
     | ExpectedForArgument
         { move : Maybe MoveDefinition -- Nothing => Repeat
@@ -111,8 +110,28 @@ view source deadEnds =
                 Expected ex ->
                     row [] [ text "Expected ", viewExpectation ex ]
 
-                NoSuchArgument name ->
-                    row [] [ mono name, text " ", wrapped "looks like an argument, but no such argument was defined" ]
+                NoSuchArgument { name, kind } ->
+                    case kind of
+                        KindInt ->
+                            paragraph [ spacing 5, width fill ]
+                                [ mono name
+                                , text " looks like a number argument, but no such argument was defined"
+                                ]
+
+                        KindPile ->
+                            textColumn [ spacing 20, width fill ]
+                                [ paragraph [ spacing 5, width fill ]
+                                    [ text "There is neither an argument nor a temporary pile called "
+                                    , mono name
+                                    , text "."
+                                    ]
+                                , paragraph [ spacing 5, width fill ]
+                                    [ text
+                                        """Note that inside a definition you cannot refer to a pile directly.
+                                   Everything must either be an argument to the definition or be
+                                   explicitly defined as a temporary."""
+                                    ]
+                                ]
 
                 ExpectedForArgument { move, argName, argKind, options } ->
                     let
@@ -126,53 +145,54 @@ view source deadEnds =
                     in
                     case argKind of
                         KindInt ->
-                            column [ spacing 20 ]
-                                [ column [ spacing 5 ]
+                            column [ spacing 20, width fill ]
+                                [ column [ spacing 5, width fill ]
                                     [ mono moveSignature
-                                    , text doc
+                                    , paragraph [ width fill, spacing 5 ] [ text doc ]
                                     ]
-                                , column [ spacing 5 ]
-                                    [ row [] [ text "I need a number for ", mono argName ]
-                                    , row []
-                                        [ text "Type the number (e.g. "
-                                        , mono "52"
-                                        , text ")"
-                                        , case options of
-                                            [] ->
-                                                Element.none
+                                , column [ spacing 5, width fill ]
+                                    [ paragraph [ spacing 5, width fill ]
+                                        [ text "I need a number for ", mono argName ]
+                                    , paragraph [ spacing 5, width fill ]
+                                        (text "Type the number (e.g. "
+                                            :: mono "52"
+                                            :: text ")"
+                                            :: (case options of
+                                                    [] ->
+                                                        []
 
-                                            [ x ] ->
-                                                row [] [ text " or ", mono x ]
+                                                    [ x ] ->
+                                                        [ text " or ", mono x ]
 
-                                            l ->
-                                                paragraph [ spacing 5 ]
-                                                    (text " or one of "
-                                                        :: (l |> List.map mono |> List.intersperse (text ", "))
-                                                    )
-                                        ]
+                                                    l ->
+                                                        text " or one of "
+                                                            :: (l |> List.map mono |> List.intersperse (text ", "))
+                                               )
+                                        )
                                     ]
                                 ]
 
                         KindPile ->
-                            column [ spacing 20 ]
-                                [ column [ spacing 5 ]
+                            column [ spacing 20, width fill ]
+                                [ column [ spacing 5, width fill ]
                                     [ mono moveSignature
-                                    , text doc
+                                    , paragraph [ width fill, spacing 5 ] [ text doc ]
                                     ]
-                                , column [ spacing 5 ]
-                                    [ row [] [ text "I need a pilename for ", mono argName ]
-                                    , case options of
-                                        [] ->
-                                            Element.none
+                                , column [ spacing 5, width fill ]
+                                    [ paragraph [ spacing 5, width fill ]
+                                        [ text "I need a pilename for ", mono argName ]
+                                    , paragraph [ spacing 5, width fill ]
+                                        (case options of
+                                            [] ->
+                                                []
 
-                                        piles ->
-                                            paragraph [ spacing 5 ]
-                                                (text "These are the piles I know about: "
+                                            piles ->
+                                                text "These are the piles I know about: "
                                                     :: (piles
                                                             |> List.map mono
                                                             |> List.intersperse (text ", ")
                                                        )
-                                                )
+                                        )
                                     ]
                                 ]
 
@@ -183,7 +203,11 @@ view source deadEnds =
 
                 Just line ->
                     el [ Font.family [ Font.monospace ] ]
-                        (wrappedWithIndent (line ++ "\n" ++ String.repeat (col - 1) " " ++ "^"))
+                        (column [ spacing 5 ]
+                            [ text line
+                            , text (String.repeat (col - 1) " " ++ "^")
+                            ]
+                        )
 
         viewDeadEnd deadEnd =
             let

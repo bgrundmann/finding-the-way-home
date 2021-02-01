@@ -13,6 +13,7 @@ import Element
         , minimum
         , mouseOver
         , padding
+        , paragraph
         , row
         , scale
         , scrollbarY
@@ -25,7 +26,6 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Element.Lazy
-import ElmUiUtils exposing (wrapped)
 import Eval
 import EvalResult exposing (EvalResult)
 import File exposing (File)
@@ -289,7 +289,7 @@ view model =
                 ( Ok _, Just message ) ->
                     ( redBook
                     , viewErrorMessage "Failure during performance"
-                        (el [ Font.family [ Font.monospace ] ] (wrapped message))
+                        (el [ Font.family [ Font.monospace ] ] (paragraph [ spacing 5 ] [ text message ]))
                     )
 
                 ( Err errorMsg, _ ) ->

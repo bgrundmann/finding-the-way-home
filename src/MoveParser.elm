@@ -68,6 +68,7 @@ type alias ParseEnv =
             { level : Int
             , ndx : Int
             , kind : ArgumentKind
+            , isTemporary : Bool
             }
 
     -- arguments to the current scope
@@ -79,12 +80,14 @@ addDefinition env md =
     { env | definitions = Dict.insert md.name md env.definitions }
 
 
-lookupArgument : ParseEnv -> String -> Maybe { name : String, ndx : Int, up : Int, kind : ArgumentKind }
+{-| Lookup arguments. In the case of PileNames this will also lookup temporary piles.
+-}
+lookupArgument : ParseEnv -> String -> Maybe { name : String, ndx : Int, up : Int, kind : ArgumentKind, isTemporary : Bool }
 lookupArgument env name =
     Dict.get name env.arguments
         |> Maybe.map
-            (\{ level, ndx, kind } ->
-                { name = name, ndx = ndx, up = env.level - level, kind = kind }
+            (\{ level, ndx, kind, isTemporary } ->
+                { name = name, ndx = ndx, up = env.level - level, kind = kind, isTemporary = isTemporary }
             )
 
 
@@ -95,8 +98,8 @@ argumentsInScopeOfKind env kind =
         |> List.map Tuple.first
 
 
-enterDefinition : ParseEnv -> List { name : String, kind : ArgumentKind } -> ParseEnv
-enterDefinition env arguments =
+enterDefinition : ParseEnv -> List { name : String, kind : ArgumentKind } -> List String -> ParseEnv
+enterDefinition env arguments temporaries =
     let
         thisLevel =
             env.level + 1
@@ -104,13 +107,21 @@ enterDefinition env arguments =
         localArguments =
             List.indexedMap
                 (\ndx { name, kind } ->
-                    ( name, { kind = kind, ndx = ndx, level = thisLevel } )
+                    ( name, { kind = kind, ndx = ndx, level = thisLevel, isTemporary = False } )
                 )
                 arguments
                 |> Dict.fromList
 
+        localTemporaries =
+            List.indexedMap
+                (\ndx name ->
+                    ( name, { kind = KindPile, ndx = ndx, level = thisLevel, isTemporary = True } )
+                )
+                temporaries
+                |> Dict.fromList
+
         newArguments =
-            Dict.union localArguments env.arguments
+            Dict.union localTemporaries (Dict.union localArguments env.arguments)
     in
     { env | arguments = newArguments, level = thisLevel, toplevel = False }
 
@@ -210,28 +221,43 @@ exprParser env move expectedArgument =
                     whenNot name
 
                 Just arg ->
-                    succeed (ExprArgument arg)
+                    if arg.isTemporary then
+                        succeed (ExprTemporaryPile { name = arg.name, ndx = arg.ndx, up = arg.up })
 
-        enclosingArgumentsOfTheRightKind =
-            argumentsInScopeOfKind env expectedArgument.kind
+                    else
+                        succeed (ExprArgument { name = arg.name, ndx = arg.ndx, up = arg.up, kind = arg.kind })
 
         argProblem =
             ExpectedForArgument
                 { move = move
                 , argName = expectedArgument.name
                 , argKind = expectedArgument.kind
-                , options = enclosingArgumentsOfTheRightKind
+                , options = argumentsInScopeOfKind env expectedArgument.kind
                 }
     in
     case expectedArgument.kind of
         KindInt ->
             oneOf
                 [ int argProblem argProblem |> map (\i -> ExprValue (Int i))
-                , numberNameParser argProblem |> andThen (maybeArgument (\n -> problem (NoSuchArgument n)))
+                , numberNameParser argProblem
+                    |> andThen
+                        (maybeArgument
+                            (\n ->
+                                problem (NoSuchArgument { name = n, kind = KindInt })
+                            )
+                        )
                 ]
 
         KindPile ->
-            pileNameParser argProblem |> andThen (maybeArgument (\n -> succeed (ExprValue (Pile n))))
+            let
+                whenNot pileName =
+                    if env.level == 0 then
+                        succeed (ExprValue (Pile pileName))
+
+                    else
+                        problem (NoSuchArgument { kind = KindPile, name = pileName })
+            in
+            pileNameParser argProblem |> andThen (maybeArgument whenNot)
 
 
 getLocation : Parser Location
@@ -409,25 +435,55 @@ docParser =
             ]
 
 
+defineTemporaryPilesParser : Parser (List String)
+defineTemporaryPilesParser =
+    let
+        temporariesHelper res =
+            oneOf
+                [ succeed (\pile -> Loop (pile :: res))
+                    |= pileNameParser (Expected EPileName)
+                    |. spaces
+                , succeed () |> map (\() -> Done (List.reverse res))
+                ]
+    in
+    succeed identity
+        |. spaces
+        |= oneOf
+            [ succeed identity
+                |. keyword "temp"
+                |. spaces
+                |= loop [] temporariesHelper
+                |. newline
+            , succeed () |> map (always [])
+            ]
+
+
 definitionParser : ParseEnv -> Parser MoveDefinition
 definitionParser env =
-    defLineParser env
+    (succeed
+        (\{ name, args } doc temporaryPiles ->
+            { name = name, args = args, doc = doc, temporaryPiles = temporaryPiles }
+        )
+        |= defLineParser env
+        |= docParser
+        |= defineTemporaryPilesParser
+    )
         |> andThen
-            (\{ name, args } ->
+            (\{ name, args, doc, temporaryPiles } ->
                 succeed
-                    (\doc ( definitions, moves ) ->
+                    (\( definitions, moves ) ->
                         { name = name
                         , args = args
                         , body =
                             UserDefined
                                 { moves = moves
                                 , definitions = definitions
+                                , temporaryPiles = temporaryPiles
                                 }
                         , doc = doc
                         }
                     )
-                    |= docParser
-                    |= definitionsAndMoves (enterDefinition env args)
+                    |= definitionsAndMoves (enterDefinition env args temporaryPiles)
                     |. keywordEnd
                     |. endOfStatement env
             )

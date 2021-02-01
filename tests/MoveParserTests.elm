@@ -81,6 +81,7 @@ defParserTest =
                     , body =
                         UserDefined
                             { definitions = []
+                            , temporaryPiles = []
                             , moves =
                                 [ Move.Do { row = 3 }
                                     primitiveCut
@@ -96,6 +97,44 @@ defParserTest =
                 |> parseOk [ expected ] []
 
 
+defTemporary : Test
+defTemporary =
+    test "definition with a temporary" <|
+        \() ->
+            let
+                expected =
+                    { name = "studdeal"
+                    , args = [ { kind = KindPile, name = "a" }, { kind = KindPile, name = "b" } ]
+                    , doc = "Stud deal a card"
+                    , body =
+                        UserDefined
+                            { definitions = []
+                            , temporaryPiles = [ "t" ]
+                            , moves =
+                                [ Move.Do { row = 4 }
+                                    primitiveCut
+                                    [ ExprValue (Move.Int 1)
+                                    , ExprArgument { kind = KindPile, name = "a", ndx = 0, up = 0 }
+                                    , ExprTemporaryPile { name = "t", ndx = 0, up = 0 }
+                                    ]
+                                , Move.Do { row = 5 }
+                                    primitiveTurnover
+                                    [ ExprTemporaryPile { name = "t", ndx = 0, up = 0 }
+                                    ]
+                                , Move.Do { row = 6 }
+                                    primitiveCut
+                                    [ ExprValue (Move.Int 1)
+                                    , ExprTemporaryPile { name = "t", ndx = 0, up = 0 }
+                                    , ExprArgument { kind = KindPile, name = "b", ndx = 1, up = 0 }
+                                    ]
+                                ]
+                            }
+                    }
+            in
+            MoveParser.parseMoves primitives "def studdeal a b\ndoc Stud deal a card\ntemp t\ncut 1 a t\nturnover t\ncut 1 t b\nend"
+                |> parseOk [ expected ] []
+
+
 nestedDefUsingOuterTest : Test
 nestedDefUsingOuterTest =
     test "nested def using outer def" <|
@@ -108,6 +147,7 @@ nestedDefUsingOuterTest =
                     , body =
                         UserDefined
                             { definitions = []
+                            , temporaryPiles = []
                             , moves =
                                 [ Move.Do { row = 4 }
                                     primitiveCut
@@ -128,6 +168,7 @@ nestedDefUsingOuterTest =
                             { definitions =
                                 [ nestedX
                                 ]
+                            , temporaryPiles = []
                             , moves =
                                 [ Move.Do { row = 6 } nestedX []
                                 ]
@@ -150,6 +191,7 @@ nestedDefVariablesTest =
                     , body =
                         UserDefined
                             { definitions = []
+                            , temporaryPiles = []
                             , moves =
                                 [ Move.Do { row = 4 }
                                     primitiveCut
@@ -170,6 +212,7 @@ nestedDefVariablesTest =
                             { definitions =
                                 [ nestedX
                                 ]
+                            , temporaryPiles = []
                             , moves =
                                 [ Move.Do { row = 6 }
                                     nestedX

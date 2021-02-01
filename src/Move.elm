@@ -23,6 +23,30 @@ type alias Argument =
     }
 
 
+{-| A Move definition has the following elements.
+
+def <name> <pilearg>|<NUMBERARG>...
+[doc Documentation string...]
+<nested def1>
+<nested def2>
+...
+<move1>
+<move2>
+...
+end
+
+Inside a definition one can not use pile names directly. Only
+
+  - The arguments to this definition
+  - If this is a nested definition, the arguments to the enclosing definitions
+    unless they are shadowed
+  - Temporary piles. Those are piles whose names start with temp.
+    When a definition is executed, temporary pile Names are guaranteed to be
+    unique to the execution. Furthermore it is a checked runtime error for
+    the execution to finish but the temporary pile to still exist (e.g.
+    contain more than 0 cards).
+
+-}
 type alias MoveDefinition =
     { name : String
     , args : List Argument
@@ -33,6 +57,7 @@ type alias MoveDefinition =
 
 type alias UserDefinedMove =
     { definitions : List MoveDefinition
+    , temporaryPiles : List String
     , moves : List Move
     }
 
@@ -63,6 +88,7 @@ type Expr
         , up : Int -- 0 is the definition this is part of, 1 is 1 level up
         , kind : ArgumentKind
         }
+    | ExprTemporaryPile { name : String, ndx : Int, up : Int }
     | ExprValue ExprValue
 
 

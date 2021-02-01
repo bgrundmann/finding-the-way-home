@@ -7,8 +7,14 @@ import Move exposing (Expr(..), ExprValue(..), Move(..), UserDefinedOrPrimitive(
 import Primitives
 
 
+{-| The Evaluation environment.
+The names used by the temporary piles are of this form:
+<increasing global integer>-<name-as-used-in-source>
+-}
 type alias Env =
-    List (List ExprValue)
+    { scoped : List { actuals : List ExprValue, temporaryPiles : List String }
+    , tempCounter : Int
+    }
 
 
 evalWithEnv : Env -> Image -> Move -> EvalResult
@@ -19,13 +25,29 @@ evalWithEnv env image move =
                 ExprValue v ->
                     v
 
+                ExprTemporaryPile { up, ndx } ->
+                    let
+                        value =
+                            List.Extra.getAt up e.scoped
+                                |> Maybe.andThen
+                                    (\{ temporaryPiles } ->
+                                        List.Extra.getAt ndx temporaryPiles
+                                    )
+                    in
+                    case value of
+                        Nothing ->
+                            Pile "INTERNAL ERROR"
+
+                        Just v ->
+                            Pile v
+
                 ExprArgument { up, ndx } ->
                     let
                         value =
-                            List.Extra.getAt up e
+                            List.Extra.getAt up e.scoped
                                 |> Maybe.andThen
-                                    (\args ->
-                                        List.Extra.getAt ndx args
+                                    (\{ actuals } ->
+                                        List.Extra.getAt ndx actuals
                                     )
                     in
                     case value of
@@ -72,8 +94,30 @@ evalWithEnv env image move =
                     Primitives.eval image p actualValues
                         |> addBacktrace loc
 
-                UserDefined { moves } ->
-                    evalListWithEnv (actualValues :: env) image moves
+                UserDefined { moves, temporaryPiles } ->
+                    let
+                        actualTemporaryPiles =
+                            List.indexedMap
+                                (\ndx tempPile ->
+                                    String.fromInt (ndx + env.tempCounter) ++ "-" ++ tempPile
+                                )
+                                temporaryPiles
+
+                        newTempCounter =
+                            env.tempCounter + List.length temporaryPiles
+
+                        newScoped =
+                            { actuals = actualValues, temporaryPiles = actualTemporaryPiles } :: env.scoped
+
+                        result =
+                            evalListWithEnv
+                                { tempCounter = newTempCounter
+                                , scoped = newScoped
+                                }
+                                image
+                                moves
+                    in
+                    result
                         |> addBacktrace loc
 
 
@@ -102,4 +146,4 @@ evalListWithEnv env image moves =
 
 eval : Image -> List Move -> EvalResult
 eval image moves =
-    evalListWithEnv [] image moves
+    evalListWithEnv { tempCounter = 0, scoped = [] } image moves
