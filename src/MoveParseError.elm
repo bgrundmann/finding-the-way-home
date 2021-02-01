@@ -1,7 +1,10 @@
-module MoveParseError exposing (Context, DeadEnd, Expectation(..), MoveParseError, Problem(..), toString)
+module MoveParseError exposing (Context, DeadEnd, Expectation(..), MoveParseError, Problem(..), view)
 
 import Dict
 import Dict.Extra
+import Element exposing (Element, column, el, fill, height, paragraph, row, spacing, text, width)
+import Element.Font as Font
+import ElmUiUtils exposing (wrapped, wrappedWithIndent)
 import List.Extra
 import Move exposing (ArgumentKind(..), MoveDefinition)
 import Parser.Advanced
@@ -70,42 +73,46 @@ gatherDeadEndsByLocation deadEnds =
             )
 
 
-toString : String -> List DeadEnd -> String
-toString text deadEnds =
+mono s =
+    el [ Font.family [ Font.monospace ] ] (text s)
+
+
+view : String -> List DeadEnd -> Element msg
+view source deadEnds =
     let
-        expectationToString ex =
+        viewExpectation ex =
             case ex of
                 EKeyword s ->
-                    "'" ++ s ++ "'"
+                    mono s
 
                 EPileName ->
-                    "a pile name (e.g. deck)"
+                    row [] [ text "a pile name (e.g. ", mono "deck", text ")" ]
 
                 ENumberName ->
-                    "a number name (e.g. N)"
+                    row [] [ text "a number name (e.g. ", mono "N", text ")" ]
 
                 EEndOfLine ->
-                    "the next line"
+                    text "the next line"
 
                 EEndOfInput ->
-                    "the end"
+                    text "the end"
 
                 EMoveName ->
-                    "a move name (e.g. 'deal')"
+                    row [] [ text "a move name (e.g. ", mono "deal", text ")" ]
 
-        problemToString problem =
+        viewProblem problem =
             case problem of
                 UnknownMove n ->
-                    "Don't know how to do '" ++ n ++ "'"
+                    row [] [ text "Don't know how to do ", mono n ]
 
                 DuplicateDefinition d ->
-                    "You already know how to '" ++ d ++ "'"
+                    row [] [ text "You already know how to ", mono d ]
 
                 Expected ex ->
-                    "Expected " ++ expectationToString ex
+                    row [] [ text "Expected ", viewExpectation ex ]
 
                 NoSuchArgument name ->
-                    name ++ " looks like an argument, but no such argument was defined"
+                    row [] [ mono name, text " ", wrapped "looks like an argument, but no such argument was defined" ]
 
                 ExpectedForArgument { move, argName, argKind, options } ->
                     let
@@ -119,43 +126,59 @@ toString text deadEnds =
                     in
                     case argKind of
                         KindInt ->
-                            moveSignature
-                                ++ "\n"
-                                ++ doc
-                                ++ "\n\nI need a number for "
-                                ++ argName
-                                ++ "\n"
-                                ++ "Type the number (e.g. 52)"
-                                ++ (case options of
-                                        [] ->
-                                            ""
+                            column [ spacing 20 ]
+                                [ column [ spacing 5 ]
+                                    [ mono moveSignature
+                                    , text doc
+                                    ]
+                                , column [ spacing 5 ]
+                                    [ row [] [ text "I need a number for ", mono argName ]
+                                    , row []
+                                        [ text "Type the number (e.g. "
+                                        , mono "52"
+                                        , text ")"
+                                        , case options of
+                                            [] ->
+                                                Element.none
 
-                                        [ x ] ->
-                                            " or " ++ x
+                                            [ x ] ->
+                                                row [] [ text " or ", mono x ]
 
-                                        l ->
-                                            " or one of " ++ String.join ", " l
-                                   )
+                                            l ->
+                                                row []
+                                                    [ text " or one of "
+                                                    , paragraph []
+                                                        (l |> List.map mono |> List.intersperse (text ", "))
+                                                    ]
+                                        ]
+                                    ]
+                                ]
 
                         KindPile ->
-                            moveSignature
-                                ++ "\n"
-                                ++ doc
-                                ++ "\n\nI need a pilename for "
-                                ++ argName
-                                ++ "\n"
-                                ++ "These are the piles I know about: "
-                                ++ String.join ", " options
+                            column [ spacing 20 ]
+                                [ column [ spacing 5 ]
+                                    [ mono moveSignature
+                                    , text doc
+                                    ]
+                                , column [ spacing 5 ]
+                                    [ row [] [ text "I need a pilename for ", mono argName ]
+                                    , row []
+                                        [ text "These are the piles I know about: "
+                                        , paragraph [] (options |> List.map mono |> List.intersperse (text ", "))
+                                        ]
+                                    ]
+                                ]
 
         relevantLineAndPlace row col =
-            case List.Extra.getAt (row - 1) (String.lines text) of
+            case List.Extra.getAt (row - 1) (String.lines source) of
                 Nothing ->
-                    "THIS SHOULD NOT HAPPEN"
+                    text "THIS SHOULD NOT HAPPEN"
 
                 Just line ->
-                    line ++ "\n" ++ String.repeat (col - 1) " " ++ "^\n"
+                    el [ Font.family [ Font.monospace ] ]
+                        (wrappedWithIndent (line ++ "\n" ++ String.repeat (col - 1) " " ++ "^"))
 
-        deadEndToString { row, col, problems } =
+        viewDeadEnd deadEnd =
             let
                 ( wrappedExpectedProblems, otherProblems ) =
                     List.partition
@@ -167,7 +190,7 @@ toString text deadEnds =
                                 _ ->
                                     False
                         )
-                        problems
+                        deadEnd.problems
 
                 expectedProblems =
                     List.map
@@ -182,30 +205,38 @@ toString text deadEnds =
                         )
                         wrappedExpectedProblems
 
-                expectedProblemsString =
+                viewExpectedProblems =
                     case List.reverse expectedProblems of
                         [] ->
-                            ""
+                            Element.none
 
                         [ ex ] ->
-                            "Expected " ++ expectationToString ex ++ "\n"
+                            row [] [ text "Expected ", viewExpectation ex ]
 
-                        ex :: exs ->
-                            "Expected one of " ++ String.join ", " (List.map expectationToString (List.reverse exs)) ++ " or " ++ expectationToString ex ++ "\n"
+                        exs ->
+                            row []
+                                [ text "Expected one of "
+                                , paragraph [ spacing 5 ]
+                                    (exs |> List.map viewExpectation |> List.intersperse (text ", "))
+                                ]
 
-                otherProblemsString =
+                viewOtherProblems =
                     case otherProblems of
                         [] ->
-                            ""
+                            Element.none
 
                         others ->
-                            String.join "\n" (List.map problemToString others)
+                            column [ spacing 5 ] (List.map viewProblem others)
             in
-            relevantLineAndPlace row col ++ expectedProblemsString ++ otherProblemsString
+            column [ spacing 5 ]
+                [ relevantLineAndPlace deadEnd.row deadEnd.col
+                , viewExpectedProblems
+                , viewOtherProblems
+                ]
     in
     case gatherDeadEndsByLocation deadEnds of
         [] ->
-            ""
+            Element.none
 
         des ->
-            String.join "\n" (List.map deadEndToString des)
+            column [ spacing 10 ] (List.map viewDeadEnd des)

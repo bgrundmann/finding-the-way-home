@@ -1,12 +1,25 @@
-module ElmUiUtils exposing (onKey, wrapped)
+module ElmUiUtils exposing (onKey, wrapped, wrappedWithIndent)
 
 import Element exposing (Element, spacing, text)
 import Html.Events
 import Json.Decode as Decode
 
 
+{-| Format a single line of text such that it can wrap.
+-}
 wrapped : String -> Element msg
-wrapped longText =
+wrapped s =
+    s
+        |> String.words
+        |> List.intersperse " "
+        |> List.map text
+        |> Element.paragraph []
+
+
+{-| Format multiple lines of text preserving indentation.
+-}
+wrappedWithIndent : String -> Element msg
+wrappedWithIndent longText =
     let
         lines =
             String.lines longText
@@ -25,12 +38,8 @@ wrapped longText =
 
                 indent =
                     String.repeat indentLen " "
-
-                restOfLine =
-                    String.words withoutIndent
-                        |> List.intersperse " "
             in
-            Element.row [] [ text indent, restOfLine |> List.map text |> Element.paragraph [] ]
+            Element.row [] [ text indent, withoutIndent |> wrapped ]
     in
     Element.column [ spacing 10 ]
         (List.map formatLine lines)

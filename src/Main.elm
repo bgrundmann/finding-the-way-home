@@ -277,7 +277,7 @@ view model =
         viewErrorMessage title error =
             Element.column [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, spacing 10 ]
                 [ el [ Font.bold, width fill ] (text title)
-                , el [ width fill, height fill, Font.family [ Font.monospace ] ] (wrapped error)
+                , el [ width fill, height fill ] error
                 ]
 
         ( movesBorderColor, infoText ) =
@@ -286,12 +286,15 @@ view model =
                     ( greenBook, viewMessage "Reference" defaultInfoText )
 
                 ( Ok _, Just message ) ->
-                    ( redBook, viewErrorMessage "Failure during performance" message )
+                    ( redBook
+                    , viewErrorMessage "Failure during performance"
+                        (el [ Font.family [ Font.monospace ] ] (wrapped message))
+                    )
 
                 ( Err errorMsg, _ ) ->
                     ( redBook
                     , viewErrorMessage "That makes no sense"
-                        (MoveParseError.toString model.movesText errorMsg)
+                        (MoveParseError.view model.movesText errorMsg)
                     )
 
         movesView =
