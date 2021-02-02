@@ -1,9 +1,9 @@
 module Eval exposing (eval)
 
-import EvalResult exposing (EvalResult, Problem(..), addBacktrace, reportError)
+import EvalResult exposing (BacktraceStep(..), EvalResult, Problem(..), addBacktrace, reportError)
 import Image exposing (Image)
 import List.Extra
-import Move exposing (Expr(..), ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
+import Move exposing (Expr(..), ExprValue(..), Move(..), MoveDefinition, UserDefinedOrPrimitive(..))
 import Primitives
 
 
@@ -21,8 +21,12 @@ type alias Env =
     }
 
 
-checkTemporaryPilesAreGone : List { nameInSource : String, nameInPile : String } -> EvalResult -> EvalResult
-checkTemporaryPilesAreGone temporaryPileNames result =
+checkTemporaryPilesAreGone :
+    List { nameInSource : String, nameInPile : String }
+    -> MoveDefinition
+    -> EvalResult
+    -> EvalResult
+checkTemporaryPilesAreGone temporaryPileNames md result =
     case result.error of
         Just _ ->
             -- We already have a different error, let's not confuse matters
@@ -44,7 +48,7 @@ checkTemporaryPilesAreGone temporaryPileNames result =
 
                 piles ->
                     reportError result.lastImage
-                        (TemporaryPileNotEmpty { names = List.map .nameInSource piles })
+                        (TemporaryPileNotEmpty { names = List.map .nameInSource piles, moveDefinition = md })
 
 
 evalWithEnv : Env -> Image -> Move -> EvalResult
@@ -94,7 +98,7 @@ evalWithEnv env image move =
                 Int times ->
                     let
                         helper n currentImage =
-                            if n <= 0 then
+                            if n > times then
                                 { lastImage = currentImage, error = Nothing }
 
                             else
@@ -104,18 +108,18 @@ evalWithEnv env image move =
                                 in
                                 case result.error of
                                     Nothing ->
-                                        helper (n - 1) result.lastImage
+                                        helper (n + 1) result.lastImage
 
                                     Just _ ->
                                         result
+                                            |> addBacktrace loc (BtRepeat n)
                     in
-                    helper times image
-                        |> addBacktrace loc
+                    helper 1 image
 
                 Pile _ ->
                     reportError image (Bug "Type checker failed")
 
-        Do loc { name, body } actuals ->
+        Do loc ({ name, body } as md) actuals ->
             let
                 actualValues =
                     List.map (replaceArgumentByValue env) actuals
@@ -123,7 +127,7 @@ evalWithEnv env image move =
             case body of
                 Primitive p ->
                     Primitives.eval image p actualValues
-                        |> addBacktrace loc
+                        |> addBacktrace loc (BtDo md actualValues)
 
                 UserDefined { moves, temporaryPiles } ->
                     let
@@ -151,8 +155,8 @@ evalWithEnv env image move =
                                 moves
                     in
                     result
-                        |> checkTemporaryPilesAreGone actualTemporaryPiles
-                        |> addBacktrace loc
+                        |> checkTemporaryPilesAreGone actualTemporaryPiles md
+                        |> addBacktrace loc (BtDo md actualValues)
 
 
 evalListWithEnv : Env -> Image -> List Move -> EvalResult

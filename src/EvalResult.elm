@@ -1,9 +1,19 @@
-module EvalResult exposing (EvalError, EvalResult, Problem(..), addBacktrace, reportError, viewError)
+module EvalResult exposing
+    ( BacktraceStep(..)
+    , EvalError
+    , EvalResult
+    , Problem(..)
+    , addBacktrace
+    , reportError
+    , viewError
+    )
 
 import Element exposing (Element, column, fill, paragraph, row, spacing, text, width)
 import Element.Font as Font
 import ElmUiUtils exposing (mono)
 import Image exposing (Image, PileName)
+import List.Extra
+import Move exposing (ExprValue(..), MoveDefinition)
 import Palette
 
 
@@ -14,13 +24,22 @@ type alias Location =
 type Problem
     = NotEnoughCards { expected : Int, inPile : PileName, got : Int }
     | NoSuchPile { name : PileName }
-    | TemporaryPileNotEmpty { names : List PileName }
+    | TemporaryPileNotEmpty { names : List PileName, moveDefinition : MoveDefinition }
     | Bug String
+
+
+type alias Backtrace =
+    List { location : Location, step : BacktraceStep }
+
+
+type BacktraceStep
+    = BtRepeat Int
+    | BtDo MoveDefinition (List ExprValue)
 
 
 type alias EvalError =
     { problem : Problem
-    , backtrace : List { location : Location }
+    , backtrace : Backtrace
     }
 
 
@@ -39,21 +58,67 @@ reportError image problem =
 
 {-| If we are in an error case, add the backtrace info.
 -}
-addBacktrace : Location -> EvalResult -> EvalResult
-addBacktrace loc result =
+addBacktrace : Location -> BacktraceStep -> EvalResult -> EvalResult
+addBacktrace loc step result =
     case result.error of
         Nothing ->
             result
 
         Just e ->
             { result
-                | error = Just { e | backtrace = { location = loc } :: e.backtrace }
+                | error = Just { e | backtrace = { location = loc, step = step } :: e.backtrace }
             }
 
 
-viewError : EvalError -> Element msg
-viewError error =
-    case error.problem of
+viewBacktrace : String -> Backtrace -> Element msg
+viewBacktrace sourceText backtrace =
+    column [ width fill, spacing 5 ]
+        (List.map
+            (\{ location, step } ->
+                let
+                    maybeLine =
+                        String.lines sourceText |> List.Extra.getAt (location.row - 1)
+                in
+                row [ width fill ]
+                    [ text "➥"
+                    , row [ width fill ]
+                        (mono (Maybe.withDefault "INTERNAL ERROR" maybeLine)
+                            :: (case step of
+                                    BtRepeat n ->
+                                        [ text "  (", mono (String.fromInt n), text " iteration)" ]
+
+                                    BtDo md actuals ->
+                                        text "    "
+                                            :: List.map
+                                                (\v ->
+                                                    case v of
+                                                        Int i ->
+                                                            mono (String.fromInt i)
+
+                                                        Pile p ->
+                                                            mono p
+                                                )
+                                                actuals
+                                            |> List.intersperse (text " ")
+                               )
+                        )
+                    ]
+            )
+            backtrace
+        )
+
+
+viewError : String -> EvalError -> Element msg
+viewError sourceText error =
+    column [ width fill, spacing 20 ]
+        [ viewProblem error.problem
+        , viewBacktrace sourceText error.backtrace
+        ]
+
+
+viewProblem : Problem -> Element msg
+viewProblem problem =
+    case problem of
         Bug msg ->
             paragraph [ spacing 5, width fill, Font.bold, Font.color Palette.redBook ]
                 [ text "INTERNAL ERROR CONTACT BENE ", text msg ]
@@ -73,13 +138,15 @@ viewError error =
             paragraph [ spacing 5, width fill ]
                 [ text "There is no pile called ", mono name, text "!" ]
 
-        TemporaryPileNotEmpty { names } ->
+        TemporaryPileNotEmpty { names, moveDefinition } ->
             case names of
                 [ name ] ->
                     paragraph [ spacing 5, width fill ]
                         [ text "The temporary pile "
                         , mono name
-                        , text " is not empty!"
+                        , text " is not empty at the end of the call to "
+                        , mono moveDefinition.name
+                        , text "!"
                         ]
 
                 _ ->

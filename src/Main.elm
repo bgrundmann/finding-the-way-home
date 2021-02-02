@@ -287,7 +287,7 @@ view model =
                 ( Ok _, Just error ) ->
                     ( redBook
                     , viewErrorMessage "Failure during performance"
-                        (EvalResult.viewError error)
+                        (EvalResult.viewError model.movesText error)
                     )
 
         movesView =

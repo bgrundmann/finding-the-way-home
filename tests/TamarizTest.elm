@@ -5,11 +5,11 @@ import Eval
 import EvalResult exposing (Problem(..))
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
-import Move
+import Move exposing (ArgumentKind(..), Expr(..), ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
 import MoveParseError exposing (MoveParseError)
 import MoveParser
 import Pile
-import Primitives exposing (primitives)
+import Primitives exposing (primitiveCut, primitives)
 import Tamariz
 import Test exposing (..)
 
@@ -119,11 +119,33 @@ suite =
             , final = Pile.poker_deck |> Pile.toString
             , moves = """def bad deck
                            temp t
-                           cut 2 deck t
-                           cut 1 t deck
+                           cut 1 deck t
                          end
                          bad deck"""
             , backwards = False
-            , expectEvalFailure = Just (TemporaryPileNotEmpty { names = [ "t" ] })
+            , expectEvalFailure =
+                Just
+                    (TemporaryPileNotEmpty
+                        { names = [ "t" ]
+                        , moveDefinition =
+                            { name = "bad"
+                            , args = [ { kind = KindPile, name = "deck" } ]
+                            , doc = ""
+                            , body =
+                                UserDefined
+                                    { temporaryPiles = [ "t" ]
+                                    , definitions = []
+                                    , moves =
+                                        [ Do { row = 3 }
+                                            primitiveCut
+                                            [ ExprValue (Int 1)
+                                            , ExprArgument { kind = KindPile, name = "deck", ndx = 0, up = 0 }
+                                            , ExprTemporaryPile { name = "t", ndx = 0, up = 0 }
+                                            ]
+                                        ]
+                                    }
+                            }
+                        }
+                    )
             }
         ]
