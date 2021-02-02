@@ -2,6 +2,7 @@ module TamarizTest exposing (..)
 
 import Dict
 import Eval
+import EvalResult exposing (Problem(..))
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
 import Move
@@ -17,8 +18,8 @@ import Test exposing (..)
 -- This is the big end to End test.
 
 
-testEndToEnd : String -> { initial : String, final : String, moves : String, backwards : Bool } -> Test
-testEndToEnd label { initial, final, moves, backwards } =
+testEndToEnd : String -> { initial : String, final : String, moves : String, backwards : Bool, expectEvalFailure : Maybe EvalResult.Problem } -> Test
+testEndToEnd label { initial, final, moves, backwards, expectEvalFailure } =
     test label <|
         \() ->
             let
@@ -63,12 +64,22 @@ testEndToEnd label { initial, final, moves, backwards } =
                         result =
                             Eval.eval initialImage movesToApply
                     in
-                    case result.error of
-                        Just { message } ->
-                            Expect.fail message
+                    case expectEvalFailure of
+                        Just expectedProblem ->
+                            case result.error of
+                                Nothing ->
+                                    Expect.fail "Expected evaluation to fail.  But it did not!"
+
+                                Just { problem } ->
+                                    Expect.equal expectedProblem problem
 
                         Nothing ->
-                            Expect.equal expectedFinalImage result.lastImage
+                            case result.error of
+                                Just { problem } ->
+                                    Expect.fail (Debug.toString problem)
+
+                                Nothing ->
+                                    Expect.equal expectedFinalImage result.lastImage
 
 
 mnemonica : String
@@ -87,11 +98,32 @@ suite =
             , final = mnemonica
             , moves = Tamariz.tamariz
             , backwards = False
+            , expectEvalFailure = Nothing
             }
         , testEndToEnd "tamariz backwards"
             { initial = mnemonica
             , final = Pile.poker_deck |> Pile.toString
             , moves = Tamariz.tamariz
             , backwards = True
+            , expectEvalFailure = Nothing
+            }
+        , testEndToEnd "Cutting more cards than available causes a runtime error"
+            { initial = Pile.poker_deck |> Pile.toString
+            , final = Pile.poker_deck |> Pile.toString
+            , moves = """cut 53 deck table"""
+            , backwards = False
+            , expectEvalFailure = Just (NotEnoughCards { expected = 53, got = 52, inPile = "deck" })
+            }
+        , testEndToEnd "Temporary piles that are not empty cause a runtime error"
+            { initial = Pile.poker_deck |> Pile.toString
+            , final = Pile.poker_deck |> Pile.toString
+            , moves = """def bad deck
+                           temp t
+                           cut 2 deck t
+                           cut 1 t deck
+                         end
+                         bad deck"""
+            , backwards = False
+            , expectEvalFailure = Just (TemporaryPileNotEmpty { names = [ "t" ] })
             }
         ]

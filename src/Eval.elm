@@ -1,6 +1,6 @@
 module Eval exposing (eval)
 
-import EvalResult exposing (EvalResult, addBacktrace, reportError)
+import EvalResult exposing (EvalResult, Problem(..), addBacktrace, reportError)
 import Image exposing (Image)
 import List.Extra
 import Move exposing (Expr(..), ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
@@ -12,9 +12,39 @@ The names used by the temporary piles are of this form:
 <increasing global integer>-<name-as-used-in-source>
 -}
 type alias Env =
-    { scoped : List { actuals : List ExprValue, temporaryPiles : List String }
+    { scoped :
+        List
+            { actuals : List ExprValue
+            , temporaryPiles : List { nameInSource : String, nameInPile : String }
+            }
     , tempCounter : Int
     }
+
+
+checkTemporaryPilesAreGone : List { nameInSource : String, nameInPile : String } -> EvalResult -> EvalResult
+checkTemporaryPilesAreGone temporaryPileNames result =
+    case result.error of
+        Just _ ->
+            -- We already have a different error, let's not confuse matters
+            result
+
+        Nothing ->
+            let
+                names =
+                    Image.names result.lastImage
+
+                -- Images tend to have very small number of piles
+                -- so being quadratic is fine
+                overlap =
+                    List.filter (\n -> List.member n.nameInPile names) temporaryPileNames
+            in
+            case overlap of
+                [] ->
+                    result
+
+                piles ->
+                    reportError result.lastImage
+                        (TemporaryPileNotEmpty { names = List.map .nameInSource piles })
 
 
 evalWithEnv : Env -> Image -> Move -> EvalResult
@@ -33,6 +63,7 @@ evalWithEnv env image move =
                                     (\{ temporaryPiles } ->
                                         List.Extra.getAt ndx temporaryPiles
                                     )
+                                |> Maybe.map .nameInPile
                     in
                     case value of
                         Nothing ->
@@ -82,9 +113,9 @@ evalWithEnv env image move =
                         |> addBacktrace loc
 
                 Pile _ ->
-                    reportError image "INTERNAL ERROR: Type checker failed"
+                    reportError image (Bug "Type checker failed")
 
-        Do loc { body } actuals ->
+        Do loc { name, body } actuals ->
             let
                 actualValues =
                     List.map (replaceArgumentByValue env) actuals
@@ -99,7 +130,9 @@ evalWithEnv env image move =
                         actualTemporaryPiles =
                             List.indexedMap
                                 (\ndx tempPile ->
-                                    String.fromInt (ndx + env.tempCounter) ++ "-" ++ tempPile
+                                    { nameInSource = tempPile
+                                    , nameInPile = "temp " ++ tempPile ++ " " ++ String.fromInt (ndx + env.tempCounter)
+                                    }
                                 )
                                 temporaryPiles
 
@@ -118,6 +151,7 @@ evalWithEnv env image move =
                                 moves
                     in
                     result
+                        |> checkTemporaryPilesAreGone actualTemporaryPiles
                         |> addBacktrace loc
 
 

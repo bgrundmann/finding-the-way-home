@@ -2,7 +2,7 @@ module Primitives exposing (eval, primitiveCut, primitiveTurnover, primitives)
 
 import Card
 import Dict exposing (Dict)
-import EvalResult exposing (EvalResult, reportError)
+import EvalResult exposing (EvalResult, Problem(..), reportError)
 import Image exposing (Image, PileName)
 import List.Extra
 import Move
@@ -56,7 +56,7 @@ eval image =
                 in
                 case pile of
                     Nothing ->
-                        reportError image ("No pile called " ++ name)
+                        reportError image (NoSuchPile { name = name })
 
                     Just p ->
                         { lastImage = Image.put name (turnover p) newImage, error = Nothing }
@@ -72,7 +72,7 @@ eval image =
                     in
                     case pile of
                         Nothing ->
-                            reportError image ("No pile called " ++ from)
+                            reportError image (NoSuchPile { name = from })
 
                         Just cards ->
                             let
@@ -83,14 +83,7 @@ eval image =
                                     List.length topHalf
                             in
                             if actualLen < n then
-                                reportError image
-                                    ("Only "
-                                        ++ String.fromInt actualLen
-                                        ++ " cards in pile "
-                                        ++ from
-                                        ++ " , wanted to cut off "
-                                        ++ String.fromInt n
-                                    )
+                                reportError image (NotEnoughCards { expected = n, got = actualLen, inPile = from })
 
                             else
                                 { lastImage =
@@ -101,7 +94,7 @@ eval image =
                                 }
         , decodingError =
             \_ ->
-                reportError image "INTERNAL ERROR: type checker failed"
+                reportError image (Bug "type checker failed")
         }
 
 

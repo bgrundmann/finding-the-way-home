@@ -57,7 +57,7 @@ type alias Model =
             { moves : List Move
             , definitions : Definitions
             }
-    , performanceFailure : Maybe String
+    , performanceFailure : Maybe EvalResult.EvalError
     , finalImage : Image -- The last successfully computed final Image
     , backwards : Bool
     }
@@ -157,18 +157,10 @@ applyMoves model =
                 result =
                     apply maybeBackwardsMoves (ImageEditor.getImage model.initialImage)
             in
-            case result.error of
-                Just whyCannotPerform ->
-                    { model
-                        | performanceFailure = Just whyCannotPerform.message
-                        , finalImage = result.lastImage
-                    }
-
-                Nothing ->
-                    { model
-                        | finalImage = result.lastImage
-                        , performanceFailure = Nothing
-                    }
+            { model
+                | finalImage = result.lastImage
+                , performanceFailure = result.error
+            }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -286,16 +278,16 @@ view model =
                 ( Ok _, Nothing ) ->
                     ( greenBook, viewMessage "Reference" defaultInfoText )
 
-                ( Ok _, Just message ) ->
-                    ( redBook
-                    , viewErrorMessage "Failure during performance"
-                        (el [ Font.family [ Font.monospace ] ] (paragraph [ spacing 5 ] [ text message ]))
-                    )
-
                 ( Err errorMsg, _ ) ->
                     ( redBook
                     , viewErrorMessage "That makes no sense"
                         (MoveParseError.view model.movesText errorMsg)
+                    )
+
+                ( Ok _, Just error ) ->
+                    ( redBook
+                    , viewErrorMessage "Failure during performance"
+                        (EvalResult.viewError error)
                     )
 
         movesView =

@@ -2,8 +2,22 @@ module MoveParseError exposing (Context, DeadEnd, Expectation(..), MoveParseErro
 
 import Dict
 import Dict.Extra
-import Element exposing (Element, column, el, fill, height, paragraph, row, spacing, text, textColumn, width)
+import Element
+    exposing
+        ( Element
+        , column
+        , el
+        , fill
+        , height
+        , paragraph
+        , row
+        , spacing
+        , text
+        , textColumn
+        , width
+        )
 import Element.Font as Font
+import ElmUiUtils exposing (mono)
 import List.Extra
 import Move exposing (ArgumentKind(..), MoveDefinition)
 import Parser.Advanced
@@ -70,10 +84,6 @@ gatherDeadEndsByLocation deadEnds =
             (\( ( row, col ), ds ) ->
                 { row = row, col = col, problems = List.map .problem ds |> dedupProblems }
             )
-
-
-mono s =
-    el [ Font.family [ Font.monospace ] ] (text s)
 
 
 view : String -> List DeadEnd -> Element msg

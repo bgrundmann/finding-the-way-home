@@ -1,8 +1,13 @@
-module ElmUiUtils exposing (onKey)
+module ElmUiUtils exposing (mono, onKey)
 
-import Element exposing (Element, spacing, text)
+import Element exposing (Element, el, spacing, text)
+import Element.Font as Font
 import Html.Events
 import Json.Decode as Decode
+
+
+mono s =
+    el [ Font.family [ Font.monospace ] ] (text s)
 
 
 onKey : { enter : Maybe msg, escape : Maybe msg } -> Element.Attribute msg
