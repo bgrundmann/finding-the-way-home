@@ -1,4 +1,4 @@
-module ElmUiUtils exposing (mono, onKey)
+module ElmUiUtils exposing (boldMono, mono, onKey)
 
 import Element exposing (Element, el, spacing, text)
 import Element.Font as Font
@@ -8,6 +8,10 @@ import Json.Decode as Decode
 
 mono s =
     el [ Font.family [ Font.monospace ] ] (text s)
+
+
+boldMono s =
+    el [ Font.family [ Font.monospace ], Font.bold ] (text s)
 
 
 onKey : { enter : Maybe msg, escape : Maybe msg } -> Element.Attribute msg

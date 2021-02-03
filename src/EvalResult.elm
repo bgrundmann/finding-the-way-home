@@ -10,7 +10,7 @@ module EvalResult exposing
 
 import Element exposing (Element, column, fill, paragraph, row, spacing, text, width)
 import Element.Font as Font
-import ElmUiUtils exposing (mono)
+import ElmUiUtils exposing (boldMono, mono)
 import Image exposing (Image, PileName)
 import List.Extra
 import Move exposing (ExprValue(..), MoveDefinition)
@@ -33,7 +33,7 @@ type alias Backtrace =
 
 
 type BacktraceStep
-    = BtRepeat Int
+    = BtRepeat { nth : Int, total : Int }
     | BtDo MoveDefinition (List ExprValue)
 
 
@@ -75,34 +75,33 @@ viewBacktrace sourceText backtrace =
     column [ width fill, spacing 5 ]
         (List.map
             (\{ location, step } ->
-                let
-                    maybeLine =
-                        String.lines sourceText |> List.Extra.getAt (location.row - 1)
-                in
-                row [ width fill ]
-                    [ text "➥"
-                    , row [ width fill ]
-                        (mono (Maybe.withDefault "INTERNAL ERROR" maybeLine)
-                            :: (case step of
-                                    BtRepeat n ->
-                                        [ text "  (", mono (String.fromInt n), text " iteration)" ]
+                paragraph [ spacing 5, width fill ]
+                    (text "➥ "
+                        :: mono (String.fromInt location.row ++ ": ")
+                        :: (case step of
+                                BtRepeat { nth, total } ->
+                                    [ boldMono "repeat "
+                                    , mono (String.fromInt nth)
+                                    , text " of "
+                                    , mono (String.fromInt total)
+                                    ]
 
-                                    BtDo md actuals ->
-                                        text "    "
-                                            :: List.map
-                                                (\v ->
-                                                    case v of
-                                                        Int i ->
-                                                            mono (String.fromInt i)
+                                BtDo md actuals ->
+                                    mono md.name
+                                        :: List.map2
+                                            (\arg v ->
+                                                case v of
+                                                    Int i ->
+                                                        row [] [ mono arg.name, mono "=", mono (String.fromInt i) ]
 
-                                                        Pile p ->
-                                                            mono p
-                                                )
-                                                actuals
-                                            |> List.intersperse (text " ")
-                               )
-                        )
-                    ]
+                                                    Pile p ->
+                                                        row [] [ mono arg.name, mono "=", mono p ]
+                                            )
+                                            md.args
+                                            actuals
+                                        |> List.intersperse (text " ")
+                           )
+                    )
             )
             backtrace
         )

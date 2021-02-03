@@ -112,7 +112,7 @@ evalWithEnv env image move =
 
                                     Just _ ->
                                         result
-                                            |> addBacktrace loc (BtRepeat n)
+                                            |> addBacktrace loc (BtRepeat { nth = n, total = times })
                     in
                     helper 1 image
 
