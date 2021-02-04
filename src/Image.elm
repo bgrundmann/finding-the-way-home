@@ -1,4 +1,4 @@
-module Image exposing (Image, PileName, get, names, piles, put, renamePile, take, update, view, viewPile)
+module Image exposing (Image, PileName, get, names, piles, put, renamePile, take, update, view)
 
 import Card
 import Element exposing (Element, column, el, paragraph, spacing, text, textColumn)
@@ -117,25 +117,7 @@ update pileName f image =
     loop [] image
 
 
-viewPile : Pile -> Element msg
-viewPile pile =
-    let
-        numberedPile =
-            List.indexedMap (\n c -> ( n + 1, c )) pile
-
-        viewNumberedCard ( num, c ) =
-            column []
-                [ el [ Font.size 10, Element.centerX ] (text (String.fromInt num))
-                , Card.view c
-                ]
-    in
-    textColumn []
-        (greedyGroupsOf 13 numberedPile
-            |> List.map (\p -> paragraph [] (List.map viewNumberedCard p))
-        )
-
-
 view : (String -> Element msg) -> Image -> Element msg
 view viewPileName world =
     Element.Keyed.column [ spacing 10 ]
-        (List.map (\( name, pile ) -> ( name, column [] [ viewPileName name, viewPile pile ] )) world)
+        (List.map (\( name, pile ) -> ( name, column [] [ viewPileName name, Pile.view pile ] )) world)

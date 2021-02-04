@@ -262,7 +262,7 @@ view toMsg state =
                             [ viewPileNameAndButtons toMsg state pileName
                             , case ifEditingThisPile pileName state of
                                 Nothing ->
-                                    Image.viewPile pile
+                                    Pile.view pile
 
                                 Just { text } ->
                                     Input.multiline [ width fill ]

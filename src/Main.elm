@@ -311,12 +311,21 @@ view model =
         finalImageView =
             el [ width fill, height fill ] (Element.Lazy.lazy2 Image.view (\t -> el [ Font.bold ] (text t)) model.finalImage)
 
+        withWidthPortion n =
+            el [ width (fillPortion n), height fill ]
+
         mainElements =
             if model.backwards then
-                [ finalImageView, movesView, initialImageView ]
+                [ withWidthPortion 4 finalImageView
+                , withWidthPortion 3 movesView
+                , withWidthPortion 4 initialImageView
+                ]
 
             else
-                [ initialImageView, movesView, finalImageView ]
+                [ withWidthPortion 4 initialImageView
+                , withWidthPortion 3 movesView
+                , withWidthPortion 4 finalImageView
+                ]
     in
     Element.layout [ width fill, height fill ] <|
         column [ width fill, height fill ]

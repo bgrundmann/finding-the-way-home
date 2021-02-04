@@ -1,15 +1,20 @@
 module Card exposing
-    ( Card
+    ( BackColor(..)
+    , Card
     , CardDesign(..)
     , Suit(..)
     , Value(..)
     , all_suits
     , all_values
+    , blank
     , card
     , cardParser
+    , fromString
     , toString
     , turnover
     , view
+    , withHidden
+    , withVisible
     )
 
 import Element exposing (Element, el, text)
@@ -30,6 +35,7 @@ type BackColor
 type CardDesign
     = Face RegularFace
     | Back BackColor
+    | Blank
 
 
 type Suit
@@ -62,11 +68,32 @@ type Card
     = Card { visible : CardDesign, hidden : CardDesign }
 
 
-{-| A red backed regular card. Face is visible.
+{-| The most primitive card is one that is blank on both sides.
+-}
+blank : Card
+blank =
+    Card { visible = Blank, hidden = Blank }
+
+
+{-| A red backed regular card. Face is hidden.
 -}
 card : Value -> Suit -> Card
 card value suit =
-    Card { visible = Face ( value, suit ), hidden = Back Red }
+    Card { hidden = Face ( value, suit ), visible = Back Red }
+
+
+{-| Set the visible side of a card.
+-}
+withVisible : CardDesign -> Card -> Card
+withVisible design (Card c) =
+    Card { c | visible = design }
+
+
+{-| Set the hidden side of a card.
+-}
+withHidden : CardDesign -> Card -> Card
+withHidden design (Card c) =
+    Card { c | hidden = design }
 
 
 all_suits : List Suit
@@ -84,9 +111,11 @@ turnover (Card { visible, hidden }) =
     Card { visible = hidden, hidden = visible }
 
 
+{-| View the visible side of the card
+-}
 view : Card -> Element msg
 view (Card { visible }) =
-    el [ Font.size 60 ] (viewCardDesign visible)
+    viewCardDesign visible
 
 
 viewCardDesign : CardDesign -> Element msg
@@ -97,6 +126,9 @@ viewCardDesign d =
 
         Back b ->
             viewBack b
+
+        Blank ->
+            text "_"
 
 
 viewBack : BackColor -> Element msg
@@ -192,12 +224,12 @@ viewRegularFace ( value, suit ) =
 
 toString : Card -> String
 toString (Card { visible, hidden }) =
-    case hidden of
+    case visible of
         Back Red ->
-            cardDesignToString visible
+            cardDesignToString hidden
 
         _ ->
-            cardDesignToString visible ++ "/" ++ cardDesignToString hidden
+            cardDesignToString hidden ++ "/" ++ cardDesignToString visible
 
 
 cardDesignToString : CardDesign -> String
@@ -214,6 +246,9 @@ cardDesignToString design =
 
         Back Green ->
             "G"
+
+        Blank ->
+            "_"
 
 
 valueToString : Value -> String
@@ -321,11 +356,28 @@ cardDesignParser =
 
 cardParser : Parser Card
 cardParser =
-    succeed (\visible hidden -> Card { visible = visible, hidden = hidden })
+    succeed
+        (\one two ->
+            case two of
+                Nothing ->
+                    -- Shortcut syntax, one only means visible side is red back
+                    -- Or with other words this is a facedown red backed card
+                    Card { visible = Back Red, hidden = one }
+
+                Just design ->
+                    -- Otherwise you still write the hidden side first.
+                    Card { visible = design, hidden = one }
+        )
         |= cardDesignParser
         |= oneOf
             [ succeed identity
                 |. symbol "/"
                 |= cardDesignParser
-            , succeed (Back Red)
+                |> map Just
+            , succeed () |> map (always Nothing)
             ]
+
+
+fromString : String -> Maybe Card
+fromString s =
+    Result.toMaybe (Parser.run (cardParser |. Parser.end) s)
