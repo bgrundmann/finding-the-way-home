@@ -1,5 +1,6 @@
 module ImageEditor exposing (Msg, State, getImage, init, update, view)
 
+import Dict exposing (Dict)
 import Element exposing (Element, column, el, fill, height, row, spacing, text, width)
 import Element.Border as Border
 import Element.Font as Font
@@ -20,6 +21,7 @@ type Editing
 type alias State =
     { image : Image
     , editing : Editing
+    , options : Dict String Image
     }
 
 
@@ -48,7 +50,7 @@ type Msg
 
 init : Image -> State
 init i =
-    { image = i, editing = NotEditing }
+    { image = i, editing = NotEditing, options = Dict.empty }
 
 
 isNameUsed : Image -> String -> Bool

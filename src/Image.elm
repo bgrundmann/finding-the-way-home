@@ -1,9 +1,11 @@
-module Image exposing (Image, PileName, get, names, piles, put, renamePile, take, update, view)
+module Image exposing (Image, PileName, decoder, encode, get, names, piles, put, renamePile, take, update, view)
 
 import Card
 import Element exposing (Element, column, el, paragraph, spacing, text, textColumn)
 import Element.Font as Font
 import Element.Keyed
+import Json.Decode as Decode
+import Json.Encode as Encode
 import List
 import List.Extra exposing (greedyGroupsOf)
 import Pile exposing (Pile)
@@ -121,3 +123,24 @@ view : (String -> Element msg) -> Image -> Element msg
 view viewPileName world =
     Element.Keyed.column [ spacing 10 ]
         (List.map (\( name, pile ) -> ( name, column [] [ viewPileName name, Pile.view pile ] )) world)
+
+
+encode : Image -> Encode.Value
+encode i =
+    Encode.object
+        (List.map (\( name, pile ) -> ( name, Encode.string (Pile.toString pile) )) i)
+
+
+decoder : Decode.Decoder Image
+decoder =
+    Decode.keyValuePairs (Decode.string |> Decode.andThen pileDecoder)
+
+
+pileDecoder : String -> Decode.Decoder Pile
+pileDecoder s =
+    case Pile.fromString s of
+        Ok p ->
+            Decode.succeed p
+
+        Err msg ->
+            Decode.fail msg

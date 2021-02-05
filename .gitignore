@@ -1,2 +1,5 @@
 elm-stuff/*
+elm.js
+node_modules/*
 docs.json
+package-lock.json

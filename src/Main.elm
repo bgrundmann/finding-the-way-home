@@ -34,12 +34,15 @@ import File.Select as Select
 import Html exposing (Html)
 import Image exposing (Image)
 import ImageEditor
+import Json.Decode as Decode
+import Json.Encode as Encode
 import List
 import Move exposing (ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
 import MoveParseError exposing (MoveParseError)
 import MoveParser exposing (Definitions)
 import Palette exposing (greenBook, redBook, white)
 import Pile
+import Ports
 import Primitives exposing (primitives)
 import Task
 
@@ -98,7 +101,7 @@ apply moves image =
     Eval.eval image moves
 
 
-main : Program () Model Msg
+main : Program Encode.Value Model Msg
 main =
     Browser.element
         { init = init
@@ -108,18 +111,23 @@ main =
         }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
+init : Encode.Value -> ( Model, Cmd Msg )
+init previousState =
     let
-        initialImage =
-            [ ( "deck", Pile.poker_deck ) ]
+        storedState =
+            case Decode.decodeValue storedStateDecoder previousState of
+                Ok ss ->
+                    ss
 
-        movesText =
-            ""
+                Err _ ->
+                    { movesText = ""
+                    , initialImage =
+                        [ ( "deck", Pile.poker_deck ) ]
+                    }
     in
-    ( { initialImage = ImageEditor.init initialImage
-      , finalImage = initialImage
-      , movesText = movesText
+    ( { initialImage = ImageEditor.init storedState.initialImage
+      , finalImage = storedState.initialImage
+      , movesText = storedState.movesText
       , movesAndDefinitions = Ok { moves = [], definitions = Dict.empty }
       , performanceFailure = Nothing
       , backwards = False
@@ -167,16 +175,24 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         SetMoves text ->
-            ( { model | movesText = text }
-                |> parseMoves
-                |> applyMoves
-            , Cmd.none
+            let
+                newModel =
+                    { model | movesText = text }
+                        |> parseMoves
+                        |> applyMoves
+            in
+            ( newModel
+            , saveState newModel
             )
 
         ImageEditorChanged imageEditorMsg ->
-            ( { model | initialImage = ImageEditor.update imageEditorMsg model.initialImage }
-                |> applyMoves
-            , Cmd.none
+            let
+                newModel =
+                    { model | initialImage = ImageEditor.update imageEditorMsg model.initialImage }
+                        |> applyMoves
+            in
+            ( newModel
+            , saveState newModel
             )
 
         ToggleForwardsBackwards ->
@@ -202,6 +218,39 @@ update msg model =
 save : Model -> Cmd Msg
 save model =
     Download.string "moves.txt" "text/text" model.movesText
+
+
+type alias StoredState =
+    { movesText : String
+    , initialImage : Image
+    }
+
+
+encodeStoredState : StoredState -> Encode.Value
+encodeStoredState ss =
+    Encode.object
+        [ ( "movesText", Encode.string ss.movesText )
+        , ( "initialImage", Image.encode ss.initialImage )
+        ]
+
+
+storedStateDecoder : Decode.Decoder StoredState
+storedStateDecoder =
+    Decode.map2 StoredState
+        (Decode.field "movesText" Decode.string)
+        (Decode.field "initialImage" Image.decoder)
+
+
+saveState : Model -> Cmd Msg
+saveState model =
+    let
+        storedState =
+            { movesText = model.movesText
+            , initialImage = model.initialImage |> ImageEditor.getImage
+            }
+    in
+    encodeStoredState storedState
+        |> Ports.storeState
 
 
 toggleForwardsBackwards : Model -> Model
