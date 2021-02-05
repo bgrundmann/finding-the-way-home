@@ -124,14 +124,19 @@ init previousState =
                     , initialImage =
                         [ ( "deck", Pile.poker_deck ) ]
                     }
+
+        model =
+            { initialImage = ImageEditor.init storedState.initialImage
+            , finalImage = storedState.initialImage
+            , movesText = storedState.movesText
+            , movesAndDefinitions = Ok { moves = [], definitions = Dict.empty }
+            , performanceFailure = Nothing
+            , backwards = False
+            }
     in
-    ( { initialImage = ImageEditor.init storedState.initialImage
-      , finalImage = storedState.initialImage
-      , movesText = storedState.movesText
-      , movesAndDefinitions = Ok { moves = [], definitions = Dict.empty }
-      , performanceFailure = Nothing
-      , backwards = False
-      }
+    ( model
+        |> parseMoves
+        |> applyMoves
     , Cmd.none
     )
 
