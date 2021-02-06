@@ -38,6 +38,11 @@ toStringExamples =
         , test "Red Backed, face down card long syntax can be read" <|
             \() ->
                 Expect.equal (Card.fromString "AS/R") (Just (Card.card Card.Ace Card.Spades))
+        , test "Blue Backed, face down card long syntax can be read" <|
+            \() ->
+                Expect.equal
+                    (Card.fromString "AS/B")
+                    (Just (Card.card Card.Ace Card.Spades |> Card.withVisible (Card.Back Card.Blue)))
         , test
             "Red backed, face up card"
           <|

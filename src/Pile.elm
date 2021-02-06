@@ -83,7 +83,13 @@ view pile =
                 , el [ Font.size 64 ] (Card.view (Card.turnover c))
                 ]
     in
-    textColumn [ Element.spacing 5 ]
-        (List.Extra.greedyGroupsOf 13 numberedPile
-            |> List.map (\p -> paragraph [ Element.spacing 5 ] (List.map viewNumberedCard p))
-        )
+    paragraph [ Element.spacing 5 ] (List.map viewNumberedCard numberedPile)
+
+
+
+{-
+   textColumn [ Element.spacing 5 ]
+       (List.Extra.greedyGroupsOf 13 numberedPile
+           |> List.map (\p -> paragraph [ Element.spacing 5 ] (List.map viewNumberedCard p))
+       )
+-}

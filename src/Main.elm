@@ -296,8 +296,9 @@ topBar : Element Msg
 topBar =
     row [ spacing 10, padding 10, Background.color greenBook, Font.color white, width fill ]
         [ el [ Font.bold ] (text "🍺 Virtual Denis Behr")
-        , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Save", onPress = Just Save }
-        , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Load", onPress = Just SelectLoad }
+
+        -- , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Save", onPress = Just Save }
+        -- , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Load", onPress = Just SelectLoad }
         ]
 
 

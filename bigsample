@@ -1,0 +1,106 @@
+def deal N a b
+  doc Deal N cards from a to b
+  repeat N
+    cut 1 a b
+  end
+end
+
+def deal2 N deck a b
+  doc Deal N cards each from deck to a and b
+  repeat N
+    deal 1 deck a
+    deal 1 deck b
+  end
+end
+
+def studdeal N deck table
+  doc Studdeal N cards from deck to table
+  temp t
+  repeat N
+      deal 1 deck t
+      turnover t
+      deal 1 t table
+  end
+end
+
+def bottomdeal deck table
+  doc Bottom deal a card from deck to table
+  turnover deck
+  studdeal 1 deck table
+  turnover deck
+end
+
+def tantalizer52 deck cardician spectator 
+  doc Perform the tantalizer with a deck of 52 cards
+  def toAndFro N
+     doc Deal N cards each to spectator and cardician
+     deal2 N deck spectator cardician
+  end
+  def to
+     doc Deal the remaining card to the spectator
+     deal 1 deck spectator
+  end
+  def take N
+    doc Take the N cards in the cardician pile back into the hand
+    cut N cardician deck
+  end
+
+  toAndFro 26
+  take 26
+  toAndFro 13 
+  take 13
+  toAndFro 6  
+  to
+  take 6
+  toAndFro 3
+  take 3
+  toAndFro 1
+  to
+end   
+
+def faro N deck other
+   doc Faro N cards from other into the top of deck, top of other is the new top
+   temp t t1
+   repeat N
+      studdeal 1 other t
+      studdeal 1 deck t
+   end
+   turnover t
+   cut N t t1
+   cut N t deck
+   cut N t1 deck
+end
+
+def outfaro52 deck
+  doc Perfect out faro of a deck of 52
+  temp upper
+  cut 26 deck upper
+  faro 26 deck upper
+end
+
+def completecut N deck
+   doc Cut the top N cards of deck to the bottom
+   temp t
+   cut N deck t
+   turnover t
+   turnover deck
+   cut N t deck
+   turnover deck 
+end
+
+def mnemonicaFromUSPC uspc
+  doc Shuffle a deck from USPC into mnemonica
+  temp upper
+  repeat 4
+    outfaro52 uspc
+  end
+  deal 26 uspc upper
+  cut 26 uspc upper
+  cut 52 upper uspc
+  cut 18 uspc upper
+  faro 18 uspc upper
+  completecut 9 uspc
+end
+
+tantalizer52 deck bene denis
+mnemonicaFromUSPC bluedeck

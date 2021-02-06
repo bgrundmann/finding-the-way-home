@@ -19,6 +19,7 @@ module Card exposing
 
 import Element exposing (Element, el, text)
 import Element.Font as Font
+import Palette
 import Parser exposing ((|.), (|=), Parser, map, oneOf, succeed, symbol)
 
 
@@ -140,13 +141,13 @@ viewBack b =
         ( code, color ) =
             case b of
                 Red ->
-                    ( cardBack, Element.rgb255 139 0 0 )
+                    ( cardBack, Palette.redBook )
 
                 Green ->
-                    ( cardBack, Element.rgb255 72 157 45 )
+                    ( cardBack, Palette.greenBook )
 
                 Blue ->
-                    ( cardBack, Element.rgb255 39 139 13 )
+                    ( cardBack, Palette.blueBook )
     in
     el [ Font.color color ] (Element.text (Char.fromCode code |> String.fromChar))
 
