@@ -1,7 +1,9 @@
 module ImageEditor exposing (Msg, State, getImage, init, update, view)
 
+import Card
 import Dict exposing (Dict)
-import Element exposing (Element, column, el, fill, height, row, spacing, text, width)
+import Element exposing (Element, column, el, fill, height, padding, row, spacing, text, width)
+import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
@@ -16,6 +18,7 @@ type Editing
     = NotEditing
     | EditingPileName EditingPileNameState
     | EditingPile EditingPileState
+    | ChoosingImageToAdd
 
 
 type alias State =
@@ -40,7 +43,8 @@ type alias EditingPileState =
 
 type Msg
     = Delete PileName
-    | Add
+    | Add Image
+    | OpenAdd
     | StartEditPile PileName
     | EditPile EditingPileState
     | EditPileName { oldName : String, newName : String }
@@ -48,9 +52,17 @@ type Msg
     | Save
 
 
+defaultOptions =
+    [ ( "red backed deck (face down)", [ ( "deck", Pile.poker_deck ) ] )
+    , ( "blue backed deck (face down)"
+      , [ ( "deck", Pile.poker_deck |> List.map (Card.withVisible (Card.Back Card.Blue)) ) ]
+      )
+    ]
+
+
 init : Image -> State
 init i =
-    { image = i, editing = NotEditing, options = Dict.empty }
+    { image = i, editing = NotEditing, options = Dict.fromList defaultOptions }
 
 
 isNameUsed : Image -> String -> Bool
@@ -119,6 +131,9 @@ update msg state =
                 NotEditing ->
                     state
 
+                ChoosingImageToAdd ->
+                    state
+
                 EditingPile { pileName, text } ->
                     case Pile.fromString text of
                         Err _ ->
@@ -150,13 +165,22 @@ update msg state =
         EditPile newState ->
             { state | editing = EditingPile newState }
 
-        Add ->
-            { state
-                | image =
-                    Image.update (findUnusedName state.image "deck")
-                        (\_ -> Just Pile.poker_deck)
+        OpenAdd ->
+            { state | editing = ChoosingImageToAdd }
+
+        Add imageToAdd ->
+            let
+                newImage =
+                    List.foldl
+                        (\( name, pile ) image ->
+                            Image.update (findUnusedName image name)
+                                (always (Just pile))
+                                image
+                        )
                         state.image
-            }
+                        (Image.piles imageToAdd)
+            in
+            { state | image = newImage, editing = NotEditing }
 
 
 getImage : State -> Image
@@ -178,6 +202,9 @@ ifEditingThisPileName pileName state =
             Nothing
 
         NotEditing ->
+            Nothing
+
+        ChoosingImageToAdd ->
             Nothing
 
 
@@ -242,6 +269,9 @@ ifEditingThisPile name state =
         NotEditing ->
             Nothing
 
+        ChoosingImageToAdd ->
+            Nothing
+
         EditingPileName _ ->
             Nothing
 
@@ -251,6 +281,31 @@ ifEditingThisPile name state =
 
             else
                 Nothing
+
+
+viewImageToAddChooser : (Msg -> msg) -> Dict String Image -> Element msg
+viewImageToAddChooser toMsg options =
+    column
+        [ spacing 5
+        , padding 20
+        , Border.color Palette.blueBook
+        , Border.width 2
+        , Border.rounded 5
+        , Background.color Palette.white
+        , Font.color Palette.black
+        ]
+        (options
+            |> Dict.toList
+            |> List.sortBy Tuple.first
+            |> List.map
+                (\( name, image ) ->
+                    Input.button
+                        [ width fill
+                        , Element.mouseOver [ Font.color Palette.greenBook ]
+                        ]
+                        { onPress = Just (Add image |> toMsg), label = text name }
+                )
+        )
 
 
 view : (Msg -> msg) -> State -> Element msg
@@ -280,8 +335,17 @@ view toMsg state =
                             ]
                     )
                 |> column [ width fill, spacing 10 ]
+
+        imageToAddChooser =
+            case state.editing of
+                ChoosingImageToAdd ->
+                    [ Element.above (viewImageToAddChooser toMsg state.options)
+                    ]
+
+                _ ->
+                    []
     in
     column [ width fill, height fill, spacing 10 ]
         [ pilesView
-        , Input.button regularButton { onPress = Add |> toMsg |> Just, label = text "Add" }
+        , el imageToAddChooser <| Input.button regularButton { onPress = OpenAdd |> toMsg |> Just, label = text "Add" }
         ]
