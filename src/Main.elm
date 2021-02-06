@@ -88,6 +88,7 @@ end
 
 def moveName pile|N ...
   [doc ...]
+  [temp t1 t2...]
   move1
   ...
 end
@@ -123,6 +124,7 @@ init previousState =
                     { movesText = ""
                     , initialImage =
                         [ ( "deck", Pile.poker_deck ) ]
+                    , backwards = False
                     }
 
         model =
@@ -131,7 +133,7 @@ init previousState =
             , movesText = storedState.movesText
             , movesAndDefinitions = Ok { moves = [], definitions = Dict.empty }
             , performanceFailure = Nothing
-            , backwards = False
+            , backwards = storedState.backwards
             }
     in
     ( model
@@ -228,6 +230,7 @@ save model =
 type alias StoredState =
     { movesText : String
     , initialImage : Image
+    , backwards : Bool
     }
 
 
@@ -236,14 +239,16 @@ encodeStoredState ss =
     Encode.object
         [ ( "movesText", Encode.string ss.movesText )
         , ( "initialImage", Image.encode ss.initialImage )
+        , ( "backwards", Encode.bool ss.backwards )
         ]
 
 
 storedStateDecoder : Decode.Decoder StoredState
 storedStateDecoder =
-    Decode.map2 StoredState
+    Decode.map3 StoredState
         (Decode.field "movesText" Decode.string)
         (Decode.field "initialImage" Image.decoder)
+        (Decode.field "backwards" Decode.bool)
 
 
 saveState : Model -> Cmd Msg
@@ -252,6 +257,7 @@ saveState model =
         storedState =
             { movesText = model.movesText
             , initialImage = model.initialImage |> ImageEditor.getImage
+            , backwards = model.backwards
             }
     in
     encodeStoredState storedState
@@ -264,7 +270,7 @@ toggleForwardsBackwards model =
         newInitialImage =
             model.finalImage
     in
-    -- reapplyMoves will take care of updating performanceFailure
+    -- applyMoves will take care of updating performanceFailure
     { model
         | initialImage = ImageEditor.init newInitialImage
         , backwards = not model.backwards
