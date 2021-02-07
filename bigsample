@@ -71,14 +71,14 @@ def faro N deck other
    cut N t1 deck
 end
 
-def outfaro52 deck
+def outFaro52 deck
   doc Perfect out faro of a deck of 52
   temp upper
   cut 26 deck upper
   faro 26 deck upper
 end
 
-def completecut N deck
+def completeCut N deck
    doc Cut the top N cards of deck to the bottom
    temp t
    cut N deck t
@@ -91,15 +91,16 @@ end
 def mnemonicaFromUSPC uspc
   doc Shuffle a deck from USPC into mnemonica
   temp upper
+
   repeat 4
-    outfaro52 uspc
+    outFaro52 uspc
   end
   deal 26 uspc upper
   cut 26 uspc upper
   cut 52 upper uspc
   cut 18 uspc upper
   faro 18 uspc upper
-  completecut 9 uspc
+  completeCut 9 uspc
 end
 
 tantalizer52 deck bene denis

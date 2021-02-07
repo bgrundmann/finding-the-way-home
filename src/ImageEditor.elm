@@ -318,27 +318,30 @@ ifEditingThisPile name state =
 
 viewImageToAddChooser : (Msg -> msg) -> Dict String Image -> Element msg
 viewImageToAddChooser toMsg options =
-    column
-        [ spacing 5
-        , padding 20
-        , Border.color Palette.blueBook
-        , Border.width 2
-        , Border.rounded 5
-        , Background.color Palette.white
-        , Font.color Palette.black
-        ]
-        (options
-            |> Dict.toList
-            |> List.sortBy Tuple.first
-            |> List.map
-                (\( name, image ) ->
-                    Input.button
-                        [ width fill
-                        , Element.mouseOver [ Font.color Palette.greenBook ]
-                        ]
-                        { onPress = Just (Add image |> toMsg), label = text name }
+    el [ width fill, height fill, Background.color Palette.transparentGrey ] <|
+        column
+            [ padding 20
+            , Border.color Palette.blueBook
+            , Border.width 2
+            , Border.rounded 5
+            , Background.color Palette.white
+            , Font.color Palette.black
+            , Element.alignBottom
+            ]
+            [ column [ Element.alignBottom, spacing 5 ]
+                (options
+                    |> Dict.toList
+                    |> List.sortBy Tuple.first
+                    |> List.map
+                        (\( name, image ) ->
+                            Input.button
+                                [ width fill
+                                , Element.mouseOver [ Font.color Palette.greenBook ]
+                                ]
+                                { onPress = Just (Add image |> toMsg), label = text name }
+                        )
                 )
-        )
+            ]
 
 
 view : (Msg -> msg) -> State -> Element msg
@@ -378,17 +381,16 @@ view toMsg state =
         imageToAddChooser =
             case state.editing of
                 ChoosingImageToAdd ->
-                    [ Element.above (viewImageToAddChooser toMsg state.options)
+                    [ Element.inFront (viewImageToAddChooser toMsg state.options)
                     ]
 
                 _ ->
                     []
     in
-    column [ width fill, height fill, spacing 10 ]
+    column ([ width fill, spacing 10 ] ++ imageToAddChooser)
         [ pilesView
-        , el imageToAddChooser <|
-            Input.button regularButton
-                { onPress = OpenAdd |> toMsg |> Just
-                , label = text "Add"
-                }
+        , Input.button regularButton
+            { onPress = OpenAdd |> toMsg |> Just
+            , label = text "Add"
+            }
         ]
