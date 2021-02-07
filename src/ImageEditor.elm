@@ -355,7 +355,13 @@ view toMsg state =
                                     Pile.view pile
 
                                 Just { text } ->
-                                    Input.multiline [ width fill ]
+                                    Input.multiline
+                                        [ width fill
+                                        , onKey
+                                            { enter = Nothing
+                                            , escape = CancelEditing |> toMsg |> Just
+                                            }
+                                        ]
                                         { label = Input.labelHidden "pile"
                                         , text = text
                                         , placeholder = Nothing
