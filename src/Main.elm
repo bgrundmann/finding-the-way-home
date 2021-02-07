@@ -320,7 +320,8 @@ view model =
                 }
 
         initialImageView =
-            Element.Lazy.lazy2 ImageEditor.view ImageEditorChanged model.initialImage
+            el [ width fill, height (minimum 0 fill), scrollbarY ]
+                (Element.Lazy.lazy2 ImageEditor.view ImageEditorChanged model.initialImage)
 
         viewMessage title m =
             Element.column [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, spacing 10 ]
@@ -353,7 +354,12 @@ view model =
 
         movesView =
             Element.column [ width fill, height fill, spacing 10 ]
-                [ Input.multiline [ width fill, height (minimum 0 (fillPortion 2)), scrollbarY, Border.color movesBorderColor ]
+                [ Input.multiline
+                    [ width fill
+                    , height (minimum 0 (fillPortion 2))
+                    , scrollbarY
+                    , Border.color movesBorderColor
+                    ]
                     { label =
                         Input.labelAbove []
                             (row [ spacing 40 ]
@@ -370,7 +376,8 @@ view model =
                 ]
 
         finalImageView =
-            el [ width fill, height fill ] (Element.Lazy.lazy2 Image.view (\t -> el [ Font.bold ] (text t)) model.finalImage)
+            el [ width fill, height (minimum 0 fill), scrollbarY ]
+                (Element.Lazy.lazy2 Image.view (\t -> el [ Font.bold ] (text t)) model.finalImage)
 
         withWidthPortion n =
             el [ width (fillPortion n), height fill ]

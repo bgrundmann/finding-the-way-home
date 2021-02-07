@@ -1,7 +1,18 @@
 module Image exposing (Image, PileName, decoder, encode, get, names, piles, put, renamePile, take, update, view)
 
 import Card
-import Element exposing (Element, column, el, paragraph, spacing, text, textColumn)
+import Element
+    exposing
+        ( Element
+        , column
+        , el
+        , fill
+        , paragraph
+        , spacing
+        , text
+        , textColumn
+        , width
+        )
 import Element.Font as Font
 import Element.Keyed
 import Json.Decode as Decode
@@ -121,7 +132,7 @@ update pileName f image =
 
 view : (String -> Element msg) -> Image -> Element msg
 view viewPileName world =
-    Element.Keyed.column [ spacing 10 ]
+    Element.Keyed.column [ spacing 10, width fill ]
         (List.map (\( name, pile ) -> ( name, column [] [ viewPileName name, Pile.view pile ] )) world)
 
 

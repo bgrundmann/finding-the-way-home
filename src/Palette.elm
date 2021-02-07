@@ -31,9 +31,19 @@ black =
     rgb255 0 0 0
 
 
+grey : Element.Color
+grey =
+    rgb255 128 128 128
+
+
 regularButton : List (Attribute msg)
 regularButton =
-    [ mouseOver [ scale 1.1 ], Background.color blueBook, Font.color white, padding 5, Border.rounded 3 ]
+    [ mouseOver [ scale 1.1 ]
+    , Background.color blueBook
+    , Font.color white
+    , padding 5
+    , Border.rounded 3
+    ]
 
 
 dangerousButton : List (Attribute msg)

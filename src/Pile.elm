@@ -1,4 +1,4 @@
-module Pile exposing (Pile, fromString, pileParser, poker_deck, toString, view)
+module Pile exposing (Pile, fromString, pileParser, poker_deck, toString, turnover, view)
 
 import Card exposing (Card, Suit(..), Value(..), all_values, card, cardParser)
 import Element exposing (Element, column, el, fill, paragraph, row, text, textColumn, width)
@@ -84,6 +84,11 @@ view pile =
                 ]
     in
     paragraph [ Element.spacing 5 ] (List.map viewNumberedCard numberedPile)
+
+
+turnover : Pile -> Pile
+turnover pile =
+    List.reverse (List.map Card.turnover pile)
 
 
 

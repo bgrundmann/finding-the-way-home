@@ -45,6 +45,8 @@ type Msg
     = Delete PileName
     | Add Image
     | OpenAdd
+    | ReversePile PileName
+    | TurnoverPile PileName
     | StartEditPile PileName
     | EditPile EditingPileState
     | EditPileName { oldName : String, newName : String }
@@ -153,6 +155,20 @@ update msg state =
                         Nothing ->
                             { state | image = Image.renamePile oldName newName state.image, editing = NotEditing }
 
+        ReversePile pileName ->
+            let
+                reverse maybePile =
+                    Maybe.map (\pile -> List.reverse pile) maybePile
+            in
+            { state | image = Image.update pileName reverse state.image, editing = NotEditing }
+
+        TurnoverPile pileName ->
+            let
+                turnover maybePile =
+                    Maybe.map (\pile -> Pile.turnover pile) maybePile
+            in
+            { state | image = Image.update pileName turnover state.image, editing = NotEditing }
+
         StartEditPile pileName ->
             let
                 text =
@@ -248,19 +264,36 @@ viewPileNameAndButtons toMsg state pileName =
                                     |> toMsg
                         }
 
-        editButton =
+        buttons =
             case ifEditingThisPile pileName state of
                 Nothing ->
-                    Input.button regularButton { onPress = StartEditPile pileName |> toMsg |> Just, label = text "Edit" }
+                    [ Input.button regularButton
+                        { onPress = ReversePile pileName |> toMsg |> Just
+                        , label = text "Reverse"
+                        }
+                    , Input.button regularButton
+                        { onPress = TurnoverPile pileName |> toMsg |> Just
+                        , label = text "Turnover"
+                        }
+                    , Input.button regularButton
+                        { onPress = StartEditPile pileName |> toMsg |> Just
+                        , label = text "Edit"
+                        }
+                    , Input.button dangerousButton
+                        { onPress = Delete pileName |> toMsg |> Just
+                        , label = text "Delete"
+                        }
+                    ]
 
                 Just _ ->
-                    Input.button regularButton { onPress = Save |> toMsg |> Just, label = text "Save" }
+                    [ Input.button regularButton
+                        { onPress = Save |> toMsg |> Just
+                        , label = text "Save"
+                        }
+                    ]
     in
-    row [ width fill, spacing 5 ]
-        [ el [ width fill, Font.bold ] pileNameLabelOrEditor
-        , editButton
-        , Input.button dangerousButton { onPress = Delete pileName |> toMsg |> Just, label = text "Delete" }
-        ]
+    row [ width fill, spacing 10 ]
+        (el [ width fill, Font.bold ] pileNameLabelOrEditor :: buttons)
 
 
 ifEditingThisPile : String -> State -> Maybe EditingPileState
@@ -347,5 +380,9 @@ view toMsg state =
     in
     column [ width fill, height fill, spacing 10 ]
         [ pilesView
-        , el imageToAddChooser <| Input.button regularButton { onPress = OpenAdd |> toMsg |> Just, label = text "Add" }
+        , el imageToAddChooser <|
+            Input.button regularButton
+                { onPress = OpenAdd |> toMsg |> Just
+                , label = text "Add"
+                }
         ]

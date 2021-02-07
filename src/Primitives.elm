@@ -23,11 +23,6 @@ import Pile exposing (Pile)
 --- Primitives
 
 
-turnover : Pile -> Pile
-turnover pile =
-    List.reverse (List.map Card.turnover pile)
-
-
 decodeActuals :
     { turnover : PileName -> a, cut : Int -> PileName -> PileName -> a, decodingError : Primitive -> a }
     -> Primitive
@@ -59,7 +54,7 @@ eval image =
                         reportError image (NoSuchPile { name = name })
 
                     Just p ->
-                        { lastImage = Image.put name (turnover p) newImage, error = Nothing }
+                        { lastImage = Image.put name (Pile.turnover p) newImage, error = Nothing }
         , cut =
             \n from to ->
                 if n == 0 then
