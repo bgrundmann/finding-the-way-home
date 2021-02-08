@@ -1,6 +1,7 @@
 module Main exposing (main)
 
 import Browser
+import Browser.Dom as Dom
 import Dict
 import Element
     exposing
@@ -75,6 +76,7 @@ type Msg
     | SelectLoad
     | Load File
     | GotLoad String
+    | Focus (Result Dom.Error ())
 
 
 defaultInfoText : String
@@ -197,12 +199,18 @@ update msg model =
 
         ImageEditorChanged imageEditorMsg ->
             let
+                ( newInitialImage, imageCmd ) =
+                    ImageEditor.update Focus imageEditorMsg model.initialImage
+
                 newModel =
-                    { model | initialImage = ImageEditor.update imageEditorMsg model.initialImage }
+                    { model | initialImage = newInitialImage }
                         |> applyMoves
             in
             ( newModel
-            , saveState newModel
+            , Cmd.batch
+                [ saveState newModel
+                , imageCmd
+                ]
             )
 
         ToggleForwardsBackwards ->
@@ -227,6 +235,12 @@ update msg model =
                 |> applyMoves
             , Cmd.none
             )
+
+        Focus (Ok ()) ->
+            ( model, Cmd.none )
+
+        Focus (Err e) ->
+            ( model, Cmd.none )
 
 
 save : Model -> Cmd Msg
@@ -366,6 +380,7 @@ view model =
                     , height (minimum 0 (fillPortion 2))
                     , scrollbarY
                     , Border.color movesBorderColor
+                    , Input.focusedOnLoad
                     ]
                     { label =
                         Input.labelAbove []

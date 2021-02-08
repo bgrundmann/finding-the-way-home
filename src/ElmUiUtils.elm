@@ -1,9 +1,15 @@
-module ElmUiUtils exposing (boldMono, mono, onKey)
+module ElmUiUtils exposing (boldMono, id, mono, onKey)
 
 import Element exposing (Element, el, spacing, text)
 import Element.Font as Font
+import Html.Attributes
 import Html.Events
 import Json.Decode as Decode
+
+
+id : String -> Element.Attribute msg
+id idString =
+    Element.htmlAttribute (Html.Attributes.id idString)
 
 
 mono s =

@@ -1,5 +1,6 @@
 module ImageEditor exposing (Msg, State, getImage, init, update, view)
 
+import Browser.Dom as Dom
 import Card
 import Dict exposing (Dict)
 import Element exposing (Element, column, el, fill, height, padding, row, spacing, text, width)
@@ -12,6 +13,7 @@ import Image exposing (Image, PileName, view)
 import MoveParser exposing (validatePileName)
 import Palette exposing (dangerousButton, regularButton)
 import Pile
+import Task
 
 
 type Editing
@@ -93,14 +95,27 @@ findUnusedName image prefix =
     findLoop 0
 
 
-update : Msg -> State -> State
-update msg state =
+idOfPileNameEditor =
+    -- Similar to the id of the Pile we assume there is only one
+    "imageEditorPileNameEditor"
+
+
+update : (Result Dom.Error () -> a) -> Msg -> State -> ( State, Cmd a )
+update toFocusMsg msg state =
     case msg of
         Delete pileName ->
-            { state | image = Image.update pileName (\_ -> Nothing) state.image }
+            ( { state | image = Image.update pileName (\_ -> Nothing) state.image }, Cmd.none )
 
         EditPileName { oldName, newName } ->
             let
+                wasAlreadyEditingThisPileName =
+                    case state.editing of
+                        EditingPileName pn ->
+                            pn.oldName == oldName
+
+                        _ ->
+                            False
+
                 errorMessagePileName =
                     validatePileName newName
 
@@ -115,59 +130,85 @@ update msg state =
 
                             else
                                 Nothing
+
+                setFocusIfNecessary =
+                    if wasAlreadyEditingThisPileName then
+                        Cmd.none
+
+                    else
+                        Task.attempt toFocusMsg (Dom.focus idOfPileNameEditor)
             in
-            { state
+            ( { state
                 | editing =
                     EditingPileName
                         { oldName = oldName
                         , newName = newName
                         , errorMessage = errorMessage
                         }
-            }
+              }
+            , setFocusIfNecessary
+            )
 
         CancelEditing ->
-            { state | editing = NotEditing }
+            ( { state | editing = NotEditing }, Cmd.none )
 
         Save ->
             case state.editing of
                 NotEditing ->
-                    state
+                    ( state, Cmd.none )
 
                 ChoosingImageToAdd ->
-                    state
+                    ( state, Cmd.none )
 
                 EditingPile { pileName, text } ->
                     case Pile.fromString text of
                         Err _ ->
-                            state
+                            ( state, Cmd.none )
 
                         Ok cards ->
-                            { state
+                            ( { state
                                 | image = Image.update pileName (always (Just cards)) state.image
                                 , editing = NotEditing
-                            }
+                              }
+                            , Cmd.none
+                            )
 
                 EditingPileName { oldName, newName, errorMessage } ->
                     case errorMessage of
                         Just _ ->
-                            state
+                            ( state, Cmd.none )
 
                         Nothing ->
-                            { state | image = Image.renamePile oldName newName state.image, editing = NotEditing }
+                            ( { state
+                                | image = Image.renamePile oldName newName state.image
+                                , editing = NotEditing
+                              }
+                            , Cmd.none
+                            )
 
         ReversePile pileName ->
             let
                 reverse maybePile =
                     Maybe.map (\pile -> List.reverse pile) maybePile
             in
-            { state | image = Image.update pileName reverse state.image, editing = NotEditing }
+            ( { state
+                | image = Image.update pileName reverse state.image
+                , editing = NotEditing
+              }
+            , Cmd.none
+            )
 
         TurnoverPile pileName ->
             let
                 turnover maybePile =
                     Maybe.map (\pile -> Pile.turnover pile) maybePile
             in
-            { state | image = Image.update pileName turnover state.image, editing = NotEditing }
+            ( { state
+                | image = Image.update pileName turnover state.image
+                , editing = NotEditing
+              }
+            , Cmd.none
+            )
 
         StartEditPile pileName ->
             let
@@ -176,13 +217,19 @@ update msg state =
                         |> Maybe.withDefault []
                         |> Pile.toString
             in
-            { state | editing = EditingPile { pileName = pileName, text = text } }
+            ( { state | editing = EditingPile { pileName = pileName, text = text } }
+            , Task.attempt toFocusMsg (Dom.focus idOfPileEditor)
+            )
 
         EditPile newState ->
-            { state | editing = EditingPile newState }
+            ( { state | editing = EditingPile newState }
+            , Cmd.none
+            )
 
         OpenAdd ->
-            { state | editing = ChoosingImageToAdd }
+            ( { state | editing = ChoosingImageToAdd }
+            , Cmd.none
+            )
 
         Add imageToAdd ->
             let
@@ -196,7 +243,12 @@ update msg state =
                         state.image
                         (Image.piles imageToAdd)
             in
-            { state | image = newImage, editing = NotEditing }
+            ( { state
+                | image = newImage
+                , editing = NotEditing
+              }
+            , Cmd.none
+            )
 
 
 getImage : State -> Image
@@ -253,6 +305,7 @@ viewPileNameAndButtons toMsg state pileName =
                             { enter = Save |> toMsg |> Just
                             , escape = CancelEditing |> toMsg |> Just
                             }
+                            :: ElmUiUtils.id idOfPileNameEditor
                             :: maybeWarnColor
                         )
                         { label = Input.labelHidden "PileName"
@@ -344,6 +397,14 @@ viewImageToAddChooser toMsg options =
             ]
 
 
+idOfPileEditor : String
+idOfPileEditor =
+    -- Here we assume that there is a single imageEditor on the page
+    -- and in addition we currently only allow at most one pile to
+    -- be edited at any given moment in time.
+    "imageEditorPileEditor"
+
+
 view : (Msg -> msg) -> State -> Element msg
 view toMsg state =
     let
@@ -364,6 +425,7 @@ view toMsg state =
                                             { enter = Nothing
                                             , escape = CancelEditing |> toMsg |> Just
                                             }
+                                        , ElmUiUtils.id idOfPileEditor
                                         ]
                                         { label = Input.labelHidden pileName
                                         , text = text
