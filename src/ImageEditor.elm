@@ -57,9 +57,12 @@ type Msg
 
 
 defaultOptions =
-    [ ( "red backed deck (face down)", [ ( "deck", Pile.poker_deck ) ] )
-    , ( "blue backed deck (face down)"
-      , [ ( "deck", Pile.poker_deck |> List.map (Card.withVisible (Card.Back Card.Blue)) ) ]
+    [ ( "red deck (face down)", [ ( "deck", Pile.poker_deck ) ] )
+    , ( "blue deck (face down)"
+      , [ ( "bluedeck", Pile.poker_deck |> List.map (Card.withVisible (Card.Back Card.Blue)) ) ]
+      )
+    , ( "green deck (face down)"
+      , [ ( "greendeck", Pile.poker_deck |> List.map (Card.withVisible (Card.Back Card.Green)) ) ]
       )
     ]
 
