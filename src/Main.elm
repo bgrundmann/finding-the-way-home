@@ -13,6 +13,7 @@ import Element
         , minimum
         , mouseOver
         , padding
+        , paddingXY
         , paragraph
         , row
         , scale
@@ -320,7 +321,7 @@ view model =
                 }
 
         initialImageView =
-            el [ width fill, height (minimum 0 fill), scrollbarY ]
+            el [ width fill, height (minimum 0 fill), scrollbarY, paddingXY 20 10 ]
                 (Element.Lazy.lazy2 ImageEditor.view ImageEditorChanged model.initialImage)
 
         viewMessage title m =
@@ -376,7 +377,7 @@ view model =
                 ]
 
         finalImageView =
-            el [ width fill, height (minimum 0 fill), scrollbarY ]
+            el [ width fill, height (minimum 0 fill), scrollbarY, paddingXY 20 10 ]
                 (Element.Lazy.lazy2 Image.view (\t -> el [ Font.bold ] (text t)) model.finalImage)
 
         withWidthPortion n =
@@ -398,8 +399,6 @@ view model =
     Element.layout [ width fill, height fill ] <|
         column [ width fill, height fill ]
             [ topBar
-            , Element.column [ Element.padding 20, width fill, height fill, spacing 10 ]
-                [ Element.row [ spacing 20, width fill, height fill ]
-                    mainElements
-                ]
+            , Element.row [ spacing 20, width fill, height (minimum 0 fill) ]
+                mainElements
             ]

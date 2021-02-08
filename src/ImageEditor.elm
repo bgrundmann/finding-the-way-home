@@ -320,7 +320,7 @@ viewImageToAddChooser : (Msg -> msg) -> Dict String Image -> Element msg
 viewImageToAddChooser toMsg options =
     el [ width fill, height fill, Background.color Palette.transparentGrey ] <|
         column
-            [ padding 20
+            [ padding 10
             , Border.color Palette.blueBook
             , Border.width 2
             , Border.rounded 5
