@@ -119,7 +119,7 @@ init previousState =
         storedState =
             case Decode.decodeValue storedStateDecoder previousState of
                 Ok ss ->
-                    ss
+                    Debug.log "loaded previous state" ss
 
                 Err _ ->
                     { movesText = ""
@@ -204,7 +204,11 @@ update msg model =
             )
 
         ToggleForwardsBackwards ->
-            ( toggleForwardsBackwards model, Cmd.none )
+            let
+                newModel =
+                    toggleForwardsBackwards model
+            in
+            ( newModel, saveState newModel )
 
         Save ->
             ( model, save model )
