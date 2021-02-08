@@ -54,18 +54,23 @@ transparentGrey =
 regularButton : List (Attribute msg)
 regularButton =
     [ mouseOver [ Border.glow grey 2 ]
-    , Background.color blueBook
-    , Font.color white
+    , Background.color white
+    , Border.color blueBook
+    , Border.width 1
+    , Font.color black
     , padding 5
-    , Border.rounded 3
+    , Border.rounded 5
     ]
 
 
 dangerousButton : List (Attribute msg)
 dangerousButton =
     [ mouseOver [ Border.glow grey 2 ]
-    , Background.color redBook
-    , Font.color white
+    , Background.color white
+    , Font.color black
+    , Font.bold
     , padding 5
-    , Border.rounded 3
+    , Border.rounded 5
+    , Border.width 1
+    , Border.color redBook
     ]

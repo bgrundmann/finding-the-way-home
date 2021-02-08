@@ -365,7 +365,7 @@ view toMsg state =
                                             , escape = CancelEditing |> toMsg |> Just
                                             }
                                         ]
-                                        { label = Input.labelHidden "pile"
+                                        { label = Input.labelHidden pileName
                                         , text = text
                                         , placeholder = Nothing
                                         , onChange =
