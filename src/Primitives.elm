@@ -1,6 +1,5 @@
 module Primitives exposing (eval, primitiveCut, primitiveTurnover, primitives)
 
-import Card
 import Dict exposing (Dict)
 import EvalResult exposing (EvalResult, Problem(..), reportError)
 import Image exposing (Image, PileName)

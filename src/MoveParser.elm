@@ -2,9 +2,7 @@ module MoveParser exposing (Definitions, definitionsFromList, parseMoves, valida
 
 import Char
 import Dict exposing (Dict)
-import Dict.Extra
 import List
-import List.Extra
 import Move
     exposing
         ( Argument

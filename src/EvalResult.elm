@@ -12,7 +12,6 @@ import Element exposing (Element, column, fill, paragraph, row, spacing, text, w
 import Element.Font as Font
 import ElmUiUtils exposing (boldMono, mono)
 import Image exposing (Image, PileName)
-import List.Extra
 import Move exposing (ExprValue(..), MoveDefinition)
 import Palette
 
@@ -29,7 +28,10 @@ type Problem
 
 
 type alias Backtrace =
-    List { location : Location, step : BacktraceStep }
+    List
+        { location : Location
+        , step : BacktraceStep
+        }
 
 
 type BacktraceStep

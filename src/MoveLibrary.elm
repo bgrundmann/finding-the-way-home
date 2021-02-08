@@ -19,12 +19,11 @@ fromList dl =
 get : MoveIdentifier -> MoveLibrary -> Maybe MoveDefinition
 get ident library =
     let
-        ( name, argKinds ) =
+        ( name, _ ) =
             ident
     in
-    case Dict.get name library of
-        Nothing ->
-            Nothing
-
-        Just candidates ->
-            List.Extra.find (\md -> Move.identifier md == ident) candidates
+    Dict.get name library
+        |> Maybe.map
+            (\candidates ->
+                List.Extra.find (\md -> Move.identifier md == ident) candidates
+            )

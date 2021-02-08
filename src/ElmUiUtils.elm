@@ -1,6 +1,6 @@
 module ElmUiUtils exposing (boldMono, id, mono, onKey)
 
-import Element exposing (Element, el, spacing, text)
+import Element exposing (Element, el, text)
 import Element.Font as Font
 import Html.Attributes
 import Html.Events
@@ -12,10 +12,12 @@ id idString =
     Element.htmlAttribute (Html.Attributes.id idString)
 
 
+mono : String -> Element msg
 mono s =
     el [ Font.family [ Font.monospace ] ] (text s)
 
 
+boldMono : String -> Element msg
 boldMono s =
     el [ Font.family [ Font.monospace ], Font.bold ] (text s)
 

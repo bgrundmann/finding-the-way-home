@@ -15,7 +15,6 @@ import Element
         , mouseOver
         , padding
         , paddingXY
-        , paragraph
         , row
         , scale
         , scrollbarY
@@ -123,7 +122,7 @@ init previousState =
         storedState =
             case Decode.decodeValue storedStateDecoder previousState of
                 Ok ss ->
-                    Debug.log "loaded previous state" ss
+                    ss
 
                 Err _ ->
                     { movesText = ""
@@ -239,7 +238,7 @@ update msg model =
         Focus (Ok ()) ->
             ( model, Cmd.none )
 
-        Focus (Err e) ->
+        Focus (Err _) ->
             ( model, Cmd.none )
 
 

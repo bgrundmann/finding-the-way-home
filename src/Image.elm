@@ -1,24 +1,17 @@
 module Image exposing (Image, PileName, decoder, encode, get, names, piles, put, renamePile, take, update, view)
 
-import Card
 import Element
     exposing
         ( Element
         , column
-        , el
         , fill
-        , paragraph
         , spacing
-        , text
-        , textColumn
         , width
         )
-import Element.Font as Font
 import Element.Keyed
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List
-import List.Extra exposing (greedyGroupsOf)
 import Pile exposing (Pile)
 
 

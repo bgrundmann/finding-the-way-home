@@ -56,6 +56,7 @@ type Msg
     | Save
 
 
+defaultOptions : List ( String, Image )
 defaultOptions =
     [ ( "red deck (face down)", [ ( "deck", Pile.poker_deck ) ] )
     , ( "blue deck (face down)"
@@ -98,6 +99,7 @@ findUnusedName image prefix =
     findLoop 0
 
 
+idOfPileNameEditor : String
 idOfPileNameEditor =
     -- Similar to the id of the Pile we assume there is only one
     "imageEditorPileNameEditor"

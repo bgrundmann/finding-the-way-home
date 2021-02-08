@@ -15,7 +15,11 @@ type alias Env =
     { scoped :
         List
             { actuals : List ExprValue
-            , temporaryPiles : List { nameInSource : String, nameInPile : String }
+            , temporaryPiles :
+                List
+                    { nameInSource : String
+                    , nameInPile : String
+                    }
             }
     , tempCounter : Int
     }
@@ -119,7 +123,7 @@ evalWithEnv env image move =
                 Pile _ ->
                     reportError image (Bug "Type checker failed")
 
-        Do loc ({ name, body } as md) actuals ->
+        Do loc ({ body } as md) actuals ->
             let
                 actualValues =
                     List.map (replaceArgumentByValue env) actuals
