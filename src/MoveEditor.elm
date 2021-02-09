@@ -3,6 +3,7 @@ module MoveEditor exposing
     , Msg
     , StoredState
     , encodeStoredState
+    , getStoredState
     , init
     , storedStateDecoder
     , update
@@ -115,28 +116,28 @@ apply moves image =
     Eval.eval image moves
 
 
-init : Encode.Value -> ( Model, Cmd Msg )
-init previousState =
-    let
-        storedState =
-            case Decode.decodeValue storedStateDecoder previousState of
-                Ok ss ->
-                    ss
+freshStartInitialState : StoredState
+freshStartInitialState =
+    { movesText = ""
+    , initialImage =
+        [ ( "deck", Pile.poker_deck ) ]
+    , backwards = False
+    }
 
-                Err _ ->
-                    { movesText = ""
-                    , initialImage =
-                        [ ( "deck", Pile.poker_deck ) ]
-                    , backwards = False
-                    }
+
+init : Maybe StoredState -> ( Model, Cmd Msg )
+init maybePreviousState =
+    let
+        previousStateOrInitial =
+            Maybe.withDefault freshStartInitialState maybePreviousState
 
         model =
-            { initialImage = ImageEditor.init storedState.initialImage
-            , finalImage = storedState.initialImage
-            , movesText = storedState.movesText
+            { initialImage = ImageEditor.init previousStateOrInitial.initialImage
+            , finalImage = previousStateOrInitial.initialImage
+            , movesText = previousStateOrInitial.movesText
             , movesAndDefinitions = Ok { moves = [], definitions = Dict.empty }
             , performanceFailure = Nothing
-            , backwards = storedState.backwards
+            , backwards = previousStateOrInitial.backwards
             }
     in
     ( model
@@ -185,14 +186,10 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         SetMoves text ->
-            let
-                newModel =
-                    { model | movesText = text }
-                        |> parseMoves
-                        |> applyMoves
-            in
-            ( newModel
-            , saveState newModel
+            ( { model | movesText = text }
+                |> parseMoves
+                |> applyMoves
+            , Cmd.none
             )
 
         ImageEditorChanged imageEditorMsg ->
@@ -205,10 +202,7 @@ update msg model =
                         |> applyMoves
             in
             ( newModel
-            , Cmd.batch
-                [ saveState newModel
-                , imageCmd
-                ]
+            , imageCmd
             )
 
         ToggleForwardsBackwards ->
@@ -216,10 +210,10 @@ update msg model =
                 newModel =
                     toggleForwardsBackwards model
             in
-            ( newModel, saveState newModel )
+            ( newModel, Cmd.none )
 
         Save ->
-            ( model, save model )
+            ( model, Cmd.none )
 
         SelectLoad ->
             ( model, Select.file [ "text/text" ] Load )
@@ -270,17 +264,14 @@ storedStateDecoder =
         (Decode.field "backwards" Decode.bool)
 
 
-saveState : Model -> Cmd Msg
-saveState model =
-    let
-        storedState =
-            { movesText = model.movesText
-            , initialImage = model.initialImage |> ImageEditor.getImage
-            , backwards = model.backwards
-            }
-    in
-    encodeStoredState storedState
-        |> Ports.storeState
+{-| Return the data that we want to store to be able to restore this session.
+-}
+getStoredState : Model -> StoredState
+getStoredState model =
+    { movesText = model.movesText
+    , initialImage = model.initialImage |> ImageEditor.getImage
+    , backwards = model.backwards
+    }
 
 
 toggleForwardsBackwards : Model -> Model

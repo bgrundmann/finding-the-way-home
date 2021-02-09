@@ -73,13 +73,43 @@ main =
 
 
 init : Encode.Value -> ( Model, Cmd Msg )
-init previousState =
-    MoveEditor.init previousState
+init previousStateJson =
+    let
+        maybePreviousStoredState =
+            case Decode.decodeValue MoveEditor.storedStateDecoder previousStateJson of
+                Ok previousState ->
+                    Just previousState
+
+                Err _ ->
+                    Nothing
+    in
+    MoveEditor.init maybePreviousStoredState
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    MoveEditor.update msg model
+    let
+        ( newModel, moveCmd ) =
+            MoveEditor.update msg model
+
+        saveCmd =
+            saveState newModel
+    in
+    ( newModel, Cmd.batch [ moveCmd, saveCmd ] )
+
+
+
+-- Session storage
+
+
+saveState : Model -> Cmd Msg
+saveState model =
+    let
+        storedState =
+            MoveEditor.getStoredState model
+    in
+    MoveEditor.encodeStoredState storedState
+        |> Ports.storeState
 
 
 
