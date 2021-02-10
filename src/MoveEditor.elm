@@ -3,6 +3,7 @@ module MoveEditor exposing
     , Msg
     , StoredState
     , encodeStoredState
+    , getDefinitions
     , getStoredState
     , init
     , storedStateDecoder
@@ -86,6 +87,16 @@ type Msg
     | Load File
     | GotLoad String
     | Focus (Result Dom.Error ())
+
+
+getDefinitions : Model -> Definitions
+getDefinitions model =
+    case model.movesAndDefinitions of
+        Err _ ->
+            Dict.empty
+
+        Ok { definitions } ->
+            definitions
 
 
 defaultInfoText : String

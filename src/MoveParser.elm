@@ -58,7 +58,7 @@ used by to augment the error messages. That said if the Elm parser library provi
 a way to read the context during parsing we could have used that.
 -}
 type alias ParseEnv =
-    { level : Int -- 0 == toplevel, 1 == first def, ... (note that Argument.up is the other way around)
+    { path : List String -- Here its stored in reverse (unlike MoveDefinition)
     , toplevel : Bool
     , definitions : Definitions -- A dictionary of all the moves that are in scope, local and global
     , arguments :
@@ -85,7 +85,7 @@ lookupArgument env name =
     Dict.get name env.arguments
         |> Maybe.map
             (\{ level, ndx, kind, isTemporary } ->
-                { name = name, ndx = ndx, up = env.level - level, kind = kind, isTemporary = isTemporary }
+                { name = name, ndx = ndx, up = List.length env.path - level, kind = kind, isTemporary = isTemporary }
             )
 
 
@@ -96,11 +96,14 @@ argumentsInScopeOfKind env kind =
         |> List.map Tuple.first
 
 
-enterDefinition : ParseEnv -> List { name : String, kind : ArgumentKind } -> List String -> ParseEnv
-enterDefinition env arguments temporaries =
+enterDefinition : String -> ParseEnv -> List { name : String, kind : ArgumentKind } -> List String -> ParseEnv
+enterDefinition moveName env arguments temporaries =
     let
+        thisPath =
+            moveName :: env.path
+
         thisLevel =
-            env.level + 1
+            List.length thisPath
 
         localArguments =
             List.indexedMap
@@ -121,7 +124,7 @@ enterDefinition env arguments temporaries =
         newArguments =
             Dict.union localTemporaries (Dict.union localArguments env.arguments)
     in
-    { env | arguments = newArguments, level = thisLevel, toplevel = False }
+    { env | arguments = newArguments, path = thisPath, toplevel = False }
 
 
 enterRepeat : ParseEnv -> ParseEnv
@@ -131,7 +134,7 @@ enterRepeat env =
 
 toplevelEnv : Definitions -> ParseEnv
 toplevelEnv primitives =
-    { level = 0
+    { path = []
     , toplevel = True
     , definitions = primitives
     , arguments = Dict.empty
@@ -249,7 +252,7 @@ exprParser env move expectedArgument =
         KindPile ->
             let
                 whenNot pileName =
-                    if env.level == 0 then
+                    if List.isEmpty env.path then
                         succeed (ExprValue (Pile pileName))
 
                     else
@@ -472,6 +475,7 @@ definitionParser env =
                     (\( definitions, moves ) ->
                         { name = name
                         , args = args
+                        , path = List.reverse env.path
                         , body =
                             UserDefined
                                 { moves = moves
@@ -481,7 +485,7 @@ definitionParser env =
                         , doc = doc
                         }
                     )
-                    |= definitionsAndMoves (enterDefinition env args temporaryPiles)
+                    |= definitionsAndMoves (enterDefinition name env args temporaryPiles)
                     |. keywordEnd
                     |. endOfStatement env
             )

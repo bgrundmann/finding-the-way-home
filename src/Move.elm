@@ -52,6 +52,7 @@ type alias MoveDefinition =
     , args : List Argument
     , doc : String
     , body : UserDefinedOrPrimitive
+    , path : List String -- [] == toplevel definition
     }
 
 
