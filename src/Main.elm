@@ -20,6 +20,7 @@ import Element
         , paddingXY
         , row
         , scale
+        , scrollbarX
         , scrollbarY
         , spacing
         , text
@@ -251,10 +252,12 @@ viewLibrary selectedMove definitions =
         selectedDefinition =
             Dict.get selectedMove definitions
     in
-    row [ spacing 10, width fill, height fill ]
+    row [ spacing 10, width (minimum 0 fill), height (minimum 0 fill) ]
         [ column
             [ width (fillPortion 1)
-            , height fill
+            , height (minimum 0 fill)
+            , scrollbarY
+            , scrollbarX
             , Border.widthEach { bottom = 0, top = 0, left = 0, right = 2 }
             , Border.color Palette.greenBook
             , spacing 10
@@ -274,8 +277,10 @@ viewLibrary selectedMove definitions =
                     )
             )
         , el
-            [ width (fillPortion 4)
-            , height fill
+            [ width (fillPortion 3)
+            , height (minimum 0 fill)
+            , scrollbarY
+            , padding 10
             ]
             (case selectedDefinition of
                 Nothing ->
