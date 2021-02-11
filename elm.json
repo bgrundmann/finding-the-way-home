@@ -19,9 +19,11 @@
             "mdgriffith/elm-ui": "1.1.8"
         },
         "indirect": {
+            "avh4/elm-color": "1.0.0",
             "elm/bytes": "1.0.8",
             "elm/url": "1.0.0",
-            "elm/virtual-dom": "1.0.2"
+            "elm/virtual-dom": "1.0.2",
+            "ianmackenzie/elm-units": "2.7.0"
         }
     },
     "test-dependencies": {

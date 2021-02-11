@@ -51,6 +51,7 @@ import Pile
 import Ports
 import Primitives exposing (primitives)
 import Task
+import Toasts
 import ViewMove
 
 
@@ -62,6 +63,9 @@ type alias Model =
     { moveEditor : MoveEditor.Model
     , selectedMove : String -- That name is not guaranteed to actually exist.
     , activePage : ActivePage
+
+    -- , library : Definitions
+    , toasts : Toasts.Toasts
     }
 
 
@@ -72,6 +76,7 @@ type ActivePage
 
 type Msg
     = MoveEditorChanged MoveEditor.Msg
+    | ToastsChanged Toasts.Msg
     | SetActivePage ActivePage
     | SelectDefinition String
 
@@ -89,22 +94,29 @@ main =
 init : Encode.Value -> ( Model, Cmd Msg )
 init previousStateJson =
     let
-        maybePreviousStoredState =
+        ( maybePreviousStoredState, firstToast ) =
             case Decode.decodeValue MoveEditor.storedStateDecoder previousStateJson of
                 Ok previousState ->
-                    Just previousState
+                    ( Just previousState, "Welcome back.\nPrevious state loaded." )
 
                 Err _ ->
-                    Nothing
+                    ( Nothing, "Welcome\nLooks like this is your first time here.  Or maybe you cleared the browser cache?" )
 
-        ( moveEditor, cmd ) =
+        ( moveEditor, moveEditorCmd ) =
             MoveEditor.init maybePreviousStoredState
+
+        ( toasts, toastCmd ) =
+            Toasts.add (Toasts.toast firstToast) Toasts.init
     in
     ( { moveEditor = moveEditor
       , activePage = MoveEditorPage
       , selectedMove = ""
+      , toasts = toasts
       }
-    , Cmd.map MoveEditorChanged cmd
+    , Cmd.batch
+        [ Cmd.map MoveEditorChanged moveEditorCmd
+        , Cmd.map ToastsChanged toastCmd
+        ]
     )
 
 
@@ -123,6 +135,16 @@ update msg model =
                     saveState newModel
             in
             ( newModel, Cmd.batch [ Cmd.map MoveEditorChanged moveCmd, saveCmd ] )
+
+        ToastsChanged toastsMsg ->
+            let
+                newToasts =
+                    Toasts.update toastsMsg model.toasts
+
+                newModel =
+                    { model | toasts = newToasts }
+            in
+            ( newModel, Cmd.none )
 
         SetActivePage page ->
             let
@@ -307,7 +329,7 @@ view model =
                         model.selectedMove
                         (MoveEditor.getDefinitions model.moveEditor)
     in
-    Element.layout [ width fill, height fill ] <|
+    Element.layout [ width fill, height fill, Toasts.view model.toasts ] <|
         column [ width fill, height fill ]
             [ topBar model.activePage
             , pageContent
