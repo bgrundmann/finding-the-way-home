@@ -4,6 +4,7 @@ module MoveEditor exposing
     , StoredState
     , encodeStoredState
     , getDefinitions
+    , getLibrary
     , getStoredState
     , init
     , storedStateDecoder
@@ -48,14 +49,15 @@ import Image exposing (Image)
 import ImageEditor
 import Json.Decode as Decode
 import Json.Encode as Encode
-import List
-import Move exposing (ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
+import List.Extra
+import Move exposing (ExprValue(..), Move(..), MoveDefinition, UserDefinedOrPrimitive(..))
+import MoveLibrary exposing (MoveLibrary)
 import MoveParseError exposing (MoveParseError)
-import MoveParser exposing (Definitions)
+import MoveParser
 import Palette exposing (greenBook, redBook, white)
 import Pile
 import Ports
-import Primitives exposing (primitives)
+import Primitives
 import Task
 
 
@@ -70,16 +72,18 @@ type alias Model =
     , movesAndDefinitions :
         Result MoveParseError
             { moves : List Move
-            , definitions : Definitions
+            , definitions : List MoveDefinition
             }
     , performanceFailure : Maybe EvalResult.EvalError
     , finalImage : Image -- The last successfully computed final Image
     , backwards : Bool
+    , library : MoveLibrary
     }
 
 
 type Msg
     = SetMoves String
+    | UpdateLibrary String
     | ImageEditorChanged ImageEditor.Msg
     | ToggleForwardsBackwards
     | Save
@@ -89,19 +93,24 @@ type Msg
     | Focus (Result Dom.Error ())
 
 
-getDefinitions : Model -> Definitions
+getLibrary : Model -> MoveLibrary
+getLibrary model =
+    model.library
+
+
+getDefinitions : Model -> Maybe (List MoveDefinition)
 getDefinitions model =
     case model.movesAndDefinitions of
         Err _ ->
-            Dict.empty
+            Nothing
 
         Ok { definitions } ->
-            definitions
+            Just definitions
 
 
 defaultInfoText : String
 defaultInfoText =
-    String.join "\n" (List.map Move.signature (primitives |> Dict.values))
+    String.join "\n" (List.map Move.signature (Primitives.primitives |> Dict.values))
         ++ """
 
 repeat N
@@ -146,9 +155,10 @@ init maybePreviousState =
             { initialImage = ImageEditor.init previousStateOrInitial.initialImage
             , finalImage = previousStateOrInitial.initialImage
             , movesText = previousStateOrInitial.movesText
-            , movesAndDefinitions = Ok { moves = [], definitions = Dict.empty }
+            , movesAndDefinitions = Ok { moves = [], definitions = [] }
             , performanceFailure = Nothing
             , backwards = previousStateOrInitial.backwards
+            , library = Primitives.primitives
             }
     in
     ( model
@@ -164,8 +174,13 @@ parseMoves : Model -> Model
 parseMoves model =
     { model
         | movesAndDefinitions =
-            MoveParser.parseMoves primitives model.movesText
-                |> Result.map (\{ definitions, moves } -> { definitions = MoveParser.definitionsFromList definitions, moves = moves })
+            MoveParser.parseMoves model.library model.movesText
+                |> Result.map
+                    (\{ definitions, moves } ->
+                        { definitions = definitions
+                        , moves = moves
+                        }
+                    )
     }
 
 
@@ -202,6 +217,23 @@ update msg model =
                 |> applyMoves
             , Cmd.none
             )
+
+        UpdateLibrary moveName ->
+            let
+                newModel =
+                    case model.movesAndDefinitions of
+                        Err _ ->
+                            model
+
+                        Ok { definitions } ->
+                            case List.Extra.find (\md -> md.name == moveName) definitions of
+                                Nothing ->
+                                    model
+
+                                Just md ->
+                                    { model | library = MoveLibrary.add md model.library }
+            in
+            ( newModel, Cmd.none )
 
         ImageEditorChanged imageEditorMsg ->
             let
@@ -375,6 +407,34 @@ view model =
                     , placeholder = Nothing
                     , spellcheck = False
                     }
+                , case model.movesAndDefinitions of
+                    Err _ ->
+                        Element.none
+
+                    Ok { definitions } ->
+                        case definitions of
+                            [] ->
+                                Element.none
+
+                            ds ->
+                                let
+                                    updateButton md =
+                                        Input.button
+                                            [ padding 3
+                                            , Border.rounded 3
+                                            , Font.color Palette.white
+                                            , Background.color Palette.greenBook
+                                            , mouseOver [ Border.glow Palette.grey 1 ]
+                                            ]
+                                            { onPress = Just (UpdateLibrary md.name)
+                                            , label = text md.name
+                                            }
+
+                                    updateButtons =
+                                        List.map updateButton ds
+                                in
+                                Element.paragraph [ width fill, Font.size 14, spacing 10 ]
+                                    (text "Move into library: " :: updateButtons)
                 , infoText
                 ]
 

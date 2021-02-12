@@ -1,4 +1,4 @@
-module MoveParser exposing (Definitions, definitionsFromList, parseMoves, validatePileName)
+module MoveParser exposing (parseMoves, validatePileName)
 
 import Char
 import Dict exposing (Dict)
@@ -14,6 +14,7 @@ import Move
         , MoveDefinition
         , UserDefinedOrPrimitive(..)
         )
+import MoveLibrary exposing (MoveLibrary)
 import MoveParseError exposing (Context, DeadEnd, Expectation(..), MoveParseError, Problem(..))
 import Parser.Advanced
     exposing
@@ -42,17 +43,6 @@ type alias Parser a =
     Parser.Advanced.Parser Context Problem a
 
 
-type alias Definitions =
-    Dict String MoveDefinition
-
-
-definitionsFromList : List MoveDefinition -> Definitions
-definitionsFromList l =
-    l
-        |> List.map (\d -> ( d.name, d ))
-        |> Dict.fromList
-
-
 {-| The ParseEnv guides the parsers into making decisions. Unlike context which is
 used by to augment the error messages. That said if the Elm parser library provided
 a way to read the context during parsing we could have used that.
@@ -60,7 +50,7 @@ a way to read the context during parsing we could have used that.
 type alias ParseEnv =
     { path : List String -- Here its stored in reverse (unlike MoveDefinition)
     , toplevel : Bool
-    , definitions : Definitions -- A dictionary of all the moves that are in scope, local and global
+    , library : MoveLibrary -- Including local definitions
     , arguments :
         Dict String
             { level : Int
@@ -75,7 +65,7 @@ type alias ParseEnv =
 
 addDefinition : ParseEnv -> MoveDefinition -> ParseEnv
 addDefinition env md =
-    { env | definitions = Dict.insert md.name md env.definitions }
+    { env | library = MoveLibrary.add md env.library }
 
 
 {-| Lookup arguments. In the case of PileNames this will also lookup temporary piles.
@@ -132,11 +122,11 @@ enterRepeat env =
     { env | toplevel = False }
 
 
-toplevelEnv : Definitions -> ParseEnv
-toplevelEnv primitives =
+toplevelEnv : MoveLibrary -> ParseEnv
+toplevelEnv initialLibrary =
     { path = []
     , toplevel = True
-    , definitions = primitives
+    , library = initialLibrary
     , arguments = Dict.empty
     }
 
@@ -272,7 +262,7 @@ doMoveParser env =
         |> andThen
             (\location ->
                 moveNameParser
-                    |> andThen (lookupDefinition env.definitions)
+                    |> andThen (lookupDefinition env.library)
                     |> andThen (actualsParser env location)
             )
 
@@ -354,9 +344,9 @@ argParser =
 
 {-| We just parsed a move name and are looking up the corresponding move.
 -}
-lookupDefinition : Definitions -> String -> Parser MoveDefinition
-lookupDefinition definitions moveName =
-    case Dict.get moveName definitions of
+lookupDefinition : MoveLibrary -> String -> Parser MoveDefinition
+lookupDefinition library moveName =
+    case MoveLibrary.getByName moveName library of
         Nothing ->
             problem (UnknownMove moveName)
 
@@ -386,7 +376,10 @@ movesParser env =
     loop [] helper
 
 
-definitionsParser : ParseEnv -> Parser (List MoveDefinition)
+{-| Return a list of definitions and the correspondingly amended MoveLibrary
+from the ParseEnv.
+-}
+definitionsParser : ParseEnv -> Parser ( ParseEnv, List MoveDefinition )
 definitionsParser env =
     let
         helper ( localDefs, e ) =
@@ -396,7 +389,7 @@ definitionsParser env =
                         Loop ( def :: localDefs, addDefinition e def )
                     )
                     |= definitionParser e
-                , succeed () |> map (\() -> Done localDefs)
+                , succeed () |> map (\() -> Done ( e, localDefs ))
                 ]
     in
     loop ( [], env ) helper
@@ -410,7 +403,7 @@ defLineParser env =
         |= (moveNameParser
                 |> andThen
                     (\n ->
-                        if Dict.member n env.definitions then
+                        if Dict.member n env.library then
                             problem (DuplicateDefinition n)
 
                         else
@@ -495,8 +488,8 @@ definitionsAndMoves : ParseEnv -> Parser ( List MoveDefinition, List Move )
 definitionsAndMoves env =
     definitionsParser env
         |> andThen
-            (\defs ->
-                movesParser { env | definitions = Dict.union (definitionsFromList defs) env.definitions }
+            (\( newEnv, defs ) ->
+                movesParser newEnv
                     |> map (\moves -> ( defs, moves ))
             )
 
@@ -510,13 +503,13 @@ parser env =
 {-| Parse a list of definitions and moves as written at the toplevel of a program.
 -}
 parseMoves :
-    Definitions
+    MoveLibrary
     -> String
     -> Result MoveParseError { moves : List Move, definitions : List MoveDefinition }
-parseMoves primitives text =
+parseMoves library text =
     let
         env =
-            toplevelEnv primitives
+            toplevelEnv library
     in
     case run (parser env |. end (Expected EEndOfInput)) text of
         Ok m ->

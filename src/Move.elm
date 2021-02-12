@@ -6,9 +6,11 @@ module Move exposing
     , Location
     , Move(..)
     , MoveDefinition
+    , MoveIdentifier
     , Primitive(..)
     , UserDefinedOrPrimitive(..)
     , backwardsMoves
+    , identifier
     , repeatSignature
     , signature
     )
@@ -54,6 +56,10 @@ type alias MoveDefinition =
     , body : UserDefinedOrPrimitive
     , path : List String -- [] == toplevel definition
     }
+
+
+type alias MoveIdentifier =
+    ( String, List ArgumentKind )
 
 
 type alias UserDefinedMove =
@@ -113,6 +119,11 @@ repeatSignature =
 signature : MoveDefinition -> String
 signature { name, args } =
     name ++ " " ++ String.join " " (args |> List.map .name)
+
+
+identifier : MoveDefinition -> MoveIdentifier
+identifier { name, args } =
+    ( name, List.map .kind args )
 
 
 backwards : Move -> Move

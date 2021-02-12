@@ -18,6 +18,7 @@ import Element
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
+import Element.Lazy
 import Palette
 import Process
 import Task
@@ -100,20 +101,21 @@ viewToast { msg, bgColor, fontColor } =
         [ text msg ]
 
 
+doView : Toasts -> Element msg
+doView (Toasts model) =
+    column
+        [ spacing 10
+        , Element.alignRight
+        , Element.moveDown 20
+        , Element.moveLeft 30
+        ]
+        (Dict.values model.toasts
+            |> List.map viewToast
+        )
+
+
 {-| Use this in your layouts attribute list.
 -}
 view : Toasts -> Element.Attribute msg
-view (Toasts model) =
-    let
-        toasts =
-            column
-                [ spacing 10
-                , Element.alignRight
-                , Element.moveDown 20
-                , Element.moveLeft 30
-                ]
-                (Dict.values model.toasts
-                    |> List.map viewToast
-                )
-    in
-    Element.inFront toasts
+view toasts =
+    Element.inFront (Element.Lazy.lazy doView toasts)

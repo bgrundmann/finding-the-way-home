@@ -44,8 +44,9 @@ import Json.Encode as Encode
 import List
 import Move exposing (ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
 import MoveEditor
+import MoveLibrary exposing (MoveLibrary)
 import MoveParseError exposing (MoveParseError)
-import MoveParser exposing (Definitions)
+import MoveParser
 import Palette exposing (greenBook, redBook, white)
 import Pile
 import Ports
@@ -63,8 +64,6 @@ type alias Model =
     { moveEditor : MoveEditor.Model
     , selectedMove : String -- That name is not guaranteed to actually exist.
     , activePage : ActivePage
-
-    -- , library : Definitions
     , toasts : Toasts.Toasts
     }
 
@@ -268,11 +267,11 @@ topBar activePage =
         ]
 
 
-viewLibrary : String -> Definitions -> Element Msg
-viewLibrary selectedMove definitions =
+viewLibrary : String -> MoveLibrary -> Element Msg
+viewLibrary selectedMove library =
     let
         selectedDefinition =
-            Dict.get selectedMove definitions
+            MoveLibrary.getByName selectedMove library
     in
     row [ spacing 10, width (minimum 0 fill), height (minimum 0 fill) ]
         [ column
@@ -285,7 +284,7 @@ viewLibrary selectedMove definitions =
             , spacing 10
             , padding 10
             ]
-            (Dict.values definitions
+            (MoveLibrary.toList library
                 |> List.map
                     (\md ->
                         let
@@ -327,7 +326,7 @@ view model =
                     Element.Lazy.lazy2
                         viewLibrary
                         model.selectedMove
-                        (MoveEditor.getDefinitions model.moveEditor)
+                        (MoveEditor.getLibrary model.moveEditor)
     in
     Element.layout [ width fill, height fill, Toasts.view model.toasts ] <|
         column [ width fill, height fill ]
