@@ -45,7 +45,7 @@ insert md ml =
         name
         (\maybeSameNameMds ->
             ( argKinds, md )
-                :: List.filter (\( aks, _ ) -> argKinds == aks) (Maybe.withDefault [] maybeSameNameMds)
+                :: List.filter (\( aks, _ ) -> argKinds /= aks) (Maybe.withDefault [] maybeSameNameMds)
                 |> Just
         )
         ml

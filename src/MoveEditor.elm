@@ -50,7 +50,14 @@ import ImageEditor
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List.Extra
-import Move exposing (ExprValue(..), Move(..), MoveDefinition, UserDefinedOrPrimitive(..))
+import Move
+    exposing
+        ( ExprValue(..)
+        , Move(..)
+        , MoveDefinition
+        , MoveIdentifier
+        , UserDefinedOrPrimitive(..)
+        )
 import MoveLibrary exposing (MoveLibrary)
 import MoveParseError exposing (MoveParseError)
 import MoveParser
@@ -83,7 +90,7 @@ type alias Model =
 
 type Msg
     = SetMoves String
-    | UpdateLibrary String
+    | UpdateLibrary MoveIdentifier
     | ImageEditorChanged ImageEditor.Msg
     | ToggleForwardsBackwards
     | Save
@@ -218,7 +225,7 @@ update msg model =
             , Cmd.none
             )
 
-        UpdateLibrary moveName ->
+        UpdateLibrary moveId ->
             let
                 newModel =
                     case model.movesAndDefinitions of
@@ -226,7 +233,7 @@ update msg model =
                             model
 
                         Ok { definitions } ->
-                            case List.Extra.find (\md -> md.name == moveName) definitions of
+                            case List.Extra.find (\md -> Move.identifier md == moveId) definitions of
                                 Nothing ->
                                     model
 
@@ -426,15 +433,16 @@ view model =
                                             , Background.color Palette.greenBook
                                             , mouseOver [ Border.glow Palette.grey 1 ]
                                             ]
-                                            { onPress = Just (UpdateLibrary md.name)
-                                            , label = text md.name
+                                            { onPress = Just (UpdateLibrary (Move.identifier md))
+                                            , label = text (Move.signature md)
                                             }
+                                            |> el [ paddingXY 2 0 ]
 
                                     updateButtons =
                                         List.map updateButton ds
                                 in
                                 Element.paragraph [ width fill, Font.size 14, spacing 10 ]
-                                    (text "Move into library: " :: updateButtons)
+                                    (text "Update in library: " :: updateButtons)
                 , infoText
                 ]
 
