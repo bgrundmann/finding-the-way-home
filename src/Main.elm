@@ -81,7 +81,7 @@ init previousStateJson =
                     ( Just previousState, "Welcome back.\nPrevious state loaded." )
 
                 Err _ ->
-                    ( Nothing, "Welcome\nLooks like this is your first time here.  Or maybe you cleared the browser cache?" )
+                    ( Nothing, "Welcome!\nLooks like this is your first time here.  Or maybe you cleared the browser cache?" )
 
         ( moveEditor, moveEditorCmd ) =
             MoveEditor.init maybePreviousStoredState
@@ -293,7 +293,7 @@ viewLibrary selectedMove library =
                     Element.none
 
                 Just d ->
-                    ViewMove.viewDefinition SelectDefinition d
+                    ViewMove.viewDefinition (Just SelectDefinition) d
             )
         ]
 

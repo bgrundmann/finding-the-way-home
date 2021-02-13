@@ -62,16 +62,22 @@ import Palette exposing (greenBook, redBook, white)
 import Pile
 import Primitives
 import Task
+import ViewMove exposing (prettyPrint, prettyPrintDefinition)
 
 
 
 -- MODEL
 -- In backwards mode we display the initial image on the right and evaluate the moves backwards
+-- INVARIANT: A move either exists in the editor or in the library not both.
+-- This is obviously not necessarily true while the user is entering a definition
+-- that is already in the library.
+-- But it will fail to compile and force him to remove the definition from the library
+-- and move it into the editor, if he wants to go ahead.
 
 
 type alias Model =
     { initialImage : ImageEditor.State
-    , movesText : String
+    , text : String
     , movesAndDefinitions :
         Result MoveParseError
             { moves : List Move
@@ -141,7 +147,7 @@ apply moves image =
 
 freshStartInitialState : StoredState
 freshStartInitialState =
-    { movesText = ""
+    { text = ""
     , initialImage =
         [ ( "deck", Pile.poker_deck ) ]
     , backwards = False
@@ -157,7 +163,7 @@ init maybePreviousState =
         model =
             { initialImage = ImageEditor.init previousStateOrInitial.initialImage
             , finalImage = previousStateOrInitial.initialImage
-            , movesText = previousStateOrInitial.movesText
+            , text = previousStateOrInitial.text
             , movesAndDefinitions = Ok { moves = [], definitions = [] }
             , performanceFailure = Nothing
             , backwards = previousStateOrInitial.backwards
@@ -177,7 +183,7 @@ parseMoves : Model -> Model
 parseMoves model =
     { model
         | movesAndDefinitions =
-            MoveParser.parseMoves model.library model.movesText
+            MoveParser.parseMoves model.library model.text
                 |> Result.map
                     (\{ definitions, moves } ->
                         { definitions = definitions
@@ -215,7 +221,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         SetMoves text ->
-            ( { model | movesText = text }
+            ( { model | text = text }
                 |> parseMoves
                 |> applyMoves
             , Cmd.none
@@ -228,13 +234,38 @@ update msg model =
                         Err _ ->
                             model
 
-                        Ok { definitions } ->
-                            case List.Extra.find (\md -> Move.identifier md == moveId) definitions of
-                                Nothing ->
-                                    model
+                        Ok { definitions, moves } ->
+                            case List.partition (\md -> Move.identifier md == moveId) definitions of
+                                ( [ md ], others ) ->
+                                    -- By construction of the definitions list there will be only
+                                    -- one move for each identifier (otherwise its a compile error)
+                                    let
+                                        newLibrary =
+                                            MoveLibrary.insert md model.library
 
-                                Just md ->
-                                    { model | library = MoveLibrary.insert md model.library }
+                                        newDefinitionsText =
+                                            List.map prettyPrintDefinition others
+                                                |> String.join "\n"
+
+                                        newMovesText =
+                                            List.map prettyPrint moves
+                                                |> String.join "\n"
+
+                                        newText =
+                                            case ( newDefinitionsText, newMovesText ) of
+                                                ( "", _ ) ->
+                                                    newMovesText
+
+                                                ( _, "" ) ->
+                                                    newDefinitionsText
+
+                                                ( a, b ) ->
+                                                    a ++ "\n" ++ b
+                                    in
+                                    { model | library = newLibrary, text = newText }
+
+                                ( _, _ ) ->
+                                    model
             in
             ( newModel, Cmd.none )
 
@@ -268,7 +299,7 @@ update msg model =
             ( model, Task.perform GotLoad (File.toString file) )
 
         GotLoad content ->
-            ( { model | movesText = content }
+            ( { model | text = content }
                 |> parseMoves
                 |> applyMoves
             , Cmd.none
@@ -283,11 +314,11 @@ update msg model =
 
 save : Model -> Cmd Msg
 save model =
-    Download.string "moves.txt" "text/text" model.movesText
+    Download.string "moves.txt" "text/text" model.text
 
 
 type alias StoredState =
-    { movesText : String
+    { text : String
     , initialImage : Image
     , backwards : Bool
     }
@@ -296,7 +327,7 @@ type alias StoredState =
 encodeStoredState : StoredState -> Encode.Value
 encodeStoredState ss =
     Encode.object
-        [ ( "movesText", Encode.string ss.movesText )
+        [ ( "text", Encode.string ss.text )
         , ( "initialImage", Image.encode ss.initialImage )
         , ( "backwards", Encode.bool ss.backwards )
         ]
@@ -305,7 +336,7 @@ encodeStoredState ss =
 storedStateDecoder : Decode.Decoder StoredState
 storedStateDecoder =
     Decode.map3 StoredState
-        (Decode.field "movesText" Decode.string)
+        (Decode.field "text" Decode.string)
         (Decode.field "initialImage" Image.decoder)
         (Decode.field "backwards" Decode.bool)
 
@@ -314,7 +345,7 @@ storedStateDecoder =
 -}
 getStoredState : Model -> StoredState
 getStoredState model =
-    { movesText = model.movesText
+    { text = model.text
     , initialImage = model.initialImage |> ImageEditor.getImage
     , backwards = model.backwards
     }
@@ -380,13 +411,13 @@ view model =
                 ( Err errorMsg, _ ) ->
                     ( redBook
                     , viewErrorMessage "That makes no sense"
-                        (MoveParseError.view model.movesText errorMsg)
+                        (MoveParseError.view model.text errorMsg)
                     )
 
                 ( Ok _, Just error ) ->
                     ( redBook
                     , viewErrorMessage "Failure during performance"
-                        (EvalResult.viewError model.movesText error)
+                        (EvalResult.viewError model.text error)
                     )
 
         movesView =
@@ -406,7 +437,7 @@ view model =
                                 ]
                             )
                     , onChange = SetMoves
-                    , text = model.movesText
+                    , text = model.text
                     , placeholder = Nothing
                     , spellcheck = False
                     }

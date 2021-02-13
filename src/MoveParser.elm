@@ -400,7 +400,6 @@ defLineParser env =
         |= moveNameParser
         |. spaces
         |= argsParser
-        |. newline
 
 
 docParser : Parser String
@@ -440,13 +439,27 @@ defineTemporaryPilesParser =
             ]
 
 
+checkForDuplicateDefinition :
+    ParseEnv
+    -> { name : String, args : List Argument }
+    -> Parser { name : String, args : List Argument }
+checkForDuplicateDefinition env newDef =
+    case MoveLibrary.get ( newDef.name, List.map .kind newDef.args ) env.library of
+        Nothing ->
+            succeed newDef
+
+        Just md ->
+            problem (DuplicateDefinition md)
+
+
 definitionParser : ParseEnv -> Parser MoveDefinition
 definitionParser env =
     (succeed
         (\{ name, args } doc temporaryPiles ->
             { name = name, args = args, doc = doc, temporaryPiles = temporaryPiles }
         )
-        |= defLineParser env
+        |= (defLineParser env |> andThen (checkForDuplicateDefinition env))
+        |. newline
         |= docParser
         |= defineTemporaryPilesParser
     )

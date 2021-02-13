@@ -1,4 +1,4 @@
-module ViewMove exposing (view, viewDefinition)
+module ViewMove exposing (prettyPrint, prettyPrintDefinition, view, viewDefinition)
 
 import Element
     exposing
@@ -40,8 +40,8 @@ indented elem =
         ]
 
 
-view : (MoveIdentifier -> msg) -> Move -> Element msg
-view onClickMove move =
+view : Maybe (MoveIdentifier -> msg) -> Move -> Element msg
+view maybeOnClickMove move =
     case move of
         Do _ def exprs ->
             let
@@ -50,8 +50,8 @@ view onClickMove move =
                         vn =
                             mono def.name
                     in
-                    case def.path of
-                        [] ->
+                    case ( def.path, maybeOnClickMove ) of
+                        ( [], Just onClickMove ) ->
                             Input.button []
                                 { onPress = Just (onClickMove (Move.identifier def))
                                 , label = vn
@@ -65,7 +65,7 @@ view onClickMove move =
         Repeat _ n moves ->
             column [ spacing textSpacing ]
                 (row [ spacing 10 ] [ boldMono "repeat", viewExpr n ]
-                    :: List.map (indented << view onClickMove) moves
+                    :: List.map (indented << view maybeOnClickMove) moves
                     ++ [ boldMono "end" ]
                 )
 
@@ -86,7 +86,7 @@ viewExpr e =
             mono pn.name
 
 
-viewDefinition : (MoveIdentifier -> msg) -> MoveDefinition -> Element msg
+viewDefinition : Maybe (MoveIdentifier -> msg) -> MoveDefinition -> Element msg
 viewDefinition onClickMoveName md =
     let
         body =
@@ -125,3 +125,79 @@ viewDefinition onClickMoveName md =
             :: body
             :: [ boldMono "end" ]
         )
+
+
+ppIndented : List String -> List String
+ppIndented l =
+    List.map (\s -> "  " ++ s) l
+
+
+doPrettyPrint : Move -> List String
+doPrettyPrint move =
+    case move of
+        Do _ def exprs ->
+            [ def.name ++ " " ++ String.join " " (List.map doPrettyPrintExpr exprs) ]
+
+        Repeat _ n moves ->
+            ("repeat " ++ doPrettyPrintExpr n)
+                :: ppIndented (List.concatMap doPrettyPrint moves)
+                ++ [ "end" ]
+
+
+doPrettyPrintExpr : Expr -> String
+doPrettyPrintExpr e =
+    case e of
+        ExprArgument a ->
+            a.name
+
+        ExprValue (Int i) ->
+            String.fromInt i
+
+        ExprValue (Pile p) ->
+            p
+
+        ExprTemporaryPile pn ->
+            pn.name
+
+
+doPrettyPrintDefinition : MoveDefinition -> List String
+doPrettyPrintDefinition md =
+    let
+        body =
+            case md.body of
+                UserDefined { moves, definitions, temporaryPiles } ->
+                    (case temporaryPiles of
+                        [] ->
+                            []
+
+                        _ ->
+                            [ "  temp " ++ String.join " " temporaryPiles ]
+                    )
+                        ++ ppIndented (List.concatMap doPrettyPrintDefinition definitions)
+                        ++ ppIndented (List.concatMap doPrettyPrint moves)
+
+                Primitive _ ->
+                    []
+    in
+    ("def " ++ md.name ++ " " ++ String.join " " (List.map .name md.args))
+        :: (case md.doc of
+                "" ->
+                    []
+
+                d ->
+                    [ "  doc " ++ d ]
+           )
+        ++ body
+        ++ [ "end" ]
+
+
+prettyPrint : Move -> String
+prettyPrint m =
+    doPrettyPrint m
+        |> String.join "\n"
+
+
+prettyPrintDefinition : MoveDefinition -> String
+prettyPrintDefinition md =
+    doPrettyPrintDefinition md
+        |> String.join "\n"

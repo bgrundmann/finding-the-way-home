@@ -20,6 +20,7 @@ import ElmUiUtils exposing (mono)
 import List.Extra
 import Move exposing (ArgumentKind(..), Expr, MoveDefinition)
 import Parser.Advanced
+import ViewMove
 
 
 type alias Context =
@@ -39,6 +40,7 @@ type Problem
     | NoSuchArgument { name : String, kind : ArgumentKind }
     | Expected Expectation
     | InvalidMoveInvocation { options : List MoveDefinition, actuals : List Expr }
+    | DuplicateDefinition MoveDefinition
 
 
 type Expectation
@@ -148,6 +150,13 @@ view source deadEnds =
                             )
                             options
                         )
+
+                DuplicateDefinition previousDefinition ->
+                    column [ spacing 20, width fill ]
+                        [ paragraph [ spacing 5, width fill ]
+                            [ text "There is already a previous definition with the same arguments." ]
+                        , ViewMove.viewDefinition Nothing previousDefinition
+                        ]
 
         relevantLineAndPlace row col =
             case List.Extra.getAt (row - 1) (String.lines source) of

@@ -1,0 +1,4 @@
+- Change Library to be Name -> MoveDefinition, List of toplevel Move Names that use that move
+
+- Give the library a stored state
+

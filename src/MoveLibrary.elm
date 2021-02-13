@@ -1,4 +1,12 @@
-module MoveLibrary exposing (MoveLibrary, fromList, get, getByName, insert, toList)
+module MoveLibrary exposing
+    ( MoveLibrary
+    , fromList
+    , get
+    , getByName
+    , insert
+    , remove
+    , toList
+    )
 
 import Dict exposing (Dict)
 import List.Extra
@@ -49,6 +57,22 @@ insert md ml =
                 |> Just
         )
         ml
+
+
+remove : MoveIdentifier -> MoveLibrary -> MoveLibrary
+remove ident library =
+    let
+        ( name, argKinds ) =
+            ident
+    in
+    Dict.update
+        name
+        (Maybe.map
+            (\mdsWithSameName ->
+                List.filter (\( aks, _ ) -> aks /= argKinds) mdsWithSameName
+            )
+        )
+        library
 
 
 get : MoveIdentifier -> MoveLibrary -> Maybe MoveDefinition
