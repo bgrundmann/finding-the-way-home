@@ -42,7 +42,7 @@ import ImageEditor
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List
-import Move exposing (ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
+import Move exposing (ExprValue(..), Move(..), MoveIdentifier, UserDefinedOrPrimitive(..))
 import MoveEditor
 import MoveLibrary exposing (MoveLibrary)
 import MoveParseError exposing (MoveParseError)
@@ -62,7 +62,7 @@ import ViewMove
 
 type alias Model =
     { moveEditor : MoveEditor.Model
-    , selectedMove : String -- That name is not guaranteed to actually exist.
+    , selectedMove : MoveIdentifier
     , activePage : ActivePage
     , toasts : Toasts.Toasts
     }
@@ -77,7 +77,7 @@ type Msg
     = MoveEditorChanged MoveEditor.Msg
     | ToastsChanged Toasts.Msg
     | SetActivePage ActivePage
-    | SelectDefinition String
+    | SelectDefinition MoveIdentifier
 
 
 main : Program Encode.Value Model Msg
@@ -109,7 +109,7 @@ init previousStateJson =
     in
     ( { moveEditor = moveEditor
       , activePage = MoveEditorPage
-      , selectedMove = ""
+      , selectedMove = ( "", [] )
       , toasts = toasts
       }
     , Cmd.batch
@@ -267,11 +267,11 @@ topBar activePage =
         ]
 
 
-viewLibrary : String -> MoveLibrary -> Element Msg
+viewLibrary : MoveIdentifier -> MoveLibrary -> Element Msg
 viewLibrary selectedMove library =
     let
         selectedDefinition =
-            MoveLibrary.getByName selectedMove library
+            MoveLibrary.get selectedMove library
     in
     row [ spacing 10, width (minimum 0 fill), height (minimum 0 fill) ]
         [ column
@@ -294,7 +294,10 @@ viewLibrary selectedMove library =
                                     , el [ Font.size 12 ] (text md.doc)
                                     ]
                         in
-                        Input.button [] { onPress = Just (SelectDefinition md.name), label = listEl }
+                        Input.button []
+                            { onPress = Just (SelectDefinition (Move.identifier md))
+                            , label = listEl
+                            }
                     )
             )
         , el

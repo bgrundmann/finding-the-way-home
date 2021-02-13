@@ -4,7 +4,15 @@ import Element exposing (Element, column, el, fill, height, paragraph, px, row, 
 import Element.Font as Font
 import Element.Input as Input
 import ElmUiUtils exposing (boldMono, mono)
-import Move exposing (Expr(..), ExprValue(..), Move(..), MoveDefinition, UserDefinedOrPrimitive(..))
+import Move
+    exposing
+        ( Expr(..)
+        , ExprValue(..)
+        , Move(..)
+        , MoveDefinition
+        , MoveIdentifier
+        , UserDefinedOrPrimitive(..)
+        )
 
 
 textSpacing =
@@ -19,8 +27,8 @@ indented elem =
         ]
 
 
-view : (String -> msg) -> Move -> Element msg
-view onClickMoveName move =
+view : (MoveIdentifier -> msg) -> Move -> Element msg
+view onClickMove move =
     case move of
         Do _ def exprs ->
             let
@@ -31,7 +39,10 @@ view onClickMoveName move =
                     in
                     case def.path of
                         [] ->
-                            Input.button [] { onPress = Just (onClickMoveName def.name), label = vn }
+                            Input.button []
+                                { onPress = Just (onClickMove (Move.identifier def))
+                                , label = vn
+                                }
 
                         _ ->
                             vn
@@ -41,7 +52,7 @@ view onClickMoveName move =
         Repeat _ n moves ->
             column [ spacing textSpacing ]
                 (row [ spacing 10 ] [ boldMono "repeat", viewExpr n ]
-                    :: List.map (indented << view onClickMoveName) moves
+                    :: List.map (indented << view onClickMove) moves
                     ++ [ boldMono "end" ]
                 )
 
@@ -62,7 +73,7 @@ viewExpr e =
             mono pn.name
 
 
-viewDefinition : (String -> msg) -> MoveDefinition -> Element msg
+viewDefinition : (MoveIdentifier -> msg) -> MoveDefinition -> Element msg
 viewDefinition onClickMoveName md =
     let
         body =

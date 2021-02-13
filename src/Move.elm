@@ -10,6 +10,7 @@ module Move exposing
     , Primitive(..)
     , UserDefinedOrPrimitive(..)
     , backwardsMoves
+    , exprKind
     , identifier
     , repeatSignature
     , signature
@@ -107,6 +108,22 @@ type ExprValue
 type ArgumentKind
     = KindInt
     | KindPile
+
+
+exprKind : Expr -> ArgumentKind
+exprKind e =
+    case e of
+        ExprArgument { kind } ->
+            kind
+
+        ExprTemporaryPile _ ->
+            KindPile
+
+        ExprValue (Pile _) ->
+            KindPile
+
+        ExprValue (Int _) ->
+            KindInt
 
 
 repeatSignature : String

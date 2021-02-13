@@ -65,7 +65,7 @@ type alias ParseEnv =
 
 addDefinition : ParseEnv -> MoveDefinition -> ParseEnv
 addDefinition env md =
-    { env | library = MoveLibrary.add md env.library }
+    { env | library = MoveLibrary.insert md env.library }
 
 
 {-| Lookup arguments. In the case of PileNames this will also lookup temporary piles.
@@ -203,8 +203,8 @@ moveNameParser =
     variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = Expected EMoveName }
 
 
-exprParser : ParseEnv -> Maybe MoveDefinition -> Argument -> Parser Expr
-exprParser env move expectedArgument =
+exprParser : ParseEnv -> Parser Expr
+exprParser env =
     let
         maybeArgument whenNot name =
             case lookupArgument env name of
@@ -217,38 +217,27 @@ exprParser env move expectedArgument =
 
                     else
                         succeed (ExprArgument { name = arg.name, ndx = arg.ndx, up = arg.up, kind = arg.kind })
-
-        argProblem =
-            ExpectedForArgument
-                { move = move
-                , argName = expectedArgument.name
-                , argKind = expectedArgument.kind
-                , options = argumentsInScopeOfKind env expectedArgument.kind
-                }
     in
-    case expectedArgument.kind of
-        KindInt ->
-            oneOf
-                [ int argProblem argProblem |> map (\i -> ExprValue (Int i))
-                , numberNameParser argProblem
-                    |> andThen
-                        (maybeArgument
-                            (\n ->
-                                problem (NoSuchArgument { name = n, kind = KindInt })
-                            )
-                        )
-                ]
+    let
+        whenPileArgNotFound pileName =
+            if List.isEmpty env.path then
+                succeed (ExprValue (Pile pileName))
 
-        KindPile ->
-            let
-                whenNot pileName =
-                    if List.isEmpty env.path then
-                        succeed (ExprValue (Pile pileName))
-
-                    else
-                        problem (NoSuchArgument { kind = KindPile, name = pileName })
-            in
-            pileNameParser argProblem |> andThen (maybeArgument whenNot)
+            else
+                problem (NoSuchArgument { kind = KindPile, name = pileName })
+    in
+    oneOf
+        [ int (Expected EInt) (Expected EInt) |> map (\i -> ExprValue (Int i))
+        , numberNameParser (Expected ENumberName)
+            |> andThen
+                (maybeArgument
+                    (\n ->
+                        problem (NoSuchArgument { name = n, kind = KindInt })
+                    )
+                )
+        , pileNameParser (Expected EPileName)
+            |> andThen (maybeArgument whenPileArgNotFound)
+        ]
 
 
 getLocation : Parser Location
@@ -258,38 +247,45 @@ getLocation =
 
 doMoveParser : ParseEnv -> Parser Move
 doMoveParser env =
+    let
+        typeCheckMove location ( movesWithThatName, actuals ) =
+            let
+                actualKinds =
+                    List.map Move.exprKind actuals
+            in
+            case List.filter (\md -> List.map .kind md.args == actualKinds) movesWithThatName of
+                [ m ] ->
+                    succeed (Do location m actuals)
+
+                _ ->
+                    problem (InvalidMoveInvocation { options = movesWithThatName, actuals = actuals })
+    in
     getLocation
         |> andThen
             (\location ->
-                moveNameParser
-                    |> andThen (lookupDefinition env.library)
-                    |> andThen (actualsParser env location)
+                (succeed Tuple.pair
+                    |= (moveNameParser |> andThen (lookupDefinitions env.library))
+                    |= actualsParser env
+                )
+                    |> andThen (typeCheckMove location)
             )
 
 
-actualsParser : ParseEnv -> Location -> MoveDefinition -> Parser Move
-actualsParser env location moveDefinition =
+actualsParser : ParseEnv -> Parser (List Expr)
+actualsParser env =
     let
-        helper actuals expectedArgs =
-            case expectedArgs of
-                [] ->
-                    succeed (Do location moveDefinition (List.reverse actuals))
-
-                expectedArg :: restExpectedArgs ->
-                    (exprParser
-                        env
-                        (Just moveDefinition)
-                        expectedArg
-                        |. spaces
-                    )
-                        |> andThen
-                            (\expr ->
-                                helper (expr :: actuals) restExpectedArgs
-                            )
+        helper res =
+            oneOf
+                [ (exprParser env
+                    |. spaces
+                  )
+                    |> map (\e -> Loop (e :: res))
+                , succeed () |> map (\() -> Done (List.reverse res))
+                ]
     in
     succeed identity
         |. spaces
-        |= helper [] moveDefinition.args
+        |= loop [] helper
 
 
 repeatParser : ParseEnv -> Parser Move
@@ -298,7 +294,8 @@ repeatParser env =
         |= getLocation
         |. keywordRepeat
         |. spaces
-        |= exprParser env Nothing { name = "N", kind = KindInt }
+        -- Todo add the code necessary generate a type error if a pileName is passed in
+        |= exprParser env
         |. spaces
         |. newline
         |= movesParser (enterRepeat env)
@@ -342,16 +339,16 @@ argParser =
         ]
 
 
-{-| We just parsed a move name and are looking up the corresponding move.
+{-| We just parsed a move name and are looking up the corresponding moves
 -}
-lookupDefinition : MoveLibrary -> String -> Parser MoveDefinition
-lookupDefinition library moveName =
+lookupDefinitions : MoveLibrary -> String -> Parser (List MoveDefinition)
+lookupDefinitions library moveName =
     case MoveLibrary.getByName moveName library of
-        Nothing ->
+        [] ->
             problem (UnknownMove moveName)
 
-        Just d ->
-            succeed d
+        l ->
+            succeed l
 
 
 movesParser : ParseEnv -> Parser (List Move)
@@ -400,16 +397,7 @@ defLineParser env =
     succeed (\name args -> { name = name, args = args })
         |. keywordDef
         |. spaces
-        |= (moveNameParser
-                |> andThen
-                    (\n ->
-                        if Dict.member n env.library then
-                            problem (DuplicateDefinition n)
-
-                        else
-                            succeed n
-                    )
-           )
+        |= moveNameParser
         |. spaces
         |= argsParser
         |. newline

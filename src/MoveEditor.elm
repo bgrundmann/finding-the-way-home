@@ -110,7 +110,7 @@ getDefinitions model =
 
 defaultInfoText : String
 defaultInfoText =
-    String.join "\n" (List.map Move.signature (Primitives.primitives |> Dict.values))
+    String.join "\n" (List.map Move.signature (Primitives.primitives |> MoveLibrary.toList))
         ++ """
 
 repeat N
@@ -231,7 +231,7 @@ update msg model =
                                     model
 
                                 Just md ->
-                                    { model | library = MoveLibrary.add md model.library }
+                                    { model | library = MoveLibrary.insert md model.library }
             in
             ( newModel, Cmd.none )
 

@@ -19,7 +19,7 @@ import Element
 import Element.Font as Font
 import ElmUiUtils exposing (mono)
 import List.Extra
-import Move exposing (ArgumentKind(..), MoveDefinition)
+import Move exposing (ArgumentKind(..), Expr, MoveDefinition)
 import Parser.Advanced
 
 
@@ -39,18 +39,13 @@ type Problem
     = UnknownMove String
     | NoSuchArgument { name : String, kind : ArgumentKind }
     | Expected Expectation
-    | ExpectedForArgument
-        { move : Maybe MoveDefinition -- Nothing => Repeat
-        , argName : String
-        , argKind : ArgumentKind
-        , options : List String
-        }
-    | DuplicateDefinition String
+    | InvalidMoveInvocation { options : List MoveDefinition, actuals : List Expr }
 
 
 type Expectation
     = EPileName
     | ENumberName
+    | EInt
     | EEndOfInput
     | EKeyword String
     | EEndOfLine
@@ -100,6 +95,9 @@ view source deadEnds =
                 ENumberName ->
                     row [] [ text "a number name (e.g. ", mono "N", text ")" ]
 
+                EInt ->
+                    row [] [ text "a number (e.g. ", mono "52", text ")" ]
+
                 EEndOfLine ->
                     text "the next line"
 
@@ -113,9 +111,6 @@ view source deadEnds =
             case problem of
                 UnknownMove n ->
                     row [] [ text "Don't know how to do ", mono n ]
-
-                DuplicateDefinition d ->
-                    row [] [ text "You already know how to ", mono d ]
 
                 Expected ex ->
                     row [] [ text "Expected ", viewExpectation ex ]
@@ -143,68 +138,17 @@ view source deadEnds =
                                     ]
                                 ]
 
-                ExpectedForArgument { move, argName, argKind, options } ->
-                    let
-                        ( moveSignature, doc ) =
-                            case move of
-                                Nothing ->
-                                    ( Move.repeatSignature, "Repeat the given moves N times" )
-
-                                Just m ->
-                                    ( Move.signature m, m.doc )
-                    in
-                    case argKind of
-                        KindInt ->
-                            column [ spacing 20, width fill ]
-                                [ column [ spacing 5, width fill ]
-                                    [ mono moveSignature
-                                    , paragraph [ width fill, spacing 5 ] [ text doc ]
+                InvalidMoveInvocation { options, actuals } ->
+                    column [ spacing 20, width fill ]
+                        (List.map
+                            (\md ->
+                                column [ spacing 5, width fill ]
+                                    [ mono (Move.signature md)
+                                    , paragraph [ width fill, spacing 5 ] [ text md.doc ]
                                     ]
-                                , column [ spacing 5, width fill ]
-                                    [ paragraph [ spacing 5, width fill ]
-                                        [ text "I need a number for ", mono argName ]
-                                    , paragraph [ spacing 5, width fill ]
-                                        (text "Type the number (e.g. "
-                                            :: mono "52"
-                                            :: text ")"
-                                            :: (case options of
-                                                    [] ->
-                                                        []
-
-                                                    [ x ] ->
-                                                        [ text " or ", mono x ]
-
-                                                    l ->
-                                                        text " or one of "
-                                                            :: (l |> List.map mono |> List.intersperse (text ", "))
-                                               )
-                                        )
-                                    ]
-                                ]
-
-                        KindPile ->
-                            column [ spacing 20, width fill ]
-                                [ column [ spacing 5, width fill ]
-                                    [ mono moveSignature
-                                    , paragraph [ width fill, spacing 5 ] [ text doc ]
-                                    ]
-                                , column [ spacing 5, width fill ]
-                                    [ paragraph [ spacing 5, width fill ]
-                                        [ text "I need a pilename for ", mono argName ]
-                                    , paragraph [ spacing 5, width fill ]
-                                        (case options of
-                                            [] ->
-                                                []
-
-                                            piles ->
-                                                text "These are the piles I know about: "
-                                                    :: (piles
-                                                            |> List.map mono
-                                                            |> List.intersperse (text ", ")
-                                                       )
-                                        )
-                                    ]
-                                ]
+                            )
+                            options
+                        )
 
         relevantLineAndPlace row col =
             case List.Extra.getAt (row - 1) (String.lines source) of

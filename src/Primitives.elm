@@ -15,6 +15,7 @@ import Move
         , Primitive(..)
         , UserDefinedOrPrimitive(..)
         )
+import MoveLibrary exposing (MoveLibrary)
 import Pile exposing (Pile)
 
 
@@ -117,10 +118,9 @@ primitiveCut =
     primitive "cut" [ intArg "N", pileArg "a", pileArg "b" ] Cut "cut N cards from a to b"
 
 
-primitives : Dict String MoveDefinition
+primitives : MoveLibrary
 primitives =
     [ primitiveCut
     , primitiveTurnover
     ]
-        |> List.map (\m -> ( m.name, m ))
-        |> Dict.fromList
+        |> MoveLibrary.fromList
