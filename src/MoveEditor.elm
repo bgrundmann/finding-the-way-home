@@ -92,7 +92,7 @@ type alias Model =
 
 type Msg
     = SetMoves String
-    | UpdateLibrary MoveIdentifier
+    | MoveDefinitionsIntoLibrary
     | ImageEditorChanged ImageEditor.Msg
     | ToggleForwardsBackwards
     | Save
@@ -227,7 +227,7 @@ update msg model =
             , Cmd.none
             )
 
-        UpdateLibrary moveId ->
+        MoveDefinitionsIntoLibrary ->
             let
                 newModel =
                     case model.movesAndDefinitions of
@@ -235,37 +235,23 @@ update msg model =
                             model
 
                         Ok { definitions, moves } ->
-                            case List.partition (\md -> Move.identifier md == moveId) definitions of
-                                ( [ md ], others ) ->
-                                    -- By construction of the definitions list there will be only
-                                    -- one move for each identifier (otherwise its a compile error)
-                                    let
-                                        newLibrary =
-                                            MoveLibrary.insert md model.library
+                            if List.isEmpty definitions then
+                                model
 
-                                        newDefinitionsText =
-                                            List.map prettyPrintDefinition others
-                                                |> String.join "\n"
+                            else
+                                let
+                                    newLibrary =
+                                        List.foldl MoveLibrary.insert model.library definitions
 
-                                        newMovesText =
-                                            List.map prettyPrint moves
-                                                |> String.join "\n"
-
-                                        newText =
-                                            case ( newDefinitionsText, newMovesText ) of
-                                                ( "", _ ) ->
-                                                    newMovesText
-
-                                                ( _, "" ) ->
-                                                    newDefinitionsText
-
-                                                ( a, b ) ->
-                                                    a ++ "\n" ++ b
-                                    in
-                                    { model | library = newLibrary, text = newText }
-
-                                ( _, _ ) ->
-                                    model
+                                    newMovesText =
+                                        List.map prettyPrint moves
+                                            |> String.join "\n"
+                                in
+                                { model
+                                    | library = newLibrary
+                                    , text = newMovesText
+                                    , movesAndDefinitions = Ok { definitions = [], moves = moves }
+                                }
             in
             ( newModel, Cmd.none )
 
@@ -421,6 +407,31 @@ view model =
                     )
 
         movesView =
+            let
+                moveDefinitionsIntoLibraryButton =
+                    case model.movesAndDefinitions of
+                        Err _ ->
+                            Element.none
+
+                        Ok { definitions } ->
+                            case definitions of
+                                [] ->
+                                    Element.none
+
+                                ds ->
+                                    Input.button
+                                        [ padding 3
+                                        , Border.rounded 3
+                                        , Font.color Palette.white
+                                        , Font.size 14
+                                        , Background.color Palette.greenBook
+                                        , mouseOver [ Border.glow Palette.grey 1 ]
+                                        ]
+                                        { onPress = Just MoveDefinitionsIntoLibrary
+                                        , label = text "Move definitions into Library"
+                                        }
+                                        |> el [ paddingXY 2 0 ]
+            in
             Element.column [ width fill, height fill, spacing 10 ]
                 [ Input.multiline
                     [ width fill
@@ -434,6 +445,7 @@ view model =
                             (row [ spacing 40 ]
                                 [ el [ Font.bold ] (text "Definitions & Moves")
                                 , directionButton
+                                , moveDefinitionsIntoLibraryButton
                                 ]
                             )
                     , onChange = SetMoves
@@ -441,35 +453,6 @@ view model =
                     , placeholder = Nothing
                     , spellcheck = False
                     }
-                , case model.movesAndDefinitions of
-                    Err _ ->
-                        Element.none
-
-                    Ok { definitions } ->
-                        case definitions of
-                            [] ->
-                                Element.none
-
-                            ds ->
-                                let
-                                    updateButton md =
-                                        Input.button
-                                            [ padding 3
-                                            , Border.rounded 3
-                                            , Font.color Palette.white
-                                            , Background.color Palette.greenBook
-                                            , mouseOver [ Border.glow Palette.grey 1 ]
-                                            ]
-                                            { onPress = Just (UpdateLibrary (Move.identifier md))
-                                            , label = text (Move.signature md)
-                                            }
-                                            |> el [ paddingXY 2 0 ]
-
-                                    updateButtons =
-                                        List.map updateButton ds
-                                in
-                                Element.paragraph [ width fill, Font.size 14, spacing 10 ]
-                                    (text "Update in library: " :: updateButtons)
                 , infoText
                 ]
 
