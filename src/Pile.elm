@@ -1,7 +1,15 @@
-module Pile exposing (Pile, fromString, pileParser, poker_deck, toString, turnover, view)
+module Pile exposing
+    ( Pile
+    , fromString
+    , pileParser
+    , poker_deck
+    , toString
+    , turnover
+    , view
+    )
 
 import Card exposing (Card, Suit(..), Value(..), all_values, card, cardParser)
-import Element exposing (Element, column, el, fill, paragraph, row, text, textColumn, width)
+import Element exposing (Element, column, el, fill, paragraph, row, text, width)
 import Element.Font as Font
 import List.Extra
 import Parser exposing ((|.), (|=), Parser, Step(..), loop, map, oneOf, spaces, succeed)

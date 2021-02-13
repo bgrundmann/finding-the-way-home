@@ -12,9 +12,7 @@ module MoveEditor exposing
     , view
     )
 
-import Browser
 import Browser.Dom as Dom
-import Dict
 import Element
     exposing
         ( Element
@@ -44,7 +42,6 @@ import EvalResult exposing (EvalResult)
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
-import Html exposing (Html)
 import Image exposing (Image)
 import ImageEditor
 import Json.Decode as Decode
@@ -63,7 +60,6 @@ import MoveParseError exposing (MoveParseError)
 import MoveParser
 import Palette exposing (greenBook, redBook, white)
 import Pile
-import Ports
 import Primitives
 import Task
 

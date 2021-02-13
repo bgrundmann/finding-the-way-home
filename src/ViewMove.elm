@@ -1,6 +1,18 @@
 module ViewMove exposing (view, viewDefinition)
 
-import Element exposing (Element, column, el, fill, height, paragraph, px, row, spacing, text, width)
+import Element
+    exposing
+        ( Element
+        , column
+        , el
+        , fill
+        , paragraph
+        , px
+        , row
+        , spacing
+        , text
+        , width
+        )
 import Element.Font as Font
 import Element.Input as Input
 import ElmUiUtils exposing (boldMono, mono)
@@ -15,6 +27,7 @@ import Move
         )
 
 
+textSpacing : Int
 textSpacing =
     8
 
@@ -109,6 +122,6 @@ viewDefinition onClickMoveName md =
                                 ]
                             )
                )
-            :: [ body ]
-            ++ [ boldMono "end" ]
+            :: body
+            :: [ boldMono "end" ]
         )

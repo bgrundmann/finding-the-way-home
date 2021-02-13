@@ -1,8 +1,6 @@
 module Main exposing (main)
 
 import Browser
-import Browser.Dom as Dom
-import Dict
 import Element
     exposing
         ( Element
@@ -14,44 +12,28 @@ import Element
         , fillPortion
         , height
         , minimum
-        , mouseOver
         , padding
         , paddingEach
-        , paddingXY
         , row
-        , scale
         , scrollbarX
         , scrollbarY
         , spacing
         , text
         , width
         )
-import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Element.Lazy
-import Eval
-import EvalResult exposing (EvalResult)
-import File exposing (File)
-import File.Download as Download
-import File.Select as Select
 import Html exposing (Html)
-import Image exposing (Image)
-import ImageEditor
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List
 import Move exposing (ExprValue(..), Move(..), MoveIdentifier, UserDefinedOrPrimitive(..))
 import MoveEditor
 import MoveLibrary exposing (MoveLibrary)
-import MoveParseError exposing (MoveParseError)
-import MoveParser
-import Palette exposing (greenBook, redBook, white)
-import Pile
+import Palette exposing (greenBook)
 import Ports
-import Primitives exposing (primitives)
-import Task
 import Toasts
 import ViewMove
 

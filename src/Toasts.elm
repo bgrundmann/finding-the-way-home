@@ -5,12 +5,10 @@ import Element
     exposing
         ( Element
         , column
-        , el
         , fill
         , maximum
         , padding
         , paragraph
-        , px
         , spacing
         , text
         , width
@@ -22,7 +20,6 @@ import Element.Lazy
 import Palette
 import Process
 import Task
-import Time
 
 
 type alias ToastID =

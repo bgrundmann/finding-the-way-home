@@ -8,7 +8,6 @@ import Element
         , column
         , el
         , fill
-        , height
         , paragraph
         , row
         , spacing
