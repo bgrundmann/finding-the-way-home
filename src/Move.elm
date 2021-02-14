@@ -16,6 +16,7 @@ module Move exposing
     , makeIdentifier
     , repeatSignature
     , signature
+    , unsafeIdentifierFromText
     , usesByDefinition
     )
 
@@ -150,6 +151,13 @@ identifier md =
 identifierText : MoveIdentifier -> String
 identifierText (MoveIdentifier id) =
     id
+
+
+{-| For use in MoveLibrary
+-}
+unsafeIdentifierFromText : String -> MoveIdentifier
+unsafeIdentifierFromText s =
+    MoveIdentifier s
 
 
 makeIdentifier : String -> List ArgumentKind -> MoveIdentifier

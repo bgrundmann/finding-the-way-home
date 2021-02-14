@@ -3,6 +3,7 @@ module MoveLibrary exposing
     , fromList
     , get
     , getByName
+    , getUsedBy
     ,  insert
        --, remove
 
@@ -11,25 +12,18 @@ module MoveLibrary exposing
 
 import Dict exposing (Dict)
 import List.Extra
-import Move exposing (ArgumentKind, MoveDefinition, MoveIdentifier)
+import Move exposing (ArgumentKind, MoveDefinition, MoveIdentifier, usesByDefinition)
+import Set exposing (Set)
 
 
 type alias MoveIdentifierText =
     String
 
 
-{-| BEWARE: This representation allows for some invalid states on
-the type level, most obviously multiple move definitions for
-the same list of argument kinds.
-
-    So take care when writing add or update to do the right thing.
-
--}
 type alias MoveLibrary =
     { definitions : Dict MoveIdentifierText MoveDefinition
     , sameName : Dict MoveIdentifierText (List MoveIdentifier)
-
-    -- , usedBy : Dict String (List ( List ArgumentKind, List MoveIdentifier ))
+    , usedBy : Dict MoveIdentifierText (Set MoveIdentifierText)
     }
 
 
@@ -41,7 +35,8 @@ toList l =
 empty : MoveLibrary
 empty =
     { definitions = Dict.empty
-    , sameName = Dict.empty -- , usedBy = Dict.empty
+    , sameName = Dict.empty
+    , usedBy = Dict.empty
     }
 
 
@@ -61,6 +56,9 @@ insert md library =
 
         identifier =
             Move.identifier md
+
+        uses =
+            usesByDefinition md
     in
     { definitions = Dict.insert (Move.identifierText identifier) md library.definitions
     , sameName =
@@ -72,6 +70,23 @@ insert md library =
                     |> Just
             )
             library.sameName
+
+    -- Todo: Remove previous uses if any
+    , usedBy =
+        List.foldl
+            (\use usedByAcc ->
+                Dict.update
+                    (Move.identifier use |> Move.identifierText)
+                    (\otherUses ->
+                        Set.insert
+                            (Move.identifierText identifier)
+                            (Maybe.withDefault Set.empty otherUses)
+                            |> Just
+                    )
+                    usedByAcc
+            )
+            library.usedBy
+            uses
     }
 
 
@@ -106,3 +121,11 @@ getByName name library =
     Dict.get name library.sameName
         |> Maybe.withDefault []
         |> List.filterMap (\i -> get i library)
+
+
+getUsedBy : MoveIdentifier -> MoveLibrary -> List MoveIdentifier
+getUsedBy ident library =
+    Dict.get (Move.identifierText ident) library.usedBy
+        |> Maybe.map Set.toList
+        |> Maybe.withDefault []
+        |> List.map Move.unsafeIdentifierFromText

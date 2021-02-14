@@ -6,6 +6,7 @@ import EvalResult exposing (Problem(..))
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
 import Move exposing (ArgumentKind(..), Expr(..), ExprValue(..), Move(..), UserDefinedOrPrimitive(..))
+import MoveLibrary
 import MoveParseError exposing (MoveParseError)
 import MoveParser
 import Pile
@@ -150,4 +151,35 @@ suite =
                         }
                     )
             }
+        , test "MoveLibrary test" <|
+            \() ->
+                case MoveParser.parseMoves primitives Tamariz.tamariz of
+                    Err _ ->
+                        Expect.fail "Failed to parse tamariz"
+
+                    Ok { definitions } ->
+                        let
+                            library =
+                                MoveLibrary.fromList definitions
+
+                            expectUsedBy name args expected l =
+                                Expect.equalLists
+                                    (MoveLibrary.getUsedBy (Move.makeIdentifier name args) l)
+                                    (List.map (\( n, a ) -> Move.makeIdentifier n a) expected)
+                        in
+                        Expect.all
+                            [ expectUsedBy "deal"
+                                [ KindPile, KindPile ]
+                                [ ( "deal", [ KindInt, KindPile, KindPile ] ) ]
+                            , expectUsedBy "deal"
+                                [ KindPile, KindPile ]
+                                [ ( "deal", [ KindInt, KindPile, KindPile ] ) ]
+                            , expectUsedBy "deal"
+                                [ KindInt, KindPile, KindPile ]
+                                [ ( "infaro", [ KindInt, KindPile, KindPile ] )
+                                , ( "outfaro", [ KindInt, KindPile, KindPile ] )
+                                , ( "reverse", [ KindInt, KindPile ] )
+                                ]
+                            ]
+                            library
         ]
