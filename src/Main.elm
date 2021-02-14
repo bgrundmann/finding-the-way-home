@@ -44,7 +44,7 @@ import ViewMove
 
 type alias Model =
     { moveEditor : MoveEditor.Model
-    , selectedMove : MoveIdentifier
+    , selectedMove : Maybe MoveIdentifier
     , activePage : ActivePage
     , toasts : Toasts.Toasts
     }
@@ -91,7 +91,7 @@ init previousStateJson =
     in
     ( { moveEditor = moveEditor
       , activePage = MoveEditorPage
-      , selectedMove = ( "", [] )
+      , selectedMove = Nothing
       , toasts = toasts
       }
     , Cmd.batch
@@ -135,7 +135,7 @@ update msg model =
             ( newModel, Cmd.none )
 
         SelectDefinition name ->
-            ( { model | selectedMove = name }, Cmd.none )
+            ( { model | selectedMove = Just name }, Cmd.none )
 
 
 
@@ -249,11 +249,12 @@ topBar activePage =
         ]
 
 
-viewLibrary : MoveIdentifier -> MoveLibrary -> Element Msg
+viewLibrary : Maybe MoveIdentifier -> MoveLibrary -> Element Msg
 viewLibrary selectedMove library =
     let
         selectedDefinition =
-            MoveLibrary.get selectedMove library
+            selectedMove
+                |> Maybe.andThen (\m -> MoveLibrary.get m library)
     in
     row [ spacing 10, width (minimum 0 fill), height (minimum 0 fill) ]
         [ column

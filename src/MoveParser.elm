@@ -12,6 +12,7 @@ import Move
         , Location
         , Move(..)
         , MoveDefinition
+        , MoveIdentifier
         , UserDefinedOrPrimitive(..)
         )
 import MoveLibrary exposing (MoveLibrary)
@@ -392,9 +393,15 @@ definitionsParser env =
     loop ( [], env ) helper
 
 
-defLineParser : ParseEnv -> Parser { name : String, args : List Argument }
+defLineParser : ParseEnv -> Parser { name : String, args : List Argument, identifier : MoveIdentifier }
 defLineParser env =
-    succeed (\name args -> { name = name, args = args })
+    succeed
+        (\name args ->
+            { name = name
+            , args = args
+            , identifier = Move.makeIdentifier name (List.map .kind args)
+            }
+        )
         |. keywordDef
         |. spaces
         |= moveNameParser
@@ -441,10 +448,10 @@ defineTemporaryPilesParser =
 
 checkForDuplicateDefinition :
     ParseEnv
-    -> { name : String, args : List Argument }
-    -> Parser { name : String, args : List Argument }
+    -> { name : String, args : List Argument, identifier : MoveIdentifier }
+    -> Parser { name : String, args : List Argument, identifier : MoveIdentifier }
 checkForDuplicateDefinition env newDef =
-    case MoveLibrary.get ( newDef.name, List.map .kind newDef.args ) env.library of
+    case MoveLibrary.get newDef.identifier env.library of
         Nothing ->
             succeed newDef
 
@@ -455,8 +462,13 @@ checkForDuplicateDefinition env newDef =
 definitionParser : ParseEnv -> Parser MoveDefinition
 definitionParser env =
     (succeed
-        (\{ name, args } doc temporaryPiles ->
-            { name = name, args = args, doc = doc, temporaryPiles = temporaryPiles }
+        (\{ name, args, identifier } doc temporaryPiles ->
+            { name = name
+            , args = args
+            , identifier = identifier
+            , doc = doc
+            , temporaryPiles = temporaryPiles
+            }
         )
         |= (defLineParser env |> andThen (checkForDuplicateDefinition env))
         |. newline
@@ -464,11 +476,12 @@ definitionParser env =
         |= defineTemporaryPilesParser
     )
         |> andThen
-            (\{ name, args, doc, temporaryPiles } ->
+            (\{ name, args, identifier, doc, temporaryPiles } ->
                 succeed
                     (\( definitions, moves ) ->
                         { name = name
                         , args = args
+                        , identifier = identifier
                         , path = List.reverse env.path
                         , body =
                             UserDefined

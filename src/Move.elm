@@ -12,8 +12,11 @@ module Move exposing
     , backwardsMoves
     , exprKind
     , identifier
+    , identifierText
+    , makeIdentifier
     , repeatSignature
     , signature
+    , usesByDefinition
     )
 
 import Image exposing (PileName)
@@ -53,14 +56,15 @@ Inside a definition one can not use pile names directly. Only
 type alias MoveDefinition =
     { name : String
     , args : List Argument
+    , identifier : MoveIdentifier
     , doc : String
     , body : UserDefinedOrPrimitive
     , path : List String -- [] == toplevel definition
     }
 
 
-type alias MoveIdentifier =
-    ( String, List ArgumentKind )
+type MoveIdentifier
+    = MoveIdentifier String
 
 
 type alias UserDefinedMove =
@@ -139,8 +143,33 @@ signature { name, args } =
 
 
 identifier : MoveDefinition -> MoveIdentifier
-identifier { name, args } =
-    ( name, List.map .kind args )
+identifier md =
+    md.identifier
+
+
+identifierText : MoveIdentifier -> String
+identifierText (MoveIdentifier id) =
+    id
+
+
+makeIdentifier : String -> List ArgumentKind -> MoveIdentifier
+makeIdentifier name argKinds =
+    MoveIdentifier
+        (name
+            ++ " "
+            ++ String.join ""
+                (List.map
+                    (\a ->
+                        case a of
+                            KindInt ->
+                                "i"
+
+                            KindPile ->
+                                "p"
+                    )
+                    argKinds
+                )
+        )
 
 
 backwards : Move -> Move
@@ -168,3 +197,31 @@ backwards move =
 backwardsMoves : List Move -> List Move
 backwardsMoves moves =
     List.reverse (List.map backwards moves)
+
+
+{-| What Toplevel moves does this move use? Does not include
+non toplevel definitions as they are local to this move
+definition.
+-}
+usesByDefinition : MoveDefinition -> List MoveDefinition
+usesByDefinition md =
+    case md.body of
+        Primitive _ ->
+            []
+
+        UserDefined u ->
+            List.concatMap usesOfMove u.moves
+
+
+usesOfMove : Move -> List MoveDefinition
+usesOfMove move =
+    case move of
+        Do _ d _ ->
+            if List.isEmpty d.path then
+                [ d ]
+
+            else
+                []
+
+        Repeat _ _ moves ->
+            List.concatMap usesOfMove moves

@@ -3,14 +3,19 @@ module MoveLibrary exposing
     , fromList
     , get
     , getByName
-    , insert
-    , remove
+    ,  insert
+       --, remove
+
     , toList
     )
 
 import Dict exposing (Dict)
 import List.Extra
 import Move exposing (ArgumentKind, MoveDefinition, MoveIdentifier)
+
+
+type alias MoveIdentifierText =
+    String
 
 
 {-| BEWARE: This representation allows for some invalid states on
@@ -21,18 +26,23 @@ the same list of argument kinds.
 
 -}
 type alias MoveLibrary =
-    Dict String (List ( List ArgumentKind, MoveDefinition ))
+    { definitions : Dict MoveIdentifierText MoveDefinition
+    , sameName : Dict MoveIdentifierText (List MoveIdentifier)
+
+    -- , usedBy : Dict String (List ( List ArgumentKind, List MoveIdentifier ))
+    }
 
 
 toList : MoveLibrary -> List MoveDefinition
 toList l =
-    Dict.values l
-        |> List.concatMap (List.map Tuple.second)
+    Dict.values l.definitions
 
 
 empty : MoveLibrary
 empty =
-    Dict.empty
+    { definitions = Dict.empty
+    , sameName = Dict.empty -- , usedBy = Dict.empty
+    }
 
 
 fromList : List MoveDefinition -> MoveLibrary
@@ -44,57 +54,55 @@ fromList dl =
 with the same Identifier.
 -}
 insert : MoveDefinition -> MoveLibrary -> MoveLibrary
-insert md ml =
+insert md library =
     let
-        ( name, argKinds ) =
+        name =
+            md.name
+
+        identifier =
             Move.identifier md
     in
-    Dict.update
-        name
-        (\maybeSameNameMds ->
-            ( argKinds, md )
-                :: List.filter (\( aks, _ ) -> argKinds /= aks) (Maybe.withDefault [] maybeSameNameMds)
-                |> Just
-        )
-        ml
-
-
-remove : MoveIdentifier -> MoveLibrary -> MoveLibrary
-remove ident library =
-    let
-        ( name, argKinds ) =
-            ident
-    in
-    Dict.update
-        name
-        (Maybe.map
-            (\mdsWithSameName ->
-                List.filter (\( aks, _ ) -> aks /= argKinds) mdsWithSameName
+    { definitions = Dict.insert (Move.identifierText identifier) md library.definitions
+    , sameName =
+        Dict.update
+            name
+            (\maybeSameNameMds ->
+                identifier
+                    :: List.filter (\id -> id /= identifier) (Maybe.withDefault [] maybeSameNameMds)
+                    |> Just
             )
-        )
-        library
+            library.sameName
+    }
+
+
+
+{-
+   remove : MoveIdentifier -> MoveLibrary -> MoveLibrary
+   remove ident library =
+       let
+           ( name, argKinds ) =
+               ident
+       in
+       { definitions =
+           Dict.update
+               name
+               (Maybe.map
+                   (\mdsWithSameName ->
+                       List.filter (\( aks, _ ) -> aks /= argKinds) mdsWithSameName
+                   )
+               )
+               library.definitions
+       }
+-}
 
 
 get : MoveIdentifier -> MoveLibrary -> Maybe MoveDefinition
 get ident library =
-    let
-        ( name, argKinds ) =
-            ident
-    in
-    Dict.get name library
-        |> Maybe.andThen
-            (\mdsWithSameName ->
-                List.Extra.find (\( aks, _ ) -> aks == argKinds) mdsWithSameName
-                    |> Maybe.map Tuple.second
-            )
-
-
-
-{- TODO: Fix the below -}
+    Dict.get (Move.identifierText ident) library.definitions
 
 
 getByName : String -> MoveLibrary -> List MoveDefinition
 getByName name library =
-    Dict.get name library
+    Dict.get name library.sameName
         |> Maybe.withDefault []
-        |> List.map Tuple.second
+        |> List.filterMap (\i -> get i library)

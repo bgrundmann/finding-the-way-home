@@ -104,7 +104,13 @@ pileArg name =
 
 primitive : String -> List Argument -> Primitive -> String -> MoveDefinition
 primitive name args p doc =
-    { name = name, args = args, body = Primitive p, doc = doc, path = [] }
+    { name = name
+    , args = args
+    , body = Primitive p
+    , doc = doc
+    , path = []
+    , identifier = Move.makeIdentifier name (List.map .kind args)
+    }
 
 
 primitiveTurnover : MoveDefinition
