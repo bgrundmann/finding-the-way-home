@@ -3,10 +3,14 @@ module Tamariz exposing (tamariz)
 
 tamariz : String
 tamariz =
-    """def deal N a b
+    """def deal a b
+    doc Deal 1 card from a to b
+    cut 1 a b
+end
+def deal N a b
   doc Deal N cards from a to b
   repeat N
-     cut 1 a b
+     deal a b
   end
 end
 

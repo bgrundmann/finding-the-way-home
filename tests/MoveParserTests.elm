@@ -78,6 +78,8 @@ defParserTest =
                     { name = "deal"
                     , args = [ { kind = KindPile, name = "a" }, { kind = KindPile, name = "b" } ]
                     , doc = "Testing docs"
+                    , identifier = Move.makeIdentifier "deal" [ KindPile, KindPile ]
+                    , path = []
                     , body =
                         UserDefined
                             { definitions = []
@@ -106,6 +108,8 @@ defTemporary =
                     { name = "studdeal"
                     , args = [ { kind = KindPile, name = "a" }, { kind = KindPile, name = "b" } ]
                     , doc = "Stud deal a card"
+                    , identifier = Move.makeIdentifier "studdeal" [ KindPile, KindPile ]
+                    , path = []
                     , body =
                         UserDefined
                             { definitions = []
@@ -144,6 +148,8 @@ nestedDefUsingOuterTest =
                     { name = "x"
                     , args = []
                     , doc = ""
+                    , identifier = Move.makeIdentifier "x" []
+                    , path = [ "deal" ]
                     , body =
                         UserDefined
                             { definitions = []
@@ -163,6 +169,8 @@ nestedDefUsingOuterTest =
                     { name = "deal"
                     , args = [ { kind = KindPile, name = "a" }, { kind = KindPile, name = "b" } ]
                     , doc = "Testing docs"
+                    , identifier = Move.makeIdentifier "deal" [ KindPile, KindPile ]
+                    , path = []
                     , body =
                         UserDefined
                             { definitions =
@@ -188,6 +196,8 @@ nestedDefVariablesTest =
                     { name = "x"
                     , args = [ { kind = KindPile, name = "a" } ]
                     , doc = ""
+                    , identifier = Move.makeIdentifier "x" [ KindPile ]
+                    , path = [ "deal" ]
                     , body =
                         UserDefined
                             { definitions = []
@@ -207,6 +217,8 @@ nestedDefVariablesTest =
                     { name = "deal"
                     , args = [ { kind = KindPile, name = "a" }, { kind = KindPile, name = "b" } ]
                     , doc = ""
+                    , identifier = Move.makeIdentifier "deal" [ KindPile, KindPile ]
+                    , path = []
                     , body =
                         UserDefined
                             { definitions =

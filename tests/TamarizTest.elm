@@ -131,6 +131,8 @@ suite =
                             { name = "bad"
                             , args = [ { kind = KindPile, name = "deck" } ]
                             , doc = ""
+                            , path = []
+                            , identifier = Move.makeIdentifier "bad" [ KindPile ]
                             , body =
                                 UserDefined
                                     { temporaryPiles = [ "t" ]
