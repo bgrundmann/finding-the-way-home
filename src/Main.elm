@@ -345,7 +345,7 @@ viewLibrary selectedMove library =
                                         , label = text "Edit"
                                         }
                     in
-                    column [ spacing 20 ]
+                    column [ spacing 30 ]
                         [ ViewMove.viewDefinition (Just SelectDefinition) d
                         , uses
                         , editButton
