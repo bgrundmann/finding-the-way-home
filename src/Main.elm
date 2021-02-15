@@ -294,7 +294,22 @@ viewLibrary selectedMove library =
                     Element.none
 
                 Just d ->
-                    ViewMove.viewDefinition (Just SelectDefinition) d
+                    let
+                        editButton =
+                            case d.body of
+                                Primitive _ ->
+                                    Element.none
+
+                                UserDefined _ ->
+                                    Input.button Palette.regularButton
+                                        { onPress = Nothing
+                                        , label = text "Edit"
+                                        }
+                    in
+                    column [ spacing 20 ]
+                        [ ViewMove.viewDefinition (Just SelectDefinition) d
+                        , editButton
+                        ]
             )
         ]
 
