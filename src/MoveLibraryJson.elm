@@ -35,7 +35,7 @@ decoder =
             (\s ->
                 case MoveParser.parseMoves Primitives.primitives s of
                     Err what ->
-                        Decode.fail ("Parser failed: " ++ Debug.toString what)
+                        Decode.fail "Parser failed"
 
                     Ok res ->
                         Decode.succeed

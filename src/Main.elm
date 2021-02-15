@@ -84,10 +84,12 @@ init previousStateJson =
                     ( Just previousState, "Welcome back.\nPrevious state loaded." )
 
                 Err errorMessage ->
-                    let
-                        _ =
-                            Debug.log "loading failed" errorMessage
-                    in
+                    {-
+                       let
+                           _ =
+                               Debug.log "loading failed" errorMessage
+                       in
+                    -}
                     ( Nothing, "Welcome!\nLooks like this is your first time here.  Or maybe you cleared the browser cache?" )
 
         ( moveEditor, moveEditorCmd ) =

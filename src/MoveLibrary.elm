@@ -121,7 +121,7 @@ in topological sort order, so they could be compiled in that order.
 -}
 remove : MoveIdentifier -> MoveLibrary -> ( List MoveDefinition, MoveLibrary )
 remove ident library =
-    case Debug.log "dependencies" <| dependencies ident library of
+    case dependencies ident library of
         [] ->
             ( [], library )
 

@@ -1,0 +1,25 @@
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Main</title>
+  <script src="elm.js"></script>
+</head>
+
+<body>
+  <div id="myapp"></div>
+  <script>
+  var storedState = localStorage.getItem('finding-the-way-home');
+  var flags = storedState ? JSON.parse(storedState) : null;
+
+  var app = Elm.Main.init({
+    node: document.getElementById('myapp'),
+    flags: flags
+  });
+
+  app.ports.storeState.subscribe(function(state) {
+        localStorage.setItem('finding-the-way-home', JSON.stringify(state));
+  });
+
+</script>
+</body>
+</html>
