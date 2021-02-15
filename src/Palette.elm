@@ -4,13 +4,22 @@ module Palette exposing
     , dangerousButton
     , greenBook
     , grey
+    , linkButton
     , redBook
     , regularButton
     , transparentGrey
     , white
     )
 
-import Element exposing (Attribute, mouseOver, padding, rgb255, scale)
+import Element
+    exposing
+        ( Attribute
+        , mouseOver
+        , padding
+        , rgb255
+        , rgba255
+        , scale
+        )
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
@@ -49,6 +58,19 @@ grey =
 transparentGrey : Element.Color
 transparentGrey =
     Element.rgba255 128 128 128 0.5
+
+
+linkButton : List (Attribute msg)
+linkButton =
+    [ Border.color <| rgba255 255 255 255 255
+    , Border.widthEach
+        { bottom = 1
+        , left = 0
+        , top = 0
+        , right = 0
+        }
+    , mouseOver [ Border.color redBook ]
+    ]
 
 
 regularButton : List (Attribute msg)

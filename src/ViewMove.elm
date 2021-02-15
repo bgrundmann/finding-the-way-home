@@ -25,6 +25,7 @@ import Move
         , MoveIdentifier
         , UserDefinedOrPrimitive(..)
         )
+import Palette
 
 
 textSpacing : Int
@@ -52,7 +53,7 @@ view maybeOnClickMove move =
                     in
                     case ( def.path, maybeOnClickMove ) of
                         ( [], Just onClickMove ) ->
-                            Input.button []
+                            Input.button Palette.linkButton
                                 { onPress = Just (onClickMove (Move.identifier def))
                                 , label = vn
                                 }

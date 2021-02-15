@@ -14,6 +14,7 @@ import Element
         , minimum
         , padding
         , paddingEach
+        , paragraph
         , row
         , scrollbarX
         , scrollbarY
@@ -25,6 +26,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Element.Lazy
+import ElmUiUtils exposing (mono)
 import Html exposing (Html)
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -287,7 +289,7 @@ viewLibrary selectedMove library =
                         let
                             listEl =
                                 column [ width fill, spacing 5 ]
-                                    [ el [ Font.family [ Font.monospace ] ] (text (Move.signature md))
+                                    [ mono (Move.signature md)
                                     , el [ Font.size 12 ] (text md.doc)
                                     ]
                         in
@@ -309,6 +311,29 @@ viewLibrary selectedMove library =
 
                 Just d ->
                     let
+                        uses =
+                            case
+                                MoveLibrary.getUsedBy (Move.identifier d) library
+                                    |> List.filterMap (\id -> MoveLibrary.get id library)
+                            of
+                                [] ->
+                                    Element.none
+
+                                l ->
+                                    paragraph [ spacing 20 ]
+                                        (text "This is used by "
+                                            :: (List.map
+                                                    (\md ->
+                                                        Input.button Palette.linkButton
+                                                            { onPress = Just (SelectDefinition (Move.identifier md))
+                                                            , label = mono (Move.signature md)
+                                                            }
+                                                    )
+                                                    l
+                                                    |> List.intersperse (text ", ")
+                                               )
+                                        )
+
                         editButton =
                             case d.body of
                                 Primitive _ ->
@@ -322,6 +347,7 @@ viewLibrary selectedMove library =
                     in
                     column [ spacing 20 ]
                         [ ViewMove.viewDefinition (Just SelectDefinition) d
+                        , uses
                         , editButton
                         ]
             )
