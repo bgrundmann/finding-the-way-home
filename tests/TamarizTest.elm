@@ -151,7 +151,7 @@ suite =
                         }
                     )
             }
-        , test "MoveLibrary test" <|
+        , test "MoveLibrary.usedBy" <|
             \() ->
                 case MoveParser.parseMoves primitives Tamariz.tamariz of
                     Err _ ->
@@ -182,4 +182,49 @@ suite =
                                 ]
                             ]
                             library
+        , test "MoveLibrary.remove (leaf)" <|
+            \() ->
+                case MoveParser.parseMoves primitives Tamariz.tamariz of
+                    Err _ ->
+                        Expect.fail "Failed to parse tamariz"
+
+                    Ok { definitions } ->
+                        let
+                            idMnemonicaFromUSBC =
+                                Move.makeIdentifier "mnemonicaFromUSPC" [ KindPile ]
+
+                            library =
+                                MoveLibrary.fromList definitions
+
+                            ( removed, libraryAfterRemove ) =
+                                MoveLibrary.remove idMnemonicaFromUSBC library
+                        in
+                        Expect.equalLists
+                            [ idMnemonicaFromUSBC ]
+                            (removed |> List.map Move.identifier)
+        , test "MoveLibrary.remove (inner)" <|
+            \() ->
+                case MoveParser.parseMoves primitives Tamariz.tamariz of
+                    Err _ ->
+                        Expect.fail "Failed to parse tamariz"
+
+                    Ok { definitions } ->
+                        let
+                            idDeal =
+                                Move.makeIdentifier "deal" [ KindInt, KindPile, KindPile ]
+
+                            library =
+                                MoveLibrary.fromList definitions
+
+                            ( removed, libraryAfterRemove ) =
+                                MoveLibrary.remove idDeal library
+                        in
+                        Expect.equalLists
+                            [ idDeal
+                            , Move.makeIdentifier "infaro" [ KindInt, KindPile, KindPile ]
+                            , Move.makeIdentifier "outfaro" [ KindInt, KindPile, KindPile ]
+                            , Move.makeIdentifier "reverse" [ KindInt, KindPile ]
+                            , Move.makeIdentifier "mnemonicaFromUSPC" [ KindPile ]
+                            ]
+                            (removed |> List.map Move.identifier)
         ]

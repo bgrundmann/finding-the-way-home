@@ -2,6 +2,7 @@ module MoveEditor exposing
     ( Model
     , Msg
     , StoredState
+    , editDefinition
     , encodeStoredState
     , getDefinitions
     , getLibrary
@@ -9,6 +10,7 @@ module MoveEditor exposing
     , init
     , storedStateDecoder
     , update
+    , updateMovesText
     , view
     )
 
@@ -56,6 +58,7 @@ import Move
         , UserDefinedOrPrimitive(..)
         )
 import MoveLibrary exposing (MoveLibrary)
+import MoveLibraryJson
 import MoveParseError exposing (MoveParseError)
 import MoveParser
 import Palette exposing (greenBook, redBook, white)
@@ -151,6 +154,7 @@ freshStartInitialState =
     , initialImage =
         [ ( "deck", Pile.poker_deck ) ]
     , backwards = False
+    , library = Primitives.primitives
     }
 
 
@@ -167,7 +171,7 @@ init maybePreviousState =
             , movesAndDefinitions = Ok { moves = [], definitions = [] }
             , performanceFailure = Nothing
             , backwards = previousStateOrInitial.backwards
-            , library = Primitives.primitives
+            , library = previousStateOrInitial.library
             }
     in
     ( model
@@ -217,13 +221,34 @@ applyMoves model =
             }
 
 
+updateMovesText : (String -> String) -> Model -> Model
+updateMovesText f model =
+    { model | text = f model.text }
+        |> parseMoves
+        |> applyMoves
+
+
+editDefinition : MoveIdentifier -> Model -> Model
+editDefinition id model =
+    let
+        ( moveDefinitions, newLibrary ) =
+            MoveLibrary.remove id model.library
+    in
+    { model | library = newLibrary }
+        |> updateMovesText
+            (\t ->
+                ((moveDefinitions |> List.map ViewMove.prettyPrintDefinition)
+                    |> String.join "\n"
+                )
+                    ++ t
+            )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         SetMoves text ->
-            ( { model | text = text }
-                |> parseMoves
-                |> applyMoves
+            ( updateMovesText (always text) model
             , Cmd.none
             )
 
@@ -307,6 +332,7 @@ type alias StoredState =
     { text : String
     , initialImage : Image
     , backwards : Bool
+    , library : MoveLibrary
     }
 
 
@@ -316,15 +342,17 @@ encodeStoredState ss =
         [ ( "text", Encode.string ss.text )
         , ( "initialImage", Image.encode ss.initialImage )
         , ( "backwards", Encode.bool ss.backwards )
+        , ( "library", MoveLibraryJson.encode ss.library )
         ]
 
 
 storedStateDecoder : Decode.Decoder StoredState
 storedStateDecoder =
-    Decode.map3 StoredState
+    Decode.map4 StoredState
         (Decode.field "text" Decode.string)
         (Decode.field "initialImage" Image.decoder)
         (Decode.field "backwards" Decode.bool)
+        (Decode.field "library" MoveLibraryJson.decoder)
 
 
 {-| Return the data that we want to store to be able to restore this session.
@@ -334,6 +362,7 @@ getStoredState model =
     { text = model.text
     , initialImage = model.initialImage |> ImageEditor.getImage
     , backwards = model.backwards
+    , library = model.library
     }
 
 

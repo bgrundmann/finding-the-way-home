@@ -4,9 +4,8 @@ module MoveLibrary exposing
     , get
     , getByName
     , getUsedBy
-    ,  insert
-       --, remove
-
+    , insert
+    , remove
     , toList
     )
 
@@ -14,6 +13,7 @@ import Dict exposing (Dict)
 import List.Extra
 import Move exposing (ArgumentKind, MoveDefinition, MoveIdentifier, usesByDefinition)
 import Set exposing (Set)
+import ViewMove
 
 
 type alias MoveIdentifierText =
@@ -98,7 +98,7 @@ in topological sort order, so they could be compiled in that order.
 -}
 remove : MoveIdentifier -> MoveLibrary -> ( List MoveDefinition, MoveLibrary )
 remove ident library =
-    case dependencies ident library of
+    case Debug.log "dependencies" <| dependencies ident library of
         [] ->
             ( [], library )
 
@@ -160,39 +160,24 @@ remove ident library =
 
 
 {-| Return the dependencies that are in the library in topological order. Including the original element
+if it is in the library
 -}
 dependencies : MoveIdentifier -> MoveLibrary -> List MoveIdentifier
 dependencies ident library =
     let
         helper id =
-            let
-                usedBy =
-                    getUsedBy id library
-            in
-            usedBy ++ List.concatMap helper usedBy
+            case get id library of
+                Nothing ->
+                    []
+
+                Just _ ->
+                    let
+                        usedBy =
+                            getUsedBy id library
+                    in
+                    id :: List.concatMap helper usedBy
     in
     helper ident
-
-
-
-{-
-   remove : MoveIdentifier -> MoveLibrary -> MoveLibrary
-   remove ident library =
-       let
-           ( name, argKinds ) =
-               ident
-       in
-       { definitions =
-           Dict.update
-               name
-               (Maybe.map
-                   (\mdsWithSameName ->
-                       List.filter (\( aks, _ ) -> aks /= argKinds) mdsWithSameName
-                   )
-               )
-               library.definitions
-       }
--}
 
 
 get : MoveIdentifier -> MoveLibrary -> Maybe MoveDefinition

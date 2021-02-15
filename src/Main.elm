@@ -60,6 +60,7 @@ type Msg
     | ToastsChanged Toasts.Msg
     | SetActivePage ActivePage
     | SelectDefinition MoveIdentifier
+    | EditDefinition MoveIdentifier
 
 
 main : Program Encode.Value Model Msg
@@ -134,8 +135,17 @@ update msg model =
             in
             ( newModel, Cmd.none )
 
-        SelectDefinition name ->
-            ( { model | selectedMove = Just name }, Cmd.none )
+        SelectDefinition id ->
+            ( { model | selectedMove = Just id }, Cmd.none )
+
+        EditDefinition id ->
+            ( { model
+                | selectedMove = Nothing
+                , moveEditor = MoveEditor.editDefinition id model.moveEditor
+                , activePage = MoveEditorPage
+              }
+            , Cmd.none
+            )
 
 
 
@@ -302,7 +312,7 @@ viewLibrary selectedMove library =
 
                                 UserDefined _ ->
                                     Input.button Palette.regularButton
-                                        { onPress = Nothing
+                                        { onPress = EditDefinition (Move.identifier d) |> Just
                                         , label = text "Edit"
                                         }
                     in
