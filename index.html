@@ -8,7 +8,7 @@
 <body>
   <div id="myapp"></div>
   <script>
-  var storedState = localStorage.getItem('virtual-denis-behr');
+  var storedState = localStorage.getItem('finding-the-way-home');
   var flags = storedState ? JSON.parse(storedState) : null;
 
   var app = Elm.Main.init({
@@ -17,7 +17,7 @@
   });
 
   app.ports.storeState.subscribe(function(state) {
-        localStorage.setItem('virtual-denis-behr', JSON.stringify(state));
+        localStorage.setItem('finding-the-way-home', JSON.stringify(state));
   });
 
 </script>

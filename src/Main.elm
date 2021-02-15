@@ -250,7 +250,7 @@ topBar activePage =
             , paddingEach { left = 9, right = 0, top = 12, bottom = 8 }
             , Border.color Palette.greenBook
             ]
-            (text "🍺 Virtual Denis Behr")
+            (text "🍺 Finding The Way Home")
         , tabs
         , el
             [ width fill
