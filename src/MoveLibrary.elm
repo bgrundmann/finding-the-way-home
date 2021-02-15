@@ -6,7 +6,8 @@ module MoveLibrary exposing
     , getUsedBy
     , insert
     , remove
-    , toList
+    , toListAlphabetic
+    , toListTopSort
     )
 
 import Dict exposing (Dict)
@@ -24,12 +25,27 @@ type alias MoveLibrary =
     { definitions : Dict MoveIdentifierText MoveDefinition
     , sameName : Dict MoveIdentifierText (List MoveIdentifier)
     , usedBy : Dict MoveIdentifierText (Set MoveIdentifierText)
+    , roots : Set MoveIdentifierText
     }
 
 
-toList : MoveLibrary -> List MoveDefinition
-toList l =
+toListAlphabetic : MoveLibrary -> List MoveDefinition
+toListAlphabetic l =
     Dict.values l.definitions
+
+
+toListTopSort : MoveLibrary -> List MoveDefinition
+toListTopSort l =
+    case Set.toList l.roots of
+        [] ->
+            []
+
+        x :: _ ->
+            let
+                ( defs, restLibrary ) =
+                    remove (Move.unsafeIdentifierFromText x) l
+            in
+            defs ++ toListTopSort restLibrary
 
 
 empty : MoveLibrary
@@ -37,6 +53,7 @@ empty =
     { definitions = Dict.empty
     , sameName = Dict.empty
     , usedBy = Dict.empty
+    , roots = Set.empty
     }
 
 
@@ -87,6 +104,12 @@ insert md library =
             )
             library.usedBy
             uses
+    , roots =
+        if List.isEmpty uses then
+            Set.insert (Move.identifierText identifier) library.roots
+
+        else
+            library.roots
     }
 
 
@@ -144,6 +167,9 @@ remove ident library =
                                     -- We are dealing with any mentions in values part of the used
                                     -- usedBy dictionary separately below
                                     , usedBy = Dict.remove idText libraryAcc.usedBy
+
+                                    -- We are dealing with roots below
+                                    , roots = libraryAcc.roots
                                     }
                             in
                             ( md :: removedAcc, newLibrary )
@@ -156,7 +182,12 @@ remove ident library =
                 toRemove =
                     Set.fromList (List.map Move.identifierText deps)
             in
-            ( res, { resLibrary | usedBy = Dict.map (\_ set -> Set.diff set toRemove) resLibrary.usedBy } )
+            ( res
+            , { resLibrary
+                | usedBy = Dict.map (\_ set -> Set.diff set toRemove) resLibrary.usedBy
+                , roots = Set.diff resLibrary.roots toRemove
+              }
+            )
 
 
 {-| Return the dependencies that are in the library in topological order. Including the original element

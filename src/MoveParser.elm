@@ -204,21 +204,40 @@ moveNameParser =
     variable { start = Char.isLower, inner = \c -> Char.isAlphaNum c || c == '-', reserved = keywords, expecting = Expected EMoveName }
 
 
+{-| Check if name is an argument. Otherwise call whenNot
+-}
+maybeArgument : ParseEnv -> (String -> Parser Expr) -> String -> Parser Expr
+maybeArgument env whenNot name =
+    case lookupArgument env name of
+        Nothing ->
+            whenNot name
+
+        Just arg ->
+            if arg.isTemporary then
+                succeed (ExprTemporaryPile { name = arg.name, ndx = arg.ndx, up = arg.up })
+
+            else
+                succeed (ExprArgument { name = arg.name, ndx = arg.ndx, up = arg.up, kind = arg.kind })
+
+
+{-| Parse a numeric expression.
+-}
+numericExprParser : ParseEnv -> Parser Expr
+numericExprParser env =
+    oneOf
+        [ int (Expected EInt) (Expected EInt) |> map (\i -> ExprValue (Int i))
+        , numberNameParser (Expected ENumberName)
+            |> andThen
+                (maybeArgument env
+                    (\n ->
+                        problem (NoSuchArgument { name = n, kind = KindInt })
+                    )
+                )
+        ]
+
+
 exprParser : ParseEnv -> Parser Expr
 exprParser env =
-    let
-        maybeArgument whenNot name =
-            case lookupArgument env name of
-                Nothing ->
-                    whenNot name
-
-                Just arg ->
-                    if arg.isTemporary then
-                        succeed (ExprTemporaryPile { name = arg.name, ndx = arg.ndx, up = arg.up })
-
-                    else
-                        succeed (ExprArgument { name = arg.name, ndx = arg.ndx, up = arg.up, kind = arg.kind })
-    in
     let
         whenPileArgNotFound pileName =
             if List.isEmpty env.path then
@@ -228,16 +247,9 @@ exprParser env =
                 problem (NoSuchArgument { kind = KindPile, name = pileName })
     in
     oneOf
-        [ int (Expected EInt) (Expected EInt) |> map (\i -> ExprValue (Int i))
-        , numberNameParser (Expected ENumberName)
-            |> andThen
-                (maybeArgument
-                    (\n ->
-                        problem (NoSuchArgument { name = n, kind = KindInt })
-                    )
-                )
+        [ numericExprParser env
         , pileNameParser (Expected EPileName)
-            |> andThen (maybeArgument whenPileArgNotFound)
+            |> andThen (maybeArgument env whenPileArgNotFound)
         ]
 
 
@@ -295,8 +307,7 @@ repeatParser env =
         |= getLocation
         |. keywordRepeat
         |. spaces
-        -- Todo add the code necessary generate a type error if a pileName is passed in
-        |= exprParser env
+        |= numericExprParser env
         |. spaces
         |. newline
         |= movesParser (enterRepeat env)

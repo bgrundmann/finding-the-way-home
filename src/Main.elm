@@ -81,7 +81,11 @@ init previousStateJson =
                 Ok previousState ->
                     ( Just previousState, "Welcome back.\nPrevious state loaded." )
 
-                Err _ ->
+                Err errorMessage ->
+                    let
+                        _ =
+                            Debug.log "loading failed" errorMessage
+                    in
                     ( Nothing, "Welcome!\nLooks like this is your first time here.  Or maybe you cleared the browser cache?" )
 
         ( moveEditor, moveEditorCmd ) =
@@ -277,7 +281,7 @@ viewLibrary selectedMove library =
             , spacing 10
             , padding 10
             ]
-            (MoveLibrary.toList library
+            (MoveLibrary.toListAlphabetic library
                 |> List.map
                     (\md ->
                         let

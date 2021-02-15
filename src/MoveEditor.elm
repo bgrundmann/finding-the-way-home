@@ -122,7 +122,7 @@ getDefinitions model =
 
 defaultInfoText : String
 defaultInfoText =
-    String.join "\n" (List.map Move.signature (Primitives.primitives |> MoveLibrary.toList))
+    String.join "\n" (List.map Move.signature (Primitives.primitives |> MoveLibrary.toListTopSort))
         ++ """
 
 repeat N
@@ -238,8 +238,9 @@ editDefinition id model =
         |> updateMovesText
             (\t ->
                 ((moveDefinitions |> List.map ViewMove.prettyPrintDefinition)
-                    |> String.join "\n"
+                    |> String.join "\n\n"
                 )
+                    ++ "\n"
                     ++ t
             )
 

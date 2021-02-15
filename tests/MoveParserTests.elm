@@ -29,6 +29,29 @@ parseOk expectedDefinitions expectedMoves result =
                 res
 
 
+parseShouldFail :
+    String
+    -> Result MoveParseError { definitions : List MoveDefinition, moves : List Move }
+    -> Expectation
+parseShouldFail expectedError result =
+    case result of
+        Err err ->
+            Expect.equal expectedError (Debug.toString err)
+
+        Ok res ->
+            Expect.fail ("Expected parsing to fail. But got: " ++ Debug.toString res)
+
+
+parseFailureTests : Test
+parseFailureTests =
+    describe "parse failures"
+        [ test "repeat needs a integer" <|
+            \() ->
+                MoveParser.parseMoves primitives "repeat deck\nend"
+                    |> parseShouldFail "[{ col = 8, contextStack = [], problem = Expected EInt, row = 1 },{ col = 8, contextStack = [], problem = Expected ENumberName, row = 1 }]"
+        ]
+
+
 primitivesTests : Test
 primitivesTests =
     describe "primitives"
