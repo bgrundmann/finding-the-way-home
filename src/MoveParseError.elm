@@ -9,6 +9,7 @@ import Element
         , el
         , fill
         , paragraph
+        , px
         , row
         , spacing
         , text
@@ -94,7 +95,7 @@ view source deadEnds =
                     row [] [ text "a pile name (e.g. ", mono "deck", text ")" ]
 
                 ENumberName ->
-                    row [] [ text "a number name (e.g. ", mono "N", text ")" ]
+                    row [] [ text "a name of numeric argument (e.g. ", mono "N", text ")" ]
 
                 EInt ->
                     row [] [ text "a number (e.g. ", mono "52", text ")" ]
@@ -207,10 +208,14 @@ view source deadEnds =
                             row [] [ text "Expected ", viewExpectation ex ]
 
                         exs ->
-                            row []
-                                [ text "Expected one of "
-                                , paragraph [ spacing 5 ]
-                                    (exs |> List.map viewExpectation |> List.intersperse (text ", "))
+                            column [ spacing 5 ]
+                                [ text "Expected one of: "
+                                , row []
+                                    [ el [ width (px 20) ] Element.none
+                                    , exs
+                                        |> List.map viewExpectation
+                                        |> column [ spacing 5 ]
+                                    ]
                                 ]
 
                 viewOtherProblems =

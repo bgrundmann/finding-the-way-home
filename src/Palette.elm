@@ -56,7 +56,7 @@ regularButton =
     [ mouseOver [ Border.glow grey 2 ]
     , Background.color white
     , Border.color blueBook
-    , Border.width 1
+    , Border.width 2
     , Font.color black
     , padding 5
     , Border.rounded 5
@@ -71,6 +71,6 @@ dangerousButton =
     , Font.bold
     , padding 5
     , Border.rounded 5
-    , Border.width 1
+    , Border.width 2
     , Border.color redBook
     ]
