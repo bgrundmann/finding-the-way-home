@@ -29,14 +29,18 @@ import Element.Input as Input
 import Element.Lazy
 import ElmUiUtils exposing (mono)
 import Html exposing (Html)
+import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List
 import Move exposing (ExprValue(..), Move(..), MoveIdentifier, UserDefinedOrPrimitive(..))
 import MoveEditor
 import MoveLibrary exposing (MoveLibrary)
+import MoveLibraryJson
+import MoveParser
 import Palette exposing (greenBook)
 import Ports
+import Primitives
 import Toasts
 import ViewMove
 
@@ -66,6 +70,7 @@ type Msg
     | SelectDefinition MoveIdentifier
     | EditDefinition MoveIdentifier
     | UserKnowsChanged String
+    | GotInitialLibrary (Result Http.Error String)
 
 
 main : Program Encode.Value Model Msg
@@ -78,13 +83,17 @@ main =
         }
 
 
+loadInitialLibrary =
+    Http.get { url = "/init.txt", expect = Http.expectString GotInitialLibrary }
+
+
 init : Encode.Value -> ( Model, Cmd Msg )
 init previousStateJson =
     let
-        ( maybePreviousStoredState, firstToast ) =
+        ( maybePreviousStoredState, firstToast, loadCmd ) =
             case Decode.decodeValue MoveEditor.storedStateDecoder previousStateJson of
                 Ok previousState ->
-                    ( Just previousState, "Welcome back.\nPrevious state loaded." )
+                    ( Just previousState, "Welcome back.\nPrevious state loaded.", Cmd.none )
 
                 Err errorMessage ->
                     {-
@@ -93,7 +102,10 @@ init previousStateJson =
                                Debug.log "loading failed" errorMessage
                        in
                     -}
-                    ( Nothing, "Welcome!\nLooks like this is your first time here.  Or maybe you cleared the browser cache?" )
+                    ( Nothing
+                    , "Welcome!\nLooks like this is your first time here.  Or maybe you cleared the browser cache?"
+                    , loadInitialLibrary
+                    )
 
         ( moveEditor, moveEditorCmd ) =
             MoveEditor.init maybePreviousStoredState
@@ -108,7 +120,8 @@ init previousStateJson =
       , userKnows = ""
       }
     , Cmd.batch
-        [ Cmd.map MoveEditorChanged moveEditorCmd
+        [ loadCmd
+        , Cmd.map MoveEditorChanged moveEditorCmd
         , Cmd.map ToastsChanged toastCmd
         ]
     )
@@ -161,6 +174,25 @@ update msg model =
 
         UserKnowsChanged s ->
             ( { model | userKnows = s }, Cmd.none )
+
+        GotInitialLibrary (Err error) ->
+            let
+                ( toasts, toastCmd ) =
+                    Toasts.add (Toasts.toast "Failed to load initial library") model.toasts
+            in
+            ( { model | toasts = toasts }, Cmd.map ToastsChanged toastCmd )
+
+        GotInitialLibrary (Ok what) ->
+            case Debug.log "initial" <| MoveParser.parseMoves Primitives.primitives what of
+                Err _ ->
+                    ( model, Cmd.none )
+
+                Ok { definitions } ->
+                    let
+                        newLibrary =
+                            MoveLibrary.fromList (MoveLibrary.toListTopSort Primitives.primitives ++ definitions)
+                    in
+                    ( { model | moveEditor = MoveEditor.setLibrary newLibrary model.moveEditor }, Cmd.none )
 
 
 

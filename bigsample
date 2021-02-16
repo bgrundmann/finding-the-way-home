@@ -5,7 +5,7 @@ def deal N a b
   end
 end
 
-def deal2 N deck a b
+def deal N deck a b
   doc Deal N cards each from deck to a and b
   repeat N
     deal 1 deck a
@@ -13,20 +13,26 @@ def deal2 N deck a b
   end
 end
 
-def studdeal N deck table
+def studDeal deck table
+   doc Studdeal 1 card from deck to table
+  temp t
+  deal 1 deck t
+  turnover t
+  deal 1 t table
+end
+
+def studDeal N deck table
   doc Studdeal N cards from deck to table
   temp t
   repeat N
-      deal 1 deck t
-      turnover t
-      deal 1 t table
+    studDeal deck table
   end
 end
 
-def bottomdeal deck table
+def bottomDeal deck table
   doc Bottom deal a card from deck to table
   turnover deck
-  studdeal 1 deck table
+  studDeal 1 deck table
   turnover deck
 end
 
@@ -34,7 +40,7 @@ def tantalizer52 deck cardician spectator
   doc Perform the tantalizer with a deck of 52 cards
   def toAndFro N
      doc Deal N cards each to spectator and cardician
-     deal2 N deck spectator cardician
+     deal N deck spectator cardician
   end
   def to
      doc Deal the remaining card to the spectator

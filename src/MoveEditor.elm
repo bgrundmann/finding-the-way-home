@@ -8,6 +8,7 @@ module MoveEditor exposing
     , getLibrary
     , getStoredState
     , init
+    , setLibrary
     , storedStateDecoder
     , update
     , updateMovesText
@@ -243,6 +244,12 @@ editDefinition id model =
                     ++ "\n"
                     ++ t
             )
+
+
+setLibrary : MoveLibrary -> Model -> Model
+setLibrary library model =
+    { model | library = library }
+        |> updateMovesText identity
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
