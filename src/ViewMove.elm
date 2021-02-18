@@ -41,8 +41,8 @@ indented elem =
         ]
 
 
-view : Maybe (MoveIdentifier -> msg) -> Move -> Element msg
-view maybeOnClickMove move =
+view : Maybe (MoveIdentifier -> String) -> Move -> Element msg
+view maybeMoveUrl move =
     case move of
         Do _ def exprs ->
             let
@@ -51,10 +51,10 @@ view maybeOnClickMove move =
                         vn =
                             mono def.name
                     in
-                    case ( def.path, maybeOnClickMove ) of
-                        ( [], Just onClickMove ) ->
-                            Input.button Palette.linkButton
-                                { onPress = Just (onClickMove (Move.identifier def))
+                    case ( def.path, maybeMoveUrl ) of
+                        ( [], Just moveUrl ) ->
+                            Element.link Palette.linkButton
+                                { url = moveUrl (Move.identifier def)
                                 , label = vn
                                 }
 
@@ -66,7 +66,7 @@ view maybeOnClickMove move =
         Repeat _ n moves ->
             column [ spacing textSpacing ]
                 (row [ spacing 10 ] [ boldMono "repeat", viewExpr n ]
-                    :: List.map (indented << view maybeOnClickMove) moves
+                    :: List.map (indented << view maybeMoveUrl) moves
                     ++ [ boldMono "end" ]
                 )
 
@@ -87,8 +87,8 @@ viewExpr e =
             mono pn.name
 
 
-viewDefinition : Maybe (MoveIdentifier -> msg) -> MoveDefinition -> Element msg
-viewDefinition onClickMoveName md =
+viewDefinition : Maybe (MoveIdentifier -> String) -> MoveDefinition -> Element msg
+viewDefinition maybeMoveUrl md =
     let
         body =
             case md.body of
@@ -101,8 +101,8 @@ viewDefinition onClickMoveName md =
                             _ ->
                                 indented (row [ spacing 10 ] (boldMono "temp" :: List.map mono temporaryPiles))
                          )
-                            :: List.map (indented << viewDefinition onClickMoveName) definitions
-                            ++ List.map (indented << view onClickMoveName) moves
+                            :: List.map (indented << viewDefinition maybeMoveUrl) definitions
+                            ++ List.map (indented << view maybeMoveUrl) moves
                         )
 
                 Primitive _ ->

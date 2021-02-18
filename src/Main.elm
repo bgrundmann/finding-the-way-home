@@ -1,6 +1,7 @@
 module Main exposing (main)
 
 import Browser
+import Browser.Navigation as Nav
 import Element
     exposing
         ( Element
@@ -41,7 +42,9 @@ import MoveParser
 import Palette exposing (greenBook)
 import Ports
 import Primitives
+import Route
 import Toasts
+import Url exposing (Url)
 import ViewMove
 
 
@@ -55,6 +58,7 @@ type alias Model =
     , activePage : ActivePage
     , toasts : Toasts.Toasts
     , userKnows : String
+    , nav : Nav.Key
     }
 
 
@@ -71,15 +75,19 @@ type Msg
     | EditDefinition MoveIdentifier
     | UserKnowsChanged String
     | GotInitialLibrary (Result Http.Error String)
+    | UrlChanged Url
+    | UrlRequested Browser.UrlRequest
 
 
 main : Program Encode.Value Model Msg
 main =
-    Browser.element
+    Browser.application
         { init = init
         , update = update
         , subscriptions = subscriptions
         , view = view
+        , onUrlRequest = UrlRequested
+        , onUrlChange = UrlChanged
         }
 
 
@@ -87,9 +95,12 @@ loadInitialLibrary =
     Http.get { url = "/init.txt", expect = Http.expectString GotInitialLibrary }
 
 
-init : Encode.Value -> ( Model, Cmd Msg )
-init previousStateJson =
+init : Encode.Value -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init previousStateJson url key =
     let
+        _ =
+            Debug.log "url" url
+
         ( maybePreviousStoredState, firstToast, loadCmd ) =
             case Decode.decodeValue MoveEditor.storedStateDecoder previousStateJson of
                 Ok previousState ->
@@ -118,6 +129,7 @@ init previousStateJson =
       , selectedMove = Nothing
       , toasts = toasts
       , userKnows = ""
+      , nav = key
       }
     , Cmd.batch
         [ loadCmd
@@ -183,7 +195,7 @@ update msg model =
             ( { model | toasts = toasts }, Cmd.map ToastsChanged toastCmd )
 
         GotInitialLibrary (Ok what) ->
-            case Debug.log "initial" <| MoveParser.parseMoves Primitives.primitives what of
+            case MoveParser.parseMoves Primitives.primitives what of
                 Err _ ->
                     ( model, Cmd.none )
 
@@ -193,6 +205,23 @@ update msg model =
                             MoveLibrary.fromList (MoveLibrary.toListTopSort Primitives.primitives ++ definitions)
                     in
                     ( { model | moveEditor = MoveEditor.setLibrary newLibrary model.moveEditor }, Cmd.none )
+
+        UrlChanged url ->
+            case Route.urlToRoute url of
+                Nothing ->
+                    ( model, Cmd.none )
+
+                Just Route.Editor ->
+                    ( { model | activePage = MoveEditorPage }, Cmd.none )
+
+                Just (Route.Library selectedMove) ->
+                    ( { model | activePage = LibraryPage, selectedMove = selectedMove }, Cmd.none )
+
+        UrlRequested (Browser.Internal url) ->
+            ( model, Nav.pushUrl model.nav (Url.toString url) )
+
+        UrlRequested (Browser.External href) ->
+            ( model, Nav.load href )
 
 
 
@@ -218,15 +247,25 @@ subscriptions _ =
     Sub.none
 
 
+pageToRoute : ActivePage -> Route.Route
+pageToRoute page =
+    case page of
+        MoveEditorPage ->
+            Route.Editor
+
+        LibraryPage ->
+            Route.Library Nothing
+
+
 
 -- VIEW
 
 
-tabEl : (tab -> msg) -> tab -> { tab : tab, label : String } -> Element msg
-tabEl makeMsg selectedTab thisTab =
+tabEl : ActivePage -> { page : ActivePage, label : String } -> Element msg
+tabEl activePage thisTab =
     let
         isSelected =
-            thisTab.tab == selectedTab
+            thisTab.page == activePage
 
         padOffset =
             if isSelected then
@@ -261,20 +300,18 @@ tabEl makeMsg selectedTab thisTab =
             , centerY
             , paddingEach { left = 30, right = 30, top = 10 + padOffset, bottom = 10 - padOffset }
             ]
-            (Input.button [] { onPress = Just (makeMsg thisTab.tab), label = text thisTab.label })
+            (Element.link [] { url = Route.routeToString (pageToRoute thisTab.page), label = text thisTab.label })
+         -- (Input.button [] { onPress = Just (makeMsg thisTab.tab), label = text thisTab.label })
         )
 
 
 topBar : ActivePage -> Element Msg
 topBar activePage =
     let
-        tab =
-            tabEl SetActivePage activePage
-
         tabs =
             row [ centerX ]
-                [ tab { tab = MoveEditorPage, label = "Performance" }
-                , tab { tab = LibraryPage, label = "Library" }
+                [ tabEl activePage { page = MoveEditorPage, label = "Performance" }
+                , tabEl activePage { page = LibraryPage, label = "Library" }
                 ]
     in
     row
@@ -300,9 +337,6 @@ topBar activePage =
             , Border.color Palette.greenBook
             ]
             (text "")
-
-        -- , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Save", onPress = Just Save }
-        -- , Input.button [ mouseOver [ scale 1.1 ] ] { label = text "Load", onPress = Just SelectLoad }
         ]
 
 
@@ -334,8 +368,8 @@ viewLibrary selectedMove library =
                                     , el [ Font.size 12 ] (text md.doc)
                                     ]
                         in
-                        Input.button []
-                            { onPress = Just (SelectDefinition (Move.identifier md))
+                        Element.link []
+                            { url = Route.routeToString (Route.Library (Just (Move.identifier md)))
                             , label = listEl
                             }
                     )
@@ -365,8 +399,10 @@ viewLibrary selectedMove library =
                                         (text "This is used by "
                                             :: (List.map
                                                     (\md ->
-                                                        Input.button Palette.linkButton
-                                                            { onPress = Just (SelectDefinition (Move.identifier md))
+                                                        Element.link Palette.linkButton
+                                                            { url =
+                                                                Route.Library (Just (Move.identifier md))
+                                                                    |> Route.routeToString
                                                             , label = mono (Move.signature md)
                                                             }
                                                     )
@@ -387,7 +423,7 @@ viewLibrary selectedMove library =
                                         }
                     in
                     column [ spacing 30 ]
-                        [ ViewMove.viewDefinition (Just SelectDefinition) d
+                        [ ViewMove.viewDefinition (Just (\id -> Route.routeToString (Route.Library (Just id)))) d
                         , uses
                         , editButton
                         ]
@@ -395,14 +431,19 @@ viewLibrary selectedMove library =
         ]
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
     let
         page =
             -- This is obviously a little silly, but this isn't really there for any
             -- form of security
             if String.reverse model.userKnows /= "larutan" then
-                [ Input.text [ width (px 200), centerX, centerY ]
+                [ Input.text
+                    [ width (px 200)
+                    , centerX
+                    , centerY
+                    , Input.focusedOnLoad
+                    ]
                     { label = Input.labelAbove [] (text "Dai Vernon said: Be ...")
                     , onChange = UserKnowsChanged
                     , placeholder = Nothing
@@ -427,7 +468,12 @@ view model =
                 [ topBar model.activePage
                 , content
                 ]
+
+        body =
+            Element.layout [ width fill, height fill, Toasts.view model.toasts ] <|
+                column [ width fill, height fill ]
+                    page
     in
-    Element.layout [ width fill, height fill, Toasts.view model.toasts ] <|
-        column [ width fill, height fill ]
-            page
+    { title = "Finding The Way Home"
+    , body = [ body ]
+    }
