@@ -1,3 +1,13 @@
+def cutUnder N deck pile
+  doc Cut the top N cards of deck and put then under pile
+  temp t
+  cut N deck t
+  turnover t
+  turnover pile
+  cut N t pile
+  turnover pile
+end
+
 def completeCut N deck
   doc Cut the top N cards of deck to the bottom
   temp t
@@ -7,10 +17,26 @@ def completeCut N deck
   cut N t deck
   turnover deck
 end
+
+def underCut N deck pile
+  doc Cut the bottom N cards of deck and put them on top of pile
+  temp t
+  turnover deck
+  cut N deck t
+  turnover t
+  turnover deck
+  cut N t pile
+end
+
+def deal a b
+  doc Deal 1 card from a to b
+  cut 1 a b
+end
+
 def deal N a b
   doc Deal N cards from a to b
   repeat N
-    cut 1 a b
+    deal a b
   end
 end
 def deal N deck a b
@@ -96,4 +122,38 @@ def tantalizer52 deck cardician spectator
   take 3
   toAndFro 1
   to 
+end
+
+def syncopatedAces deck aces target pile1 pile2 pile3
+  doc John Bannon's Syncopated Aces.  At the end target contains the aces and pile1, pile2, pile3 the indifferent cards
+  temp lefthand righthand
+  studDeal 12 deck righthand
+  cut 4 aces righthand
+  underCut 3 righthand lefthand
+  deal 3 righthand lefthand
+  cutUnder 3 lefthand righthand
+  deal 1 righthand lefthand
+  turnover lefthand
+  deal lefthand pile3
+  deal lefthand pile2
+  deal lefthand pile1
+  deal lefthand target
+  underCut 3 righthand lefthand
+  deal 3 righthand lefthand
+  cutUnder 3 lefthand righthand
+  turnover lefthand
+  cut 3 lefthand target
+  deal 3 righthand lefthand
+  turnover lefthand
+  cut 3 lefthand pile3
+  deal 3 righthand lefthand
+  turnover lefthand
+  cut 3 lefthand pile2
+  deal 3 righthand lefthand
+  turnover lefthand
+  cut 3 lefthand pile1
+  turnover target
+  turnover pile3
+  turnover pile2
+  turnover pile1
 end
