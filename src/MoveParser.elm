@@ -9,7 +9,6 @@ import Move
         , ArgumentKind(..)
         , Expr(..)
         , ExprValue(..)
-        , Location
         , Move(..)
         , MoveDefinition
         , MoveIdentifier
@@ -253,35 +252,26 @@ exprParser env =
         ]
 
 
-getLocation : Parser Location
-getLocation =
-    Parser.Advanced.getRow |> map (\row -> { row = row })
-
-
 doMoveParser : ParseEnv -> Parser Move
 doMoveParser env =
     let
-        typeCheckMove location ( movesWithThatName, actuals ) =
+        typeCheckMove ( movesWithThatName, actuals ) =
             let
                 actualKinds =
                     List.map Move.exprKind actuals
             in
             case List.filter (\md -> List.map .kind md.args == actualKinds) movesWithThatName of
                 [ m ] ->
-                    succeed (Do location m actuals)
+                    succeed (Do m actuals)
 
                 _ ->
                     problem (InvalidMoveInvocation { options = movesWithThatName, actuals = actuals })
     in
-    getLocation
-        |> andThen
-            (\location ->
-                (succeed Tuple.pair
-                    |= (moveNameParser |> andThen (lookupDefinitions env.library))
-                    |= actualsParser env
-                )
-                    |> andThen (typeCheckMove location)
-            )
+    (succeed Tuple.pair
+        |= (moveNameParser |> andThen (lookupDefinitions env.library))
+        |= actualsParser env
+    )
+        |> andThen typeCheckMove
 
 
 actualsParser : ParseEnv -> Parser (List Expr)
@@ -303,8 +293,7 @@ actualsParser env =
 
 repeatParser : ParseEnv -> Parser Move
 repeatParser env =
-    succeed (\location n moves -> Repeat location n moves)
-        |= getLocation
+    succeed (\n moves -> Repeat n moves)
         |. keywordRepeat
         |. spaces
         |= numericExprParser env

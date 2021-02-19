@@ -55,8 +55,8 @@ checkTemporaryPilesAreGone temporaryPileNames md result =
                         (TemporaryPileNotEmpty { names = List.map .nameInSource piles, moveDefinition = md })
 
 
-evalWithEnv : Env -> Image -> Move -> EvalResult
-evalWithEnv env image move =
+evalWithEnv : Env -> Image -> Int -> Move -> EvalResult
+evalWithEnv env image location move =
     let
         replaceArgumentByValue e expr =
             case expr of
@@ -97,7 +97,7 @@ evalWithEnv env image move =
                             v
     in
     case move of
-        Repeat loc expr moves ->
+        Repeat expr moves ->
             case replaceArgumentByValue env expr of
                 Int times ->
                     let
@@ -116,14 +116,14 @@ evalWithEnv env image move =
 
                                     Just _ ->
                                         result
-                                            |> addBacktrace loc (BtRepeat { nth = n, total = times })
+                                            |> addBacktrace location (BtRepeat { nth = n, total = times })
                     in
                     helper 1 image
 
                 Pile _ ->
                     reportError image (Bug "Type checker failed")
 
-        Do loc ({ body } as md) actuals ->
+        Do ({ body } as md) actuals ->
             let
                 actualValues =
                     List.map (replaceArgumentByValue env) actuals
@@ -131,7 +131,7 @@ evalWithEnv env image move =
             case body of
                 Primitive p ->
                     Primitives.eval image p actualValues
-                        |> addBacktrace loc (BtDo md actualValues)
+                        |> addBacktrace location (BtDo md actualValues)
 
                 UserDefined { moves, temporaryPiles } ->
                     let
@@ -160,13 +160,13 @@ evalWithEnv env image move =
                     in
                     result
                         |> checkTemporaryPilesAreGone actualTemporaryPiles md
-                        |> addBacktrace loc (BtDo md actualValues)
+                        |> addBacktrace location (BtDo md actualValues)
 
 
 evalListWithEnv : Env -> Image -> List Move -> EvalResult
 evalListWithEnv env image moves =
     let
-        helper currentImage remainingMoves =
+        helper currentImage location remainingMoves =
             case remainingMoves of
                 [] ->
                     { lastImage = currentImage, error = Nothing }
@@ -174,16 +174,16 @@ evalListWithEnv env image moves =
                 m :: newRemainingMoves ->
                     let
                         result =
-                            evalWithEnv env currentImage m
+                            evalWithEnv env currentImage location m
                     in
                     case result.error of
                         Nothing ->
-                            helper result.lastImage newRemainingMoves
+                            helper result.lastImage (location + 1) newRemainingMoves
 
                         Just _ ->
                             result
     in
-    helper image moves
+    helper image 0 moves
 
 
 eval : Image -> List Move -> EvalResult

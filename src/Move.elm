@@ -3,7 +3,6 @@ module Move exposing
     , ArgumentKind(..)
     , Expr(..)
     , ExprValue(..)
-    , Location
     , Move(..)
     , MoveDefinition
     , MoveIdentifier
@@ -75,10 +74,6 @@ type alias UserDefinedMove =
     }
 
 
-type alias Location =
-    { row : Int }
-
-
 type UserDefinedOrPrimitive
     = UserDefined UserDefinedMove
     | Primitive Primitive
@@ -90,8 +85,8 @@ type Primitive
 
 
 type Move
-    = Repeat Location Expr (List Move)
-    | Do Location MoveDefinition (List Expr)
+    = Repeat Expr (List Move)
+    | Do MoveDefinition (List Expr)
 
 
 type Expr
@@ -183,19 +178,19 @@ makeIdentifier name argKinds =
 backwards : Move -> Move
 backwards move =
     case move of
-        Repeat loc arg moves ->
-            Repeat loc arg (backwardsMoves moves)
+        Repeat arg moves ->
+            Repeat arg (backwardsMoves moves)
 
-        Do loc def exprs ->
+        Do def exprs ->
             case ( def.body, exprs ) of
                 ( Primitive Cut, [ n, from, to ] ) ->
-                    Do loc def [ n, to, from ]
+                    Do def [ n, to, from ]
 
                 ( Primitive Turnover, [ _ ] ) ->
                     move
 
                 ( UserDefined u, _ ) ->
-                    Do loc { def | body = UserDefined { u | moves = backwardsMoves u.moves } } exprs
+                    Do { def | body = UserDefined { u | moves = backwardsMoves u.moves } } exprs
 
                 ( _, _ ) ->
                     -- Can not happen because of the type checker
@@ -224,12 +219,12 @@ usesByDefinition md =
 usesOfMove : Move -> List MoveDefinition
 usesOfMove move =
     case move of
-        Do _ d _ ->
+        Do d _ ->
             if List.isEmpty d.path then
                 [ d ]
 
             else
                 []
 
-        Repeat _ _ moves ->
+        Repeat _ moves ->
             List.concatMap usesOfMove moves

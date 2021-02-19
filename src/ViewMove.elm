@@ -44,7 +44,7 @@ indented elem =
 view : Maybe (MoveIdentifier -> String) -> Move -> Element msg
 view maybeMoveUrl move =
     case move of
-        Do _ def exprs ->
+        Do def exprs ->
             let
                 nameMaybeLinked =
                     let
@@ -63,7 +63,7 @@ view maybeMoveUrl move =
             in
             row [ spacing 10 ] (nameMaybeLinked :: List.map viewExpr exprs)
 
-        Repeat _ n moves ->
+        Repeat n moves ->
             column [ spacing textSpacing ]
                 (row [ spacing 10 ] [ boldMono "repeat", viewExpr n ]
                     :: List.map (indented << view maybeMoveUrl) moves
@@ -136,10 +136,10 @@ ppIndented l =
 doPrettyPrint : Move -> List String
 doPrettyPrint move =
     case move of
-        Do _ def exprs ->
+        Do def exprs ->
             [ def.name ++ " " ++ String.join " " (List.map doPrettyPrintExpr exprs) ]
 
-        Repeat _ n moves ->
+        Repeat n moves ->
             ("repeat " ++ doPrettyPrintExpr n)
                 :: ppIndented (List.concatMap doPrettyPrint moves)
                 ++ [ "end" ]

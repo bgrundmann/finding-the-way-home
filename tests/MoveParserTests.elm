@@ -59,8 +59,7 @@ primitivesTests =
             \() ->
                 MoveParser.parseMoves primitives "cut 1 deck table"
                     |> parseOk []
-                        [ Move.Do { row = 1 }
-                            primitiveCut
+                        [ Move.Do primitiveCut
                             [ ExprValue (Int 1)
                             , ExprValue (Pile "deck")
                             , ExprValue (Pile "table")
@@ -69,7 +68,7 @@ primitivesTests =
         , test "turnover" <|
             \() ->
                 MoveParser.parseMoves primitives "turnover deck"
-                    |> parseOk [] [ Move.Do { row = 1 } primitiveTurnover [ ExprValue (Pile "deck") ] ]
+                    |> parseOk [] [ Move.Do primitiveTurnover [ ExprValue (Pile "deck") ] ]
         ]
 
 
@@ -79,15 +78,15 @@ repeatTest =
         \() ->
             MoveParser.parseMoves primitives "repeat 4\n  cut 1 deck table\n\n  turnover table\nend"
                 |> parseOk []
-                    [ Move.Repeat { row = 1 }
+                    [ Move.Repeat
                         (ExprValue (Int 4))
-                        [ Move.Do { row = 2 }
+                        [ Move.Do
                             primitiveCut
                             [ ExprValue (Int 1)
                             , ExprValue (Pile "deck")
                             , ExprValue (Pile "table")
                             ]
-                        , Move.Do { row = 4 } primitiveTurnover [ ExprValue (Pile "table") ]
+                        , Move.Do primitiveTurnover [ ExprValue (Pile "table") ]
                         ]
                     ]
 
@@ -108,7 +107,7 @@ defParserTest =
                             { definitions = []
                             , temporaryPiles = []
                             , moves =
-                                [ Move.Do { row = 3 }
+                                [ Move.Do
                                     primitiveCut
                                     [ ExprValue (Move.Int 1)
                                     , ExprArgument { kind = KindPile, name = "a", ndx = 0, up = 0 }
@@ -138,17 +137,17 @@ defTemporary =
                             { definitions = []
                             , temporaryPiles = [ "t" ]
                             , moves =
-                                [ Move.Do { row = 4 }
+                                [ Move.Do
                                     primitiveCut
                                     [ ExprValue (Move.Int 1)
                                     , ExprArgument { kind = KindPile, name = "a", ndx = 0, up = 0 }
                                     , ExprTemporaryPile { name = "t", ndx = 0, up = 0 }
                                     ]
-                                , Move.Do { row = 5 }
+                                , Move.Do
                                     primitiveTurnover
                                     [ ExprTemporaryPile { name = "t", ndx = 0, up = 0 }
                                     ]
-                                , Move.Do { row = 6 }
+                                , Move.Do
                                     primitiveCut
                                     [ ExprValue (Move.Int 1)
                                     , ExprTemporaryPile { name = "t", ndx = 0, up = 0 }
@@ -178,7 +177,7 @@ nestedDefUsingOuterTest =
                             { definitions = []
                             , temporaryPiles = []
                             , moves =
-                                [ Move.Do { row = 4 }
+                                [ Move.Do
                                     primitiveCut
                                     [ ExprValue (Move.Int 1)
                                     , ExprArgument { kind = KindPile, name = "a", ndx = 0, up = 1 }
@@ -201,7 +200,7 @@ nestedDefUsingOuterTest =
                                 ]
                             , temporaryPiles = []
                             , moves =
-                                [ Move.Do { row = 6 } nestedX []
+                                [ Move.Do nestedX []
                                 ]
                             }
                     }
@@ -226,7 +225,7 @@ nestedDefVariablesTest =
                             { definitions = []
                             , temporaryPiles = []
                             , moves =
-                                [ Move.Do { row = 4 }
+                                [ Move.Do
                                     primitiveCut
                                     [ ExprValue (Move.Int 1)
                                     , ExprArgument { kind = KindPile, name = "a", ndx = 0, up = 0 }
@@ -249,7 +248,7 @@ nestedDefVariablesTest =
                                 ]
                             , temporaryPiles = []
                             , moves =
-                                [ Move.Do { row = 6 }
+                                [ Move.Do
                                     nestedX
                                     [ ExprArgument { kind = KindPile, name = "b", ndx = 1, up = 0 }
                                     ]

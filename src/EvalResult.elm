@@ -16,10 +16,6 @@ import Move exposing (ExprValue(..), MoveDefinition)
 import Palette
 
 
-type alias Location =
-    { row : Int }
-
-
 type Problem
     = NotEnoughCards { expected : Int, inPile : PileName, got : Int }
     | NoSuchPile { name : PileName }
@@ -29,7 +25,7 @@ type Problem
 
 type alias Backtrace =
     List
-        { location : Location
+        { location : Int -- Nth move in the current list of moves
         , step : BacktraceStep
         }
 
@@ -60,7 +56,7 @@ reportError image problem =
 
 {-| If we are in an error case, add the backtrace info.
 -}
-addBacktrace : Location -> BacktraceStep -> EvalResult -> EvalResult
+addBacktrace : Int -> BacktraceStep -> EvalResult -> EvalResult
 addBacktrace loc step result =
     case result.error of
         Nothing ->
@@ -79,7 +75,7 @@ viewBacktrace sourceText backtrace =
             (\{ location, step } ->
                 paragraph [ spacing 5, width fill ]
                     (text "➥ "
-                        :: mono (String.fromInt location.row ++ ": ")
+                        :: mono (String.fromInt location ++ ": ")
                         :: (case step of
                                 BtRepeat { nth, total } ->
                                     [ boldMono "repeat "

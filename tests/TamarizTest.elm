@@ -139,7 +139,7 @@ suite =
                                     { temporaryPiles = [ "t" ]
                                     , definitions = []
                                     , moves =
-                                        [ Do { row = 3 }
+                                        [ Do
                                             primitiveCut
                                             [ ExprValue (Int 1)
                                             , ExprArgument { kind = KindPile, name = "deck", ndx = 0, up = 0 }
