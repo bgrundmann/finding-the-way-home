@@ -39,8 +39,8 @@ decodeActuals handlers p actuals =
             handlers.decodingError p
 
 
-eval : Image -> Primitive -> List ExprValue -> EvalResult
-eval image =
+eval : Image -> Int -> Primitive -> List ExprValue -> EvalResult
+eval image steps =
     decodeActuals
         { turnover =
             \name ->
@@ -50,14 +50,14 @@ eval image =
                 in
                 case pile of
                     Nothing ->
-                        reportError image (NoSuchPile { name = name })
+                        reportError image steps (NoSuchPile { name = name })
 
                     Just p ->
-                        { lastImage = Image.put name (Pile.turnover p) newImage, error = Nothing }
+                        { lastImage = Image.put name (Pile.turnover p) newImage, steps = steps, error = Nothing }
         , cut =
             \n from to ->
                 if n == 0 then
-                    { lastImage = image, error = Nothing }
+                    { lastImage = image, steps = steps, error = Nothing }
 
                 else
                     let
@@ -66,7 +66,7 @@ eval image =
                     in
                     case pile of
                         Nothing ->
-                            reportError image (NoSuchPile { name = from })
+                            reportError image steps (NoSuchPile { name = from })
 
                         Just cards ->
                             let
@@ -77,7 +77,7 @@ eval image =
                                     List.length topHalf
                             in
                             if actualLen < n then
-                                reportError image (NotEnoughCards { expected = n, got = actualLen, inPile = from })
+                                reportError image steps (NotEnoughCards { expected = n, got = actualLen, inPile = from })
 
                             else
                                 { lastImage =
@@ -85,10 +85,11 @@ eval image =
                                         |> Image.put from lowerHalf
                                         |> Image.put to topHalf
                                 , error = Nothing
+                                , steps = steps
                                 }
         , decodingError =
             \_ ->
-                reportError image (Bug "type checker failed")
+                reportError image steps (Bug "type checker failed")
         }
 
 

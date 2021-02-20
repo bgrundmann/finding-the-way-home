@@ -21,6 +21,7 @@ type Problem
     | NoSuchPile { name : PileName }
     | TemporaryPileNotEmpty { names : List PileName, moveDefinition : MoveDefinition }
     | Bug String
+    | EarlyExit
 
 
 type alias Backtrace =
@@ -41,16 +42,21 @@ type alias EvalError =
     }
 
 
+{-| This records the result of evaluation. That is the last successfully computed
+image. The number of steps in total taken. And if there was an error.
+-}
 type alias EvalResult =
     { lastImage : Image
     , error : Maybe EvalError
+    , steps : Int
     }
 
 
-reportError : Image -> Problem -> EvalResult
-reportError image problem =
+reportError : Image -> Int -> Problem -> EvalResult
+reportError image steps problem =
     { lastImage = image
     , error = Just { problem = problem, backtrace = [] }
+    , steps = steps
     }
 
 
@@ -116,6 +122,9 @@ viewError sourceText error =
 viewProblem : Problem -> Element msg
 viewProblem problem =
     case problem of
+        EarlyExit ->
+            Element.none
+
         Bug msg ->
             paragraph [ spacing 5, width fill, Font.bold, Font.color Palette.redBook ]
                 [ text "INTERNAL ERROR CONTACT BENE ", text msg ]

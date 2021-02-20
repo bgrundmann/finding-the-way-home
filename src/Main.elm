@@ -63,14 +63,14 @@ type alias Model =
 
 
 type ActivePage
-    = MoveEditorPage
+    = EditorPage
     | LibraryPage
 
 
 type Msg
     = MoveEditorChanged MoveEditor.Msg
     | ToastsChanged Toasts.Msg
-    | SetActivePage ActivePage
+    | SetActivePage ( ActivePage, Maybe MoveEditor.DisplayMode )
     | SelectDefinition MoveIdentifier
     | EditDefinition MoveIdentifier
     | UserKnowsChanged String
@@ -125,7 +125,7 @@ init previousStateJson url key =
             Toasts.add (Toasts.toast firstToast) Toasts.init
     in
     ( { moveEditor = moveEditor
-      , activePage = MoveEditorPage
+      , activePage = EditorPage
       , selectedMove = Nothing
       , toasts = toasts
       , userKnows = ""
@@ -165,10 +165,19 @@ update msg model =
             in
             ( newModel, Cmd.none )
 
-        SetActivePage page ->
+        SetActivePage ( page, dm ) ->
             let
                 newModel =
-                    { model | activePage = page }
+                    { model
+                        | activePage = page
+                        , moveEditor =
+                            case dm of
+                                Nothing ->
+                                    model.moveEditor
+
+                                Just d ->
+                                    MoveEditor.setDisplayMode d model.moveEditor
+                    }
             in
             ( newModel, Cmd.none )
 
@@ -178,8 +187,10 @@ update msg model =
         EditDefinition id ->
             ( { model
                 | selectedMove = Nothing
-                , moveEditor = MoveEditor.editDefinition id model.moveEditor
-                , activePage = MoveEditorPage
+                , moveEditor =
+                    MoveEditor.editDefinition id model.moveEditor
+                        |> MoveEditor.setDisplayMode MoveEditor.Edit
+                , activePage = EditorPage
               }
             , Cmd.none
             )
@@ -211,8 +222,21 @@ update msg model =
                 Nothing ->
                     ( model, Cmd.none )
 
+                Just Route.Show ->
+                    ( { model
+                        | activePage = EditorPage
+                        , moveEditor = MoveEditor.setDisplayMode MoveEditor.Show model.moveEditor
+                      }
+                    , Cmd.none
+                    )
+
                 Just Route.Editor ->
-                    ( { model | activePage = MoveEditorPage }, Cmd.none )
+                    ( { model
+                        | activePage = EditorPage
+                        , moveEditor = MoveEditor.setDisplayMode MoveEditor.Edit model.moveEditor
+                      }
+                    , Cmd.none
+                    )
 
                 Just (Route.Library selectedMove) ->
                     ( { model | activePage = LibraryPage, selectedMove = selectedMove }, Cmd.none )
@@ -247,22 +271,12 @@ subscriptions _ =
     Sub.none
 
 
-pageToRoute : ActivePage -> Route.Route
-pageToRoute page =
-    case page of
-        MoveEditorPage ->
-            Route.Editor
-
-        LibraryPage ->
-            Route.Library Nothing
-
-
 
 -- VIEW
 
 
-tabEl : ActivePage -> { page : ActivePage, label : String } -> Element msg
-tabEl activePage thisTab =
+tabEl : (page -> String) -> page -> { page : page, label : String } -> Element msg
+tabEl toUrl activePage thisTab =
     let
         isSelected =
             thisTab.page == activePage
@@ -300,18 +314,39 @@ tabEl activePage thisTab =
             , centerY
             , paddingEach { left = 30, right = 30, top = 10 + padOffset, bottom = 10 - padOffset }
             ]
-            (Element.link [] { url = Route.routeToString (pageToRoute thisTab.page), label = text thisTab.label })
+            (Element.link [] { url = toUrl thisTab.page, label = text thisTab.label })
          -- (Input.button [] { onPress = Just (makeMsg thisTab.tab), label = text thisTab.label })
         )
 
 
-topBar : ActivePage -> Element Msg
-topBar activePage =
+getUrlOfPage : ( ActivePage, MoveEditor.DisplayMode ) -> String
+getUrlOfPage ( activePage, displayMode ) =
     let
+        route =
+            case ( activePage, displayMode ) of
+                ( EditorPage, MoveEditor.Show ) ->
+                    Route.Show
+
+                ( EditorPage, MoveEditor.Edit ) ->
+                    Route.Editor
+
+                ( LibraryPage, _ ) ->
+                    Route.Library Nothing
+    in
+    Route.routeToString route
+
+
+topBar : ActivePage -> MoveEditor.DisplayMode -> Element Msg
+topBar activePage displayMode =
+    let
+        tab =
+            tabEl getUrlOfPage ( activePage, displayMode )
+
         tabs =
             row [ centerX ]
-                [ tabEl activePage { page = MoveEditorPage, label = "Performance" }
-                , tabEl activePage { page = LibraryPage, label = "Library" }
+                [ tab { page = ( EditorPage, MoveEditor.Show ), label = "Show" }
+                , tab { page = ( EditorPage, MoveEditor.Edit ), label = "Learn" }
+                , tab { page = ( LibraryPage, displayMode ), label = "Library" }
                 ]
     in
     row
@@ -421,9 +456,13 @@ viewLibrary selectedMove library =
                                         { onPress = EditDefinition (Move.identifier d) |> Just
                                         , label = text "Edit"
                                         }
+
+                        viewConfig =
+                            ViewMove.defaultConfig
+                                |> ViewMove.withMoveUrl (\id -> Route.routeToString (Route.Library (Just id)))
                     in
                     column [ spacing 30 ]
-                        [ ViewMove.viewDefinition (Just (\id -> Route.routeToString (Route.Library (Just id)))) d
+                        [ ViewMove.viewDefinition viewConfig d
                         , uses
                         , editButton
                         ]
@@ -455,7 +494,7 @@ view model =
                 let
                     content =
                         case model.activePage of
-                            MoveEditorPage ->
+                            EditorPage ->
                                 Element.Lazy.lazy MoveEditor.view model.moveEditor
                                     |> Element.map MoveEditorChanged
 
@@ -465,7 +504,7 @@ view model =
                                     model.selectedMove
                                     (MoveEditor.getLibrary model.moveEditor)
                 in
-                [ topBar model.activePage
+                [ topBar model.activePage (MoveEditor.getDisplayMode model.moveEditor)
                 , content
                 ]
 

@@ -19,8 +19,18 @@ import Test exposing (..)
 -- This is the big end to End test.
 
 
-testEndToEnd : String -> { initial : String, final : String, moves : String, backwards : Bool, expectEvalFailure : Maybe EvalResult.Problem } -> Test
-testEndToEnd label { initial, final, moves, backwards, expectEvalFailure } =
+testEndToEnd :
+    String
+    ->
+        { initial : String
+        , final : String
+        , moves : String
+        , backwards : Bool
+        , expectedSteps : Int
+        , expectEvalFailure : Maybe EvalResult.Problem
+        }
+    -> Test
+testEndToEnd label { initial, final, moves, backwards, expectEvalFailure, expectedSteps } =
     test label <|
         \() ->
             let
@@ -63,7 +73,7 @@ testEndToEnd label { initial, final, moves, backwards, expectEvalFailure } =
                                 parsedMoves
 
                         result =
-                            Eval.eval initialImage movesToApply
+                            Eval.eval (always True) initialImage movesToApply
                     in
                     case expectEvalFailure of
                         Just expectedProblem ->
@@ -80,7 +90,11 @@ testEndToEnd label { initial, final, moves, backwards, expectEvalFailure } =
                                     Expect.fail (Debug.toString problem)
 
                                 Nothing ->
-                                    Expect.equal expectedFinalImage result.lastImage
+                                    Expect.all
+                                        [ always <| Expect.equal expectedFinalImage result.lastImage
+                                        , always <| Expect.equal expectedSteps result.steps
+                                        ]
+                                        ()
 
 
 mnemonica : String
@@ -100,6 +114,7 @@ suite =
             , moves = Tamariz.tamariz
             , backwards = False
             , expectEvalFailure = Nothing
+            , expectedSteps = 2101
             }
         , testEndToEnd "tamariz backwards"
             { initial = mnemonica
@@ -107,6 +122,7 @@ suite =
             , moves = Tamariz.tamariz
             , backwards = True
             , expectEvalFailure = Nothing
+            , expectedSteps = 2101
             }
         , testEndToEnd "Cutting more cards than available causes a runtime error"
             { initial = Pile.poker_deck |> Pile.toString
@@ -114,6 +130,7 @@ suite =
             , moves = """cut 53 deck table"""
             , backwards = False
             , expectEvalFailure = Just (NotEnoughCards { expected = 53, got = 52, inPile = "deck" })
+            , expectedSteps = 0
             }
         , testEndToEnd "Temporary piles that are not empty cause a runtime error"
             { initial = Pile.poker_deck |> Pile.toString
@@ -124,6 +141,7 @@ suite =
                          end
                          bad deck"""
             , backwards = False
+            , expectedSteps = 0
             , expectEvalFailure =
                 Just
                     (TemporaryPileNotEmpty

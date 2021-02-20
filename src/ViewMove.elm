@@ -1,4 +1,13 @@
-module ViewMove exposing (prettyPrint, prettyPrintDefinition, view, viewDefinition)
+module ViewMove exposing
+    ( ViewConfig
+    , defaultConfig
+    , prettyPrint
+    , prettyPrintDefinition
+    , view
+    , viewDefinition
+    , viewMoves
+    , withMoveUrl
+    )
 
 import Element
     exposing
@@ -41,8 +50,22 @@ indented elem =
         ]
 
 
-view : Maybe (MoveIdentifier -> String) -> Move -> Element msg
-view maybeMoveUrl move =
+type alias ViewConfig =
+    { moveUrl : Maybe (MoveIdentifier -> String)
+    }
+
+
+defaultConfig =
+    { moveUrl = Nothing }
+
+
+withMoveUrl : (MoveIdentifier -> String) -> ViewConfig -> ViewConfig
+withMoveUrl moveUrl viewConfig =
+    { viewConfig | moveUrl = Just moveUrl }
+
+
+view : ViewConfig -> Move -> Element msg
+view viewConfig move =
     case move of
         Do def exprs ->
             let
@@ -51,7 +74,7 @@ view maybeMoveUrl move =
                         vn =
                             mono def.name
                     in
-                    case ( def.path, maybeMoveUrl ) of
+                    case ( def.path, viewConfig.moveUrl ) of
                         ( [], Just moveUrl ) ->
                             Element.link Palette.linkButton
                                 { url = moveUrl (Move.identifier def)
@@ -65,10 +88,16 @@ view maybeMoveUrl move =
 
         Repeat n moves ->
             column [ spacing textSpacing ]
-                (row [ spacing 10 ] [ boldMono "repeat", viewExpr n ]
-                    :: List.map (indented << view maybeMoveUrl) moves
-                    ++ [ boldMono "end" ]
-                )
+                [ row [ spacing 10 ] [ boldMono "repeat", viewExpr n ]
+                , indented (viewMoves viewConfig moves)
+                , boldMono "end"
+                ]
+
+
+viewMoves : ViewConfig -> List Move -> Element msg
+viewMoves viewConfig moves =
+    column [ spacing textSpacing ]
+        (List.map (view viewConfig) moves)
 
 
 viewExpr : Expr -> Element msg
@@ -87,8 +116,8 @@ viewExpr e =
             mono pn.name
 
 
-viewDefinition : Maybe (MoveIdentifier -> String) -> MoveDefinition -> Element msg
-viewDefinition maybeMoveUrl md =
+viewDefinition : ViewConfig -> MoveDefinition -> Element msg
+viewDefinition viewConfig md =
     let
         body =
             case md.body of
@@ -101,8 +130,8 @@ viewDefinition maybeMoveUrl md =
                             _ ->
                                 indented (row [ spacing 10 ] (boldMono "temp" :: List.map mono temporaryPiles))
                          )
-                            :: List.map (indented << viewDefinition maybeMoveUrl) definitions
-                            ++ List.map (indented << view maybeMoveUrl) moves
+                            :: List.map (indented << viewDefinition viewConfig) definitions
+                            ++ [ indented (viewMoves viewConfig moves) ]
                         )
 
                 Primitive _ ->

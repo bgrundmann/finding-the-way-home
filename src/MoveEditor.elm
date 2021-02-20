@@ -1,13 +1,16 @@
 module MoveEditor exposing
-    ( Model
+    ( DisplayMode(..)
+    , Model
     , Msg
     , StoredState
     , editDefinition
     , encodeStoredState
     , getDefinitions
+    , getDisplayMode
     , getLibrary
     , getStoredState
     , init
+    , setDisplayMode
     , setLibrary
     , storedStateDecoder
     , update
@@ -19,6 +22,7 @@ import Browser.Dom as Dom
 import Element
     exposing
         ( Element
+        , centerY
         , column
         , el
         , fill
@@ -28,6 +32,7 @@ import Element
         , mouseOver
         , padding
         , paddingXY
+        , px
         , row
         , scale
         , scrollbarY
@@ -79,6 +84,11 @@ import ViewMove exposing (prettyPrint, prettyPrintDefinition)
 -- and move it into the editor, if he wants to go ahead.
 
 
+type EvalResultState
+    = Complete EvalResult
+    | Partial { partial : EvalResult, complete : EvalResult }
+
+
 type alias Model =
     { initialImage : ImageEditor.State
     , text : String
@@ -87,10 +97,11 @@ type alias Model =
             { moves : List Move
             , definitions : List MoveDefinition
             }
-    , performanceFailure : Maybe EvalResult.EvalError
-    , finalImage : Image -- The last successfully computed final Image
+    , evalResult : EvalResultState
     , backwards : Bool
     , library : MoveLibrary
+    , onlyApplyFirstNSteps : Maybe Int
+    , displayMode : DisplayMode
     }
 
 
@@ -104,6 +115,12 @@ type Msg
     | Load File
     | GotLoad String
     | Focus (Result Dom.Error ())
+    | AdjustSteps Int
+
+
+type DisplayMode
+    = Show
+    | Edit
 
 
 getLibrary : Model -> MoveLibrary
@@ -144,11 +161,6 @@ ignore move
 """
 
 
-apply : List Move -> Image -> EvalResult
-apply moves image =
-    Eval.eval image moves
-
-
 freshStartInitialState : StoredState
 freshStartInitialState =
     { text = ""
@@ -167,12 +179,18 @@ init maybePreviousState =
 
         model =
             { initialImage = ImageEditor.init previousStateOrInitial.initialImage
-            , finalImage = previousStateOrInitial.initialImage
+            , evalResult =
+                Complete
+                    { steps = 0
+                    , lastImage = previousStateOrInitial.initialImage
+                    , error = Nothing
+                    }
             , text = previousStateOrInitial.text
             , movesAndDefinitions = Ok { moves = [], definitions = [] }
-            , performanceFailure = Nothing
             , backwards = previousStateOrInitial.backwards
             , library = previousStateOrInitial.library
+            , onlyApplyFirstNSteps = Nothing
+            , displayMode = Edit
             }
     in
     ( model
@@ -183,6 +201,9 @@ init maybePreviousState =
 
 
 {-| Parse the moves text and update the model accordingly. This does NOT apply the moves.
+In fact it leaves evalResult untouched, so that in case of a parse error the last
+successful evaluation stays visible. This is the more useful behaviour during an interactive
+edit session.
 -}
 parseMoves : Model -> Model
 parseMoves model =
@@ -213,12 +234,37 @@ applyMoves model =
                     else
                         moves
 
-                result =
-                    apply maybeBackwardsMoves (ImageEditor.getImage model.initialImage)
+                initialImage =
+                    ImageEditor.getImage model.initialImage
+
+                evalResult =
+                    case model.onlyApplyFirstNSteps of
+                        Nothing ->
+                            Complete <|
+                                Eval.eval (always True)
+                                    (ImageEditor.getImage model.initialImage)
+                                    maybeBackwardsMoves
+
+                        Just n ->
+                            Partial
+                                { partial =
+                                    Eval.eval (\{ steps } -> steps < n)
+                                        (ImageEditor.getImage model.initialImage)
+                                        maybeBackwardsMoves
+                                , complete =
+                                    Eval.eval (always True)
+                                        (ImageEditor.getImage model.initialImage)
+                                        maybeBackwardsMoves
+                                }
+
+                -- apply
+                -- maybeBackwardsMoves
+                -- (ImageEditor.getImage model.initialImage)
+                --
+                -- TODO FIX
             in
             { model
-                | finalImage = result.lastImage
-                , performanceFailure = result.error
+                | evalResult = evalResult
             }
 
 
@@ -244,6 +290,16 @@ editDefinition id model =
                     ++ "\n"
                     ++ t
             )
+
+
+setDisplayMode : DisplayMode -> Model -> Model
+setDisplayMode displayMode model =
+    { model | displayMode = displayMode }
+
+
+getDisplayMode : Model -> DisplayMode
+getDisplayMode model =
+    model.displayMode
 
 
 setLibrary : MoveLibrary -> Model -> Model
@@ -330,6 +386,12 @@ update msg model =
         Focus (Err _) ->
             ( model, Cmd.none )
 
+        AdjustSteps i ->
+            ( { model | onlyApplyFirstNSteps = Just i }
+                |> applyMoves
+            , Cmd.none
+            )
+
 
 save : Model -> Cmd Msg
 save model =
@@ -378,13 +440,17 @@ toggleForwardsBackwards : Model -> Model
 toggleForwardsBackwards model =
     let
         newInitialImage =
-            model.finalImage
+            case model.evalResult of
+                Complete r ->
+                    r.lastImage
+
+                Partial { complete } ->
+                    complete.lastImage
     in
-    -- applyMoves will take care of updating performanceFailure
+    -- applyMoves will take care of updating evalResult
     { model
         | initialImage = ImageEditor.init newInitialImage
         , backwards = not model.backwards
-        , finalImage = newInitialImage
     }
         |> applyMoves
 
@@ -393,8 +459,8 @@ toggleForwardsBackwards model =
 -- VIEW
 
 
-view : Model -> Element Msg
-view model =
+editView : Model -> Element Msg
+editView model =
     let
         directionButton =
             let
@@ -410,10 +476,6 @@ view model =
                 , label = text directionLabel
                 }
 
-        initialImageView =
-            el [ width fill, height (minimum 0 fill), scrollbarY, paddingXY 20 10 ]
-                (Element.Lazy.lazy2 ImageEditor.view ImageEditorChanged model.initialImage)
-
         viewMessage title m =
             Element.column [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, spacing 10 ]
                 [ el [ Font.bold, width fill ] (text title)
@@ -426,8 +488,16 @@ view model =
                 , el [ width fill, height fill ] error
                 ]
 
+        maybeEvalError =
+            case model.evalResult of
+                Complete r ->
+                    r.error
+
+                Partial { partial } ->
+                    partial.error
+
         ( movesBorderColor, infoText ) =
-            case ( model.movesAndDefinitions, model.performanceFailure ) of
+            case ( model.movesAndDefinitions, maybeEvalError ) of
                 ( Ok _, Nothing ) ->
                     ( greenBook, viewMessage "Reference" defaultInfoText )
 
@@ -443,75 +513,174 @@ view model =
                         (EvalResult.viewError model.text error)
                     )
 
-        movesView =
-            let
-                moveDefinitionsIntoLibraryButton =
-                    case model.movesAndDefinitions of
-                        Err _ ->
+        moveDefinitionsIntoLibraryButton =
+            case model.movesAndDefinitions of
+                Err _ ->
+                    Element.none
+
+                Ok { definitions } ->
+                    case definitions of
+                        [] ->
                             Element.none
 
-                        Ok { definitions } ->
-                            case definitions of
-                                [] ->
-                                    Element.none
-
-                                ds ->
-                                    Input.button
-                                        [ padding 3
-                                        , Border.rounded 3
-                                        , Font.color Palette.white
-                                        , Font.size 14
-                                        , Background.color Palette.greenBook
-                                        , mouseOver [ Border.glow Palette.grey 1 ]
-                                        ]
-                                        { onPress = Just MoveDefinitionsIntoLibrary
-                                        , label = text "Move definitions into Library"
-                                        }
-                                        |> el [ paddingXY 2 0 ]
-            in
-            Element.column [ width fill, height fill, spacing 10 ]
-                [ Input.multiline
-                    [ width fill
-                    , height (minimum 0 (fillPortion 2))
-                    , scrollbarY
-                    , Border.color movesBorderColor
-                    , Input.focusedOnLoad
-                    ]
-                    { label =
-                        Input.labelAbove []
-                            (row [ spacing 40 ]
-                                [ el [ Font.bold ] (text "Definitions & Moves")
-                                , directionButton
-                                , moveDefinitionsIntoLibraryButton
+                        ds ->
+                            Input.button
+                                [ padding 3
+                                , Border.rounded 3
+                                , Font.color Palette.white
+                                , Font.size 14
+                                , Background.color Palette.greenBook
+                                , mouseOver [ Border.glow Palette.grey 1 ]
                                 ]
-                            )
-                    , onChange = SetMoves
-                    , text = model.text
-                    , placeholder = Nothing
-                    , spellcheck = False
-                    }
-                , infoText
-                ]
+                                { onPress = Just MoveDefinitionsIntoLibrary
+                                , label = text "Move definitions into Library"
+                                }
+                                |> el [ paddingXY 2 0 ]
+    in
+    Element.column [ width fill, height fill, spacing 10 ]
+        [ Input.multiline
+            [ width fill
+            , height (minimum 0 (fillPortion 2))
+            , scrollbarY
+            , Border.color movesBorderColor
+            , Input.focusedOnLoad
+            ]
+            { label =
+                Input.labelAbove []
+                    (row [ spacing 40 ]
+                        [ el [ Font.bold ] (text "Definitions & Moves")
+                        , directionButton
+                        , moveDefinitionsIntoLibraryButton
+                        ]
+                    )
+            , onChange = SetMoves
+            , text = model.text
+            , placeholder = Nothing
+            , spellcheck = False
+            }
+        , infoText
+        ]
+
+
+viewStepsInputs : Model -> Element Msg
+viewStepsInputs model =
+    let
+        -- TODO
+        max =
+            case model.evalResult of
+                Complete r ->
+                    r.steps
+
+                Partial { partial, complete } ->
+                    complete.steps
+
+        ( oneStepForwardMsg, allForwardMsg ) =
+            case model.onlyApplyFirstNSteps of
+                Nothing ->
+                    ( Just (AdjustSteps 0), Just (AdjustSteps max) )
+
+                Just n ->
+                    if n < max then
+                        ( Just (AdjustSteps (n + 1)), Just (AdjustSteps max) )
+
+                    else
+                        ( Nothing, Nothing )
+
+        oneStepForwardButton =
+            Input.button Palette.regularButton { onPress = oneStepForwardMsg, label = text "›" }
+
+        allForwardButton =
+            Input.button Palette.regularButton { onPress = allForwardMsg, label = text "»" }
+
+        currentValue =
+            case model.onlyApplyFirstNSteps of
+                Nothing ->
+                    text "     "
+
+                Just i ->
+                    String.fromInt i
+                        |> text
+    in
+    row [ paddingXY 10 0, width fill, spacing 5 ]
+        [ oneStepForwardButton
+        , allForwardButton
+        , currentValue
+        , Input.slider
+            [ height (px 30)
+            , Element.behindContent
+                (el
+                    [ width fill
+                    , height (px 2)
+                    , centerY
+                    , Background.color Palette.greenBook
+                    , Border.rounded 2
+                    ]
+                    Element.none
+                )
+            ]
+            { onChange = AdjustSteps << round
+            , label = Input.labelHidden "Steps"
+            , min = 0
+            , max = toFloat max
+            , step = Just 1
+            , thumb = Input.defaultThumb
+            , value =
+                case model.onlyApplyFirstNSteps of
+                    Nothing ->
+                        toFloat max
+
+                    Just n ->
+                        toFloat n
+            }
+        ]
+
+
+view : Model -> Element Msg
+view model =
+    let
+        initialImageView =
+            el [ width fill, height (minimum 0 fill), scrollbarY, paddingXY 20 10 ]
+                (Element.Lazy.lazy2 ImageEditor.view ImageEditorChanged model.initialImage)
 
         finalImageView =
+            let
+                finalImage =
+                    case model.evalResult of
+                        Complete r ->
+                            r.lastImage
+
+                        Partial { partial } ->
+                            partial.lastImage
+            in
             el [ width fill, height (minimum 0 fill), scrollbarY, paddingXY 20 10 ]
-                (Element.Lazy.lazy2 Image.view (\t -> el [ Font.bold ] (text t)) model.finalImage)
+                (Element.Lazy.lazy2 Image.view (\t -> el [ Font.bold ] (text t)) finalImage)
 
         withWidthPortion n =
             el [ width (fillPortion n), height fill ]
 
-        mainElements =
+        movesView =
+            editView model
+
+        ( leftImage, rightImage ) =
             if model.backwards then
-                [ withWidthPortion 4 finalImageView
-                , withWidthPortion 3 movesView
-                , withWidthPortion 4 initialImageView
-                ]
+                ( finalImageView, initialImageView )
 
             else
-                [ withWidthPortion 4 initialImageView
+                ( initialImageView, finalImageView )
+
+        mainElements =
+            Element.row [ spacing 20, width fill, height (minimum 0 fill) ]
+                [ withWidthPortion 4 leftImage
                 , withWidthPortion 3 movesView
-                , withWidthPortion 4 finalImageView
+                , withWidthPortion 4 rightImage
                 ]
     in
-    Element.row [ spacing 20, width fill, height (minimum 0 fill) ]
-        mainElements
+    case model.displayMode of
+        Show ->
+            Element.column [ spacing 10, width fill, height (minimum 0 fill) ]
+                [ mainElements
+                , viewStepsInputs model
+                ]
+
+        Edit ->
+            mainElements

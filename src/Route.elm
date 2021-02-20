@@ -10,12 +10,14 @@ import Url.Parser.Query as Query
 type Route
     = Library (Maybe MoveIdentifier)
     | Editor
+    | Show
 
 
 routeParser : Parser (Route -> a) a
 routeParser =
     oneOf
         [ map Editor top
+        , map Show (s "show")
         , map Library
             (s "library"
                 <?> Query.map (Maybe.map Move.unsafeIdentifierFromText) (Query.string "selection")
@@ -35,6 +37,9 @@ routeToString r =
     case r of
         Editor ->
             Url.Builder.absolute [] []
+
+        Show ->
+            Url.Builder.absolute [ "show" ] []
 
         Library (Just s) ->
             Url.Builder.absolute [ "library" ] [ Url.Builder.string "selection" (Move.identifierText s) ]

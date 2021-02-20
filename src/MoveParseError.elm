@@ -156,7 +156,7 @@ view source deadEnds =
                     column [ spacing 20, width fill ]
                         [ paragraph [ spacing 5, width fill ]
                             [ text "There is already a previous definition with the same arguments." ]
-                        , ViewMove.viewDefinition Nothing previousDefinition
+                        , ViewMove.viewDefinition ViewMove.defaultConfig previousDefinition
                         ]
 
         relevantLineAndPlace row col =

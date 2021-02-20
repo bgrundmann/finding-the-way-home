@@ -52,11 +52,32 @@ checkTemporaryPilesAreGone temporaryPileNames md result =
 
                 piles ->
                     reportError result.lastImage
+                        result.steps
                         (TemporaryPileNotEmpty { names = List.map .nameInSource piles, moveDefinition = md })
 
 
-evalWithEnv : Env -> Image -> Int -> Move -> EvalResult
-evalWithEnv env image location move =
+{-| If evaluation succeded, increase the steps count.
+-}
+increaseSteps : (EvalResult -> Bool) -> EvalResult -> EvalResult
+increaseSteps continue result =
+    case result.error of
+        Just _ ->
+            result
+
+        Nothing ->
+            let
+                nextResult =
+                    { result | steps = result.steps + 1 }
+            in
+            if continue nextResult then
+                nextResult
+
+            else
+                reportError nextResult.lastImage nextResult.steps EarlyExit
+
+
+evalWithEnv : (EvalResult -> Bool) -> Env -> Image -> Int -> Int -> Move -> EvalResult
+evalWithEnv continue env image steps location move =
     let
         replaceArgumentByValue e expr =
             case expr of
@@ -101,91 +122,112 @@ evalWithEnv env image location move =
             case replaceArgumentByValue env expr of
                 Int times ->
                     let
-                        helper n currentImage =
+                        helper n currentImage stepsAcc =
                             if n > times then
-                                { lastImage = currentImage, error = Nothing }
+                                { lastImage = currentImage, steps = stepsAcc, error = Nothing }
 
                             else
                                 let
                                     result =
-                                        evalListWithEnv env currentImage moves
+                                        evalListWithEnv continue env currentImage stepsAcc moves
                                 in
                                 case result.error of
                                     Nothing ->
-                                        helper (n + 1) result.lastImage
+                                        helper (n + 1) result.lastImage result.steps
 
                                     Just _ ->
                                         result
                                             |> addBacktrace location (BtRepeat { nth = n, total = times })
                     in
-                    helper 1 image
+                    helper 1 image steps
 
                 Pile _ ->
-                    reportError image (Bug "Type checker failed")
+                    reportError image steps (Bug "Type checker failed")
 
         Do ({ body } as md) actuals ->
+            -- Before the actual call we need to check if we are supposed to stop here
             let
                 actualValues =
                     List.map (replaceArgumentByValue env) actuals
+
+                beforeCallResult =
+                    { lastImage = image, steps = steps, error = Nothing }
+                        |> increaseSteps continue
             in
-            case body of
-                Primitive p ->
-                    Primitives.eval image p actualValues
+            case beforeCallResult.error of
+                Just _ ->
+                    beforeCallResult
                         |> addBacktrace location (BtDo md actualValues)
 
-                UserDefined { moves, temporaryPiles } ->
-                    let
-                        actualTemporaryPiles =
-                            List.indexedMap
-                                (\ndx tempPile ->
-                                    { nameInSource = tempPile
-                                    , nameInPile = "temp " ++ tempPile ++ " " ++ String.fromInt (ndx + env.tempCounter)
-                                    }
-                                )
-                                temporaryPiles
+                Nothing ->
+                    case body of
+                        Primitive p ->
+                            -- Here we pass in the original steps again, because in total
+                            -- we only want to increase once
+                            Primitives.eval image steps p actualValues
+                                |> addBacktrace location (BtDo md actualValues)
+                                |> increaseSteps continue
 
-                        newTempCounter =
-                            env.tempCounter + List.length temporaryPiles
+                        UserDefined { moves, temporaryPiles } ->
+                            let
+                                actualTemporaryPiles =
+                                    List.indexedMap
+                                        (\ndx tempPile ->
+                                            { nameInSource = tempPile
+                                            , nameInPile = "temp " ++ tempPile ++ " " ++ String.fromInt (ndx + env.tempCounter)
+                                            }
+                                        )
+                                        temporaryPiles
 
-                        newScoped =
-                            { actuals = actualValues, temporaryPiles = actualTemporaryPiles } :: env.scoped
+                                newTempCounter =
+                                    env.tempCounter + List.length temporaryPiles
 
-                        result =
-                            evalListWithEnv
-                                { tempCounter = newTempCounter
-                                , scoped = newScoped
-                                }
-                                image
-                                moves
-                    in
-                    result
-                        |> checkTemporaryPilesAreGone actualTemporaryPiles md
-                        |> addBacktrace location (BtDo md actualValues)
+                                newScoped =
+                                    { actuals = actualValues, temporaryPiles = actualTemporaryPiles } :: env.scoped
+
+                                result =
+                                    evalListWithEnv
+                                        continue
+                                        { tempCounter = newTempCounter
+                                        , scoped = newScoped
+                                        }
+                                        image
+                                        beforeCallResult.steps
+                                        moves
+                            in
+                            result
+                                |> checkTemporaryPilesAreGone actualTemporaryPiles md
+                                |> addBacktrace location (BtDo md actualValues)
 
 
-evalListWithEnv : Env -> Image -> List Move -> EvalResult
-evalListWithEnv env image moves =
+
+--                              |> increaseSteps continue
+-- Leaving a user Definition counts as one
+
+
+evalListWithEnv : (EvalResult -> Bool) -> Env -> Image -> Int -> List Move -> EvalResult
+evalListWithEnv continue env image steps moves =
     let
-        helper currentImage location remainingMoves =
+        helper currentImage stepsAcc location remainingMoves =
             case remainingMoves of
                 [] ->
-                    { lastImage = currentImage, error = Nothing }
+                    { lastImage = currentImage, steps = stepsAcc, error = Nothing }
 
                 m :: newRemainingMoves ->
                     let
                         result =
-                            evalWithEnv env currentImage location m
+                            evalWithEnv continue env currentImage stepsAcc location m
                     in
                     case result.error of
                         Nothing ->
-                            helper result.lastImage (location + 1) newRemainingMoves
+                            helper result.lastImage result.steps (location + 1) newRemainingMoves
 
                         Just _ ->
                             result
     in
-    helper image 0 moves
+    helper image steps 0 moves
 
 
-eval : Image -> List Move -> EvalResult
-eval image moves =
-    evalListWithEnv { tempCounter = 0, scoped = [] } image moves
+eval : (EvalResult -> Bool) -> Image -> List Move -> EvalResult
+eval continue image moves =
+    evalListWithEnv continue { tempCounter = 0, scoped = [] } image 0 moves
