@@ -114,7 +114,7 @@ suite =
             , moves = Tamariz.tamariz
             , backwards = False
             , expectEvalFailure = Nothing
-            , expectedSteps = 2101
+            , expectedSteps = 1323
             }
         , testEndToEnd "tamariz backwards"
             { initial = mnemonica
@@ -122,7 +122,7 @@ suite =
             , moves = Tamariz.tamariz
             , backwards = True
             , expectEvalFailure = Nothing
-            , expectedSteps = 2101
+            , expectedSteps = 1323
             }
         , testEndToEnd "Cutting more cards than available causes a runtime error"
             { initial = Pile.poker_deck |> Pile.toString
