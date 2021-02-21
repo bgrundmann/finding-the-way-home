@@ -29,7 +29,6 @@ import Element.Font as Font
 import Element.Input as Input
 import Element.Lazy
 import ElmUiUtils exposing (mono)
-import Html exposing (Html)
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -37,7 +36,6 @@ import List
 import Move exposing (ExprValue(..), Move(..), MoveIdentifier, UserDefinedOrPrimitive(..))
 import MoveEditor
 import MoveLibrary exposing (MoveLibrary)
-import MoveLibraryJson
 import MoveParser
 import Palette exposing (greenBook)
 import Ports
@@ -71,7 +69,6 @@ type Msg
     = MoveEditorChanged MoveEditor.Msg
     | ToastsChanged Toasts.Msg
     | SetActivePage ( ActivePage, MoveEditor.DisplayMode )
-    | SelectDefinition MoveIdentifier
     | EditDefinition MoveIdentifier
     | UserKnowsChanged String
     | GotInitialLibrary (Result Http.Error String)
@@ -91,6 +88,7 @@ main =
         }
 
 
+loadInitialLibrary : Cmd Msg
 loadInitialLibrary =
     Http.get { url = "/init.txt", expect = Http.expectString GotInitialLibrary }
 
@@ -98,9 +96,6 @@ loadInitialLibrary =
 init : Encode.Value -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init previousStateJson url key =
     let
-        _ =
-            Debug.log "url" url
-
         ( maybePreviousStoredState, firstToast, loadCmd ) =
             case Decode.decodeValue MoveEditor.storedStateDecoder previousStateJson of
                 Ok previousState ->
@@ -183,9 +178,6 @@ update msg model =
 
                 ( EditorPage, MoveEditor.Edit ) ->
                     ( model, Nav.pushUrl model.nav (Route.routeToString Route.Editor) )
-
-        SelectDefinition id ->
-            ( { model | selectedMove = Just id }, Cmd.none )
 
         EditDefinition id ->
             ( { model

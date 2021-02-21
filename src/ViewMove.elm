@@ -24,7 +24,6 @@ import Element
         , width
         )
 import Element.Font as Font
-import Element.Input as Input
 import ElmUiUtils exposing (boldMono, mono)
 import Move
     exposing
@@ -56,6 +55,7 @@ type alias ViewConfig =
     }
 
 
+defaultConfig : ViewConfig
 defaultConfig =
     { moveUrl = Nothing }
 
@@ -161,8 +161,9 @@ viewDefinition viewConfig md =
                                 ]
                             )
                )
-            :: body
-            :: [ boldMono "end" ]
+            :: [ body
+               , boldMono "end"
+               ]
         )
 
 

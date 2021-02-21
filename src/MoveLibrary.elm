@@ -11,10 +11,8 @@ module MoveLibrary exposing
     )
 
 import Dict exposing (Dict)
-import List.Extra
-import Move exposing (ArgumentKind, MoveDefinition, MoveIdentifier, usesByDefinition)
+import Move exposing (MoveDefinition, MoveIdentifier, usesByDefinition)
 import Set exposing (Set)
-import ViewMove
 
 
 type alias MoveIdentifierText =

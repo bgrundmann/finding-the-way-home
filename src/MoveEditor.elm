@@ -55,7 +55,6 @@ import Image exposing (Image)
 import ImageEditor
 import Json.Decode as Decode
 import Json.Encode as Encode
-import List.Extra
 import Move
     exposing
         ( ExprValue(..)
@@ -250,14 +249,14 @@ applyMoves model =
                         Nothing ->
                             Complete <|
                                 Eval.eval (always True)
-                                    (ImageEditor.getImage model.initialImage)
+                                    initialImage
                                     maybeBackwardsMoves
 
                         Just n ->
                             let
                                 partialResult =
                                     Eval.eval (\{ steps } -> steps <= n)
-                                        (ImageEditor.getImage model.initialImage)
+                                        initialImage
                                         maybeBackwardsMoves
                             in
                             case partialResult.error of
