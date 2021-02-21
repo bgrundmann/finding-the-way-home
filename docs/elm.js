@@ -4840,6 +4840,23 @@ function _File_toUrl(blob)
 
 
 
+function _Url_percentEncode(string)
+{
+	return encodeURIComponent(string);
+}
+
+function _Url_percentDecode(string)
+{
+	try
+	{
+		return $elm$core$Maybe$Just(decodeURIComponent(string));
+	}
+	catch (e)
+	{
+		return $elm$core$Maybe$Nothing;
+	}
+}
+
 
 var _Bitwise_and = F2(function(a, b)
 {
@@ -4875,6 +4892,12 @@ var _Bitwise_shiftRightZfBy = F2(function(offset, a)
 {
 	return a >>> offset;
 });
+var $author$project$Main$UrlChanged = function (a) {
+	return {$: 'UrlChanged', a: a};
+};
+var $author$project$Main$UrlRequested = function (a) {
+	return {$: 'UrlRequested', a: a};
+};
 var $elm$core$Basics$EQ = {$: 'EQ'};
 var $elm$core$Basics$GT = {$: 'GT'};
 var $elm$core$Basics$LT = {$: 'LT'};
@@ -5663,11 +5686,11 @@ var $elm$core$Task$perform = F2(
 			$elm$core$Task$Perform(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
-var $elm$browser$Browser$element = _Browser_element;
+var $elm$browser$Browser$application = _Browser_application;
+var $author$project$Main$EditorPage = {$: 'EditorPage'};
 var $author$project$Main$MoveEditorChanged = function (a) {
 	return {$: 'MoveEditorChanged', a: a};
 };
-var $author$project$Main$MoveEditorPage = {$: 'MoveEditorPage'};
 var $author$project$Main$ToastsChanged = function (a) {
 	return {$: 'ToastsChanged', a: a};
 };
@@ -5812,9 +5835,92 @@ var $author$project$Toasts$add = F2(
 	});
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$json$Json$Decode$decodeValue = _Json_run;
-var $author$project$EvalResult$BtDo = F2(
+var $author$project$MoveEditor$Complete = function (a) {
+	return {$: 'Complete', a: a};
+};
+var $author$project$MoveEditor$Edit = {$: 'Edit'};
+var $author$project$MoveEditor$Partial = function (a) {
+	return {$: 'Partial', a: a};
+};
+var $author$project$Move$Do = F2(
 	function (a, b) {
-		return {$: 'BtDo', a: a, b: b};
+		return {$: 'Do', a: a, b: b};
+	});
+var $author$project$Move$Repeat = F2(
+	function (a, b) {
+		return {$: 'Repeat', a: a, b: b};
+	});
+var $author$project$Move$UserDefined = function (a) {
+	return {$: 'UserDefined', a: a};
+};
+var $author$project$Move$backwards = function (move) {
+	if (move.$ === 'Repeat') {
+		var arg = move.a;
+		var moves = move.b;
+		return A2(
+			$author$project$Move$Repeat,
+			arg,
+			$author$project$Move$backwardsMoves(moves));
+	} else {
+		var def = move.a;
+		var exprs = move.b;
+		var _v1 = _Utils_Tuple2(def.body, exprs);
+		_v1$3:
+		while (true) {
+			if (_v1.a.$ === 'Primitive') {
+				if (_v1.a.a.$ === 'Cut') {
+					if (((_v1.b.b && _v1.b.b.b) && _v1.b.b.b.b) && (!_v1.b.b.b.b.b)) {
+						var _v2 = _v1.a.a;
+						var _v3 = _v1.b;
+						var n = _v3.a;
+						var _v4 = _v3.b;
+						var from = _v4.a;
+						var _v5 = _v4.b;
+						var to = _v5.a;
+						return A2(
+							$author$project$Move$Do,
+							def,
+							_List_fromArray(
+								[n, to, from]));
+					} else {
+						break _v1$3;
+					}
+				} else {
+					if (_v1.b.b && (!_v1.b.b.b)) {
+						var _v6 = _v1.a.a;
+						var _v7 = _v1.b;
+						return move;
+					} else {
+						break _v1$3;
+					}
+				}
+			} else {
+				var u = _v1.a.a;
+				return A2(
+					$author$project$Move$Do,
+					_Utils_update(
+						def,
+						{
+							body: $author$project$Move$UserDefined(
+								_Utils_update(
+									u,
+									{
+										moves: $author$project$Move$backwardsMoves(u.moves)
+									}))
+						}),
+					exprs);
+			}
+		}
+		return move;
+	}
+};
+var $author$project$Move$backwardsMoves = function (moves) {
+	return $elm$core$List$reverse(
+		A2($elm$core$List$map, $author$project$Move$backwards, moves));
+};
+var $author$project$EvalResult$BtDo = F3(
+	function (a, b, c) {
+		return {$: 'BtDo', a: a, b: b, c: c};
 	});
 var $author$project$EvalResult$BtRepeat = function (a) {
 	return {$: 'BtRepeat', a: a};
@@ -5909,12 +6015,13 @@ var $author$project$Image$names = function (i) {
 		},
 		i);
 };
-var $author$project$EvalResult$reportError = F2(
-	function (image, problem) {
+var $author$project$EvalResult$reportError = F3(
+	function (image, steps, problem) {
 		return {
 			error: $elm$core$Maybe$Just(
 				{backtrace: _List_Nil, problem: problem}),
-			lastImage: image
+			lastImage: image,
+			steps: steps
 		};
 	});
 var $author$project$Eval$checkTemporaryPilesAreGone = F3(
@@ -5934,9 +6041,10 @@ var $author$project$Eval$checkTemporaryPilesAreGone = F3(
 				return result;
 			} else {
 				var piles = overlap;
-				return A2(
+				return A3(
 					$author$project$EvalResult$reportError,
 					result.lastImage,
+					result.steps,
 					$author$project$EvalResult$TemporaryPileNotEmpty(
 						{
 							moveDefinition: md,
@@ -6281,74 +6389,81 @@ var $author$project$Pile$turnover = function (pile) {
 	return $elm$core$List$reverse(
 		A2($elm$core$List$map, $author$project$Card$turnover, pile));
 };
-var $author$project$Primitives$eval = function (image) {
-	return $author$project$Primitives$decodeActuals(
-		{
-			cut: F3(
-				function (n, from, to) {
-					if (!n) {
-						return {error: $elm$core$Maybe$Nothing, lastImage: image};
-					} else {
-						var _v0 = A2($author$project$Image$take, from, image);
-						var pile = _v0.a;
-						var imageAfterTake = _v0.b;
-						if (pile.$ === 'Nothing') {
-							return A2(
-								$author$project$EvalResult$reportError,
-								image,
-								$author$project$EvalResult$NoSuchPile(
-									{name: from}));
+var $author$project$Primitives$eval = F2(
+	function (image, steps) {
+		return $author$project$Primitives$decodeActuals(
+			{
+				cut: F3(
+					function (n, from, to) {
+						if (!n) {
+							return {error: $elm$core$Maybe$Nothing, lastImage: image, steps: steps};
 						} else {
-							var cards = pile.a;
-							var _v2 = A2($elm_community$list_extra$List$Extra$splitAt, n, cards);
-							var topHalf = _v2.a;
-							var lowerHalf = _v2.b;
-							var actualLen = $elm$core$List$length(topHalf);
-							return (_Utils_cmp(actualLen, n) < 0) ? A2(
-								$author$project$EvalResult$reportError,
-								image,
-								$author$project$EvalResult$NotEnoughCards(
-									{expected: n, got: actualLen, inPile: from})) : {
-								error: $elm$core$Maybe$Nothing,
-								lastImage: A3(
-									$author$project$Image$put,
-									to,
-									topHalf,
-									A3($author$project$Image$put, from, lowerHalf, imageAfterTake))
-							};
+							var _v0 = A2($author$project$Image$take, from, image);
+							var pile = _v0.a;
+							var imageAfterTake = _v0.b;
+							if (pile.$ === 'Nothing') {
+								return A3(
+									$author$project$EvalResult$reportError,
+									image,
+									steps,
+									$author$project$EvalResult$NoSuchPile(
+										{name: from}));
+							} else {
+								var cards = pile.a;
+								var _v2 = A2($elm_community$list_extra$List$Extra$splitAt, n, cards);
+								var topHalf = _v2.a;
+								var lowerHalf = _v2.b;
+								var actualLen = $elm$core$List$length(topHalf);
+								return (_Utils_cmp(actualLen, n) < 0) ? A3(
+									$author$project$EvalResult$reportError,
+									image,
+									steps,
+									$author$project$EvalResult$NotEnoughCards(
+										{expected: n, got: actualLen, inPile: from})) : {
+									error: $elm$core$Maybe$Nothing,
+									lastImage: A3(
+										$author$project$Image$put,
+										to,
+										topHalf,
+										A3($author$project$Image$put, from, lowerHalf, imageAfterTake)),
+									steps: steps
+								};
+							}
 						}
-					}
-				}),
-			decodingError: function (_v3) {
-				return A2(
-					$author$project$EvalResult$reportError,
-					image,
-					$author$project$EvalResult$Bug('type checker failed'));
-			},
-			turnover: function (name) {
-				var _v4 = A2($author$project$Image$take, name, image);
-				var pile = _v4.a;
-				var newImage = _v4.b;
-				if (pile.$ === 'Nothing') {
-					return A2(
+					}),
+				decodingError: function (_v3) {
+					return A3(
 						$author$project$EvalResult$reportError,
 						image,
-						$author$project$EvalResult$NoSuchPile(
-							{name: name}));
-				} else {
-					var p = pile.a;
-					return {
-						error: $elm$core$Maybe$Nothing,
-						lastImage: A3(
-							$author$project$Image$put,
-							name,
-							$author$project$Pile$turnover(p),
-							newImage)
-					};
+						steps,
+						$author$project$EvalResult$Bug('type checker failed'));
+				},
+				turnover: function (name) {
+					var _v4 = A2($author$project$Image$take, name, image);
+					var pile = _v4.a;
+					var newImage = _v4.b;
+					if (pile.$ === 'Nothing') {
+						return A3(
+							$author$project$EvalResult$reportError,
+							image,
+							steps,
+							$author$project$EvalResult$NoSuchPile(
+								{name: name}));
+					} else {
+						var p = pile.a;
+						return {
+							error: $elm$core$Maybe$Nothing,
+							lastImage: A3(
+								$author$project$Image$put,
+								name,
+								$author$project$Pile$turnover(p),
+								newImage),
+							steps: steps
+						};
+					}
 				}
-			}
-		});
-};
+			});
+	});
 var $elm$core$List$head = function (list) {
 	if (list.b) {
 		var x = list.a;
@@ -6363,6 +6478,19 @@ var $elm_community$list_extra$List$Extra$getAt = F2(
 		return (idx < 0) ? $elm$core$Maybe$Nothing : $elm$core$List$head(
 			A2($elm$core$List$drop, idx, xs));
 	});
+var $author$project$EvalResult$EarlyExit = {$: 'EarlyExit'};
+var $author$project$Eval$increaseSteps = F2(
+	function (_continue, result) {
+		var _v0 = result.error;
+		if (_v0.$ === 'Just') {
+			return result;
+		} else {
+			var nextResult = _Utils_update(
+				result,
+				{steps: result.steps + 1});
+			return _continue(nextResult) ? nextResult : A3($author$project$EvalResult$reportError, result.lastImage, result.steps, $author$project$EvalResult$EarlyExit);
+		}
+	});
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
 		if (maybe.$ === 'Just') {
@@ -6373,23 +6501,27 @@ var $elm$core$Maybe$map = F2(
 			return $elm$core$Maybe$Nothing;
 		}
 	});
-var $author$project$Eval$evalListWithEnv = F3(
-	function (env, image, moves) {
-		var helper = F2(
-			function (currentImage, remainingMoves) {
+var $author$project$Eval$evalListWithEnv = F5(
+	function (_continue, env, image, steps, moves) {
+		var helper = F4(
+			function (currentImage, stepsAcc, location, remainingMoves) {
 				helper:
 				while (true) {
 					if (!remainingMoves.b) {
-						return {error: $elm$core$Maybe$Nothing, lastImage: currentImage};
+						return {error: $elm$core$Maybe$Nothing, lastImage: currentImage, steps: stepsAcc};
 					} else {
 						var m = remainingMoves.a;
 						var newRemainingMoves = remainingMoves.b;
-						var result = A3($author$project$Eval$evalWithEnv, env, currentImage, m);
-						var _v10 = result.error;
-						if (_v10.$ === 'Nothing') {
+						var result = A6($author$project$Eval$evalWithEnv, _continue, env, currentImage, stepsAcc, location, m);
+						var _v11 = result.error;
+						if (_v11.$ === 'Nothing') {
 							var $temp$currentImage = result.lastImage,
+								$temp$stepsAcc = result.steps,
+								$temp$location = location + 1,
 								$temp$remainingMoves = newRemainingMoves;
 							currentImage = $temp$currentImage;
+							stepsAcc = $temp$stepsAcc;
+							location = $temp$location;
 							remainingMoves = $temp$remainingMoves;
 							continue helper;
 						} else {
@@ -6398,10 +6530,10 @@ var $author$project$Eval$evalListWithEnv = F3(
 					}
 				}
 			});
-		return A2(helper, image, moves);
+		return A4(helper, image, steps, 0, moves);
 	});
-var $author$project$Eval$evalWithEnv = F3(
-	function (env, image, move) {
+var $author$project$Eval$evalWithEnv = F6(
+	function (_continue, env, image, steps, location, move) {
 		var replaceArgumentByValue = F2(
 			function (e, expr) {
 				switch (expr.$) {
@@ -6418,8 +6550,8 @@ var $author$project$Eval$evalWithEnv = F3(
 							},
 							A2(
 								$elm$core$Maybe$andThen,
-								function (_v6) {
-									var temporaryPiles = _v6.temporaryPiles;
+								function (_v7) {
+									var temporaryPiles = _v7.temporaryPiles;
 									return A2($elm_community$list_extra$List$Extra$getAt, ndx, temporaryPiles);
 								},
 								A2($elm_community$list_extra$List$Extra$getAt, up, e.scoped)));
@@ -6434,8 +6566,8 @@ var $author$project$Eval$evalWithEnv = F3(
 						var ndx = expr.a.ndx;
 						var value = A2(
 							$elm$core$Maybe$andThen,
-							function (_v8) {
-								var actuals = _v8.actuals;
+							function (_v9) {
+								var actuals = _v9.actuals;
 								return A2($elm_community$list_extra$List$Extra$getAt, ndx, actuals);
 							},
 							A2($elm_community$list_extra$List$Extra$getAt, up, e.scoped));
@@ -6448,31 +6580,32 @@ var $author$project$Eval$evalWithEnv = F3(
 				}
 			});
 		if (move.$ === 'Repeat') {
-			var loc = move.a;
-			var expr = move.b;
-			var moves = move.c;
+			var expr = move.a;
+			var moves = move.b;
 			var _v1 = A2(replaceArgumentByValue, env, expr);
 			if (_v1.$ === 'Int') {
 				var times = _v1.a;
-				var helper = F2(
-					function (n, currentImage) {
+				var helper = F3(
+					function (n, currentImage, stepsAcc) {
 						helper:
 						while (true) {
 							if (_Utils_cmp(n, times) > 0) {
-								return {error: $elm$core$Maybe$Nothing, lastImage: currentImage};
+								return {error: $elm$core$Maybe$Nothing, lastImage: currentImage, steps: stepsAcc};
 							} else {
-								var result = A3($author$project$Eval$evalListWithEnv, env, currentImage, moves);
+								var result = A5($author$project$Eval$evalListWithEnv, _continue, env, currentImage, stepsAcc, moves);
 								var _v2 = result.error;
 								if (_v2.$ === 'Nothing') {
 									var $temp$n = n + 1,
-										$temp$currentImage = result.lastImage;
+										$temp$currentImage = result.lastImage,
+										$temp$stepsAcc = result.steps;
 									n = $temp$n;
 									currentImage = $temp$currentImage;
+									stepsAcc = $temp$stepsAcc;
 									continue helper;
 								} else {
 									return A3(
 										$author$project$EvalResult$addBacktrace,
-										loc,
+										location,
 										$author$project$EvalResult$BtRepeat(
 											{nth: n, total: times}),
 										result);
@@ -6480,153 +6613,88 @@ var $author$project$Eval$evalWithEnv = F3(
 							}
 						}
 					});
-				return A2(helper, 1, image);
+				return A3(helper, 1, image, steps);
 			} else {
-				return A2(
+				return A3(
 					$author$project$EvalResult$reportError,
 					image,
+					steps,
 					$author$project$EvalResult$Bug('Type checker failed'));
 			}
 		} else {
-			var loc = move.a;
-			var md = move.b;
+			var md = move.a;
 			var body = md.body;
-			var actuals = move.c;
+			var actuals = move.b;
+			var beforeCallResult = A2(
+				$author$project$Eval$increaseSteps,
+				_continue,
+				{error: $elm$core$Maybe$Nothing, lastImage: image, steps: steps});
 			var actualValues = A2(
 				$elm$core$List$map,
 				replaceArgumentByValue(env),
 				actuals);
-			if (body.$ === 'Primitive') {
-				var p = body.a;
+			var _v3 = beforeCallResult.error;
+			if (_v3.$ === 'Just') {
 				return A3(
 					$author$project$EvalResult$addBacktrace,
-					loc,
-					A2($author$project$EvalResult$BtDo, md, actualValues),
-					A3($author$project$Primitives$eval, image, p, actualValues));
+					location,
+					A3($author$project$EvalResult$BtDo, md, actuals, actualValues),
+					beforeCallResult);
 			} else {
-				var moves = body.a.moves;
-				var temporaryPiles = body.a.temporaryPiles;
-				var newTempCounter = env.tempCounter + $elm$core$List$length(temporaryPiles);
-				var actualTemporaryPiles = A2(
-					$elm$core$List$indexedMap,
-					F2(
-						function (ndx, tempPile) {
-							return {
-								nameInPile: 'temp ' + (tempPile + (' ' + $elm$core$String$fromInt(ndx + env.tempCounter))),
-								nameInSource: tempPile
-							};
-						}),
-					temporaryPiles);
-				var newScoped = A2(
-					$elm$core$List$cons,
-					{actuals: actualValues, temporaryPiles: actualTemporaryPiles},
-					env.scoped);
-				var result = A3(
-					$author$project$Eval$evalListWithEnv,
-					{scoped: newScoped, tempCounter: newTempCounter},
-					image,
-					moves);
-				return A3(
-					$author$project$EvalResult$addBacktrace,
-					loc,
-					A2($author$project$EvalResult$BtDo, md, actualValues),
-					A3($author$project$Eval$checkTemporaryPilesAreGone, actualTemporaryPiles, md, result));
+				if (body.$ === 'Primitive') {
+					var p = body.a;
+					return A2(
+						$author$project$Eval$increaseSteps,
+						_continue,
+						A3(
+							$author$project$EvalResult$addBacktrace,
+							location,
+							A3($author$project$EvalResult$BtDo, md, actuals, actualValues),
+							A4($author$project$Primitives$eval, image, steps, p, actualValues)));
+				} else {
+					var moves = body.a.moves;
+					var temporaryPiles = body.a.temporaryPiles;
+					var newTempCounter = env.tempCounter + $elm$core$List$length(temporaryPiles);
+					var actualTemporaryPiles = A2(
+						$elm$core$List$indexedMap,
+						F2(
+							function (ndx, tempPile) {
+								return {
+									nameInPile: 'temp ' + (tempPile + (' ' + $elm$core$String$fromInt(ndx + env.tempCounter))),
+									nameInSource: tempPile
+								};
+							}),
+						temporaryPiles);
+					var newScoped = A2(
+						$elm$core$List$cons,
+						{actuals: actualValues, temporaryPiles: actualTemporaryPiles},
+						env.scoped);
+					var result = A5(
+						$author$project$Eval$evalListWithEnv,
+						_continue,
+						{scoped: newScoped, tempCounter: newTempCounter},
+						image,
+						beforeCallResult.steps,
+						moves);
+					return A3(
+						$author$project$EvalResult$addBacktrace,
+						location,
+						A3($author$project$EvalResult$BtDo, md, actuals, actualValues),
+						A3($author$project$Eval$checkTemporaryPilesAreGone, actualTemporaryPiles, md, result));
+				}
 			}
 		}
 	});
-var $author$project$Eval$eval = F2(
-	function (image, moves) {
-		return A3(
+var $author$project$Eval$eval = F3(
+	function (_continue, image, moves) {
+		return A5(
 			$author$project$Eval$evalListWithEnv,
+			_continue,
 			{scoped: _List_Nil, tempCounter: 0},
 			image,
+			0,
 			moves);
 	});
-var $author$project$MoveEditor$apply = F2(
-	function (moves, image) {
-		return A2($author$project$Eval$eval, image, moves);
-	});
-var $author$project$Move$Do = F3(
-	function (a, b, c) {
-		return {$: 'Do', a: a, b: b, c: c};
-	});
-var $author$project$Move$Repeat = F3(
-	function (a, b, c) {
-		return {$: 'Repeat', a: a, b: b, c: c};
-	});
-var $author$project$Move$UserDefined = function (a) {
-	return {$: 'UserDefined', a: a};
-};
-var $author$project$Move$backwards = function (move) {
-	if (move.$ === 'Repeat') {
-		var loc = move.a;
-		var arg = move.b;
-		var moves = move.c;
-		return A3(
-			$author$project$Move$Repeat,
-			loc,
-			arg,
-			$author$project$Move$backwardsMoves(moves));
-	} else {
-		var loc = move.a;
-		var def = move.b;
-		var exprs = move.c;
-		var _v1 = _Utils_Tuple2(def.body, exprs);
-		_v1$3:
-		while (true) {
-			if (_v1.a.$ === 'Primitive') {
-				if (_v1.a.a.$ === 'Cut') {
-					if (((_v1.b.b && _v1.b.b.b) && _v1.b.b.b.b) && (!_v1.b.b.b.b.b)) {
-						var _v2 = _v1.a.a;
-						var _v3 = _v1.b;
-						var n = _v3.a;
-						var _v4 = _v3.b;
-						var from = _v4.a;
-						var _v5 = _v4.b;
-						var to = _v5.a;
-						return A3(
-							$author$project$Move$Do,
-							loc,
-							def,
-							_List_fromArray(
-								[n, to, from]));
-					} else {
-						break _v1$3;
-					}
-				} else {
-					if (_v1.b.b && (!_v1.b.b.b)) {
-						var _v6 = _v1.a.a;
-						var _v7 = _v1.b;
-						return move;
-					} else {
-						break _v1$3;
-					}
-				}
-			} else {
-				var u = _v1.a.a;
-				return A3(
-					$author$project$Move$Do,
-					loc,
-					_Utils_update(
-						def,
-						{
-							body: $author$project$Move$UserDefined(
-								_Utils_update(
-									u,
-									{
-										moves: $author$project$Move$backwardsMoves(u.moves)
-									}))
-						}),
-					exprs);
-			}
-		}
-		return move;
-	}
-};
-var $author$project$Move$backwardsMoves = function (moves) {
-	return $elm$core$List$reverse(
-		A2($elm$core$List$map, $author$project$Move$backwards, moves));
-};
 var $author$project$ImageEditor$getImage = function (_v0) {
 	var image = _v0.image;
 	return image;
@@ -6638,13 +6706,47 @@ var $author$project$MoveEditor$applyMoves = function (model) {
 	} else {
 		var moves = _v0.a.moves;
 		var maybeBackwardsMoves = model.backwards ? $author$project$Move$backwardsMoves(moves) : moves;
-		var result = A2(
-			$author$project$MoveEditor$apply,
-			maybeBackwardsMoves,
-			$author$project$ImageEditor$getImage(model.initialImage));
+		var initialImage = $author$project$ImageEditor$getImage(model.initialImage);
+		var evalResult = function () {
+			var _v1 = model.onlyApplyFirstNSteps;
+			if (_v1.$ === 'Nothing') {
+				return $author$project$MoveEditor$Complete(
+					A3(
+						$author$project$Eval$eval,
+						$elm$core$Basics$always(true),
+						$author$project$ImageEditor$getImage(model.initialImage),
+						maybeBackwardsMoves));
+			} else {
+				var n = _v1.a;
+				var partialResult = A3(
+					$author$project$Eval$eval,
+					function (_v3) {
+						var steps = _v3.steps;
+						return _Utils_cmp(steps, n) < 1;
+					},
+					$author$project$ImageEditor$getImage(model.initialImage),
+					maybeBackwardsMoves);
+				var _v2 = partialResult.error;
+				if (_v2.$ === 'Nothing') {
+					return $author$project$MoveEditor$Complete(partialResult);
+				} else {
+					var error = _v2.a;
+					return $author$project$MoveEditor$Partial(
+						{
+							complete: A3(
+								$author$project$Eval$eval,
+								$elm$core$Basics$always(true),
+								$author$project$ImageEditor$getImage(model.initialImage),
+								maybeBackwardsMoves),
+							partial: partialResult,
+							partialError: error
+						});
+				}
+			}
+		}();
 		return _Utils_update(
 			model,
-			{finalImage: result.lastImage, performanceFailure: result.error});
+			{evalResult: evalResult});
 	}
 };
 var $author$project$Card$Clubs = {$: 'Clubs'};
@@ -7150,11 +7252,11 @@ var $elm$core$List$concatMap = F2(
 	});
 var $author$project$Move$usesOfMove = function (move) {
 	if (move.$ === 'Do') {
-		var d = move.b;
+		var d = move.a;
 		return $elm$core$List$isEmpty(d.path) ? _List_fromArray(
 			[d]) : _List_Nil;
 	} else {
-		var moves = move.c;
+		var moves = move.b;
 		return A2($elm$core$List$concatMap, $author$project$Move$usesOfMove, moves);
 	}
 };
@@ -8504,16 +8606,6 @@ var $author$project$Move$exprKind = function (e) {
 			}
 	}
 };
-var $elm$parser$Parser$Advanced$getRow = $elm$parser$Parser$Advanced$Parser(
-	function (s) {
-		return A3($elm$parser$Parser$Advanced$Good, false, s.row, s);
-	});
-var $author$project$MoveParser$getLocation = A2(
-	$elm$parser$Parser$Advanced$map,
-	function (row) {
-		return {row: row};
-	},
-	$elm$parser$Parser$Advanced$getRow);
 var $author$project$MoveParseError$UnknownMove = function (a) {
 	return {$: 'UnknownMove', a: a};
 };
@@ -8563,52 +8655,46 @@ var $elm$core$Tuple$pair = F2(
 		return _Utils_Tuple2(a, b);
 	});
 var $author$project$MoveParser$doMoveParser = function (env) {
-	var typeCheckMove = F2(
-		function (location, _v1) {
-			var movesWithThatName = _v1.a;
-			var actuals = _v1.b;
-			var actualKinds = A2($elm$core$List$map, $author$project$Move$exprKind, actuals);
-			var _v0 = A2(
-				$elm$core$List$filter,
-				function (md) {
-					return _Utils_eq(
-						A2(
-							$elm$core$List$map,
-							function ($) {
-								return $.kind;
-							},
-							md.args),
-						actualKinds);
-				},
-				movesWithThatName);
-			if (_v0.b && (!_v0.b.b)) {
-				var m = _v0.a;
-				return $elm$parser$Parser$Advanced$succeed(
-					A3($author$project$Move$Do, location, m, actuals));
-			} else {
-				return $elm$parser$Parser$Advanced$problem(
-					$author$project$MoveParseError$InvalidMoveInvocation(
-						{actuals: actuals, options: movesWithThatName}));
-			}
-		});
+	var typeCheckMove = function (_v1) {
+		var movesWithThatName = _v1.a;
+		var actuals = _v1.b;
+		var actualKinds = A2($elm$core$List$map, $author$project$Move$exprKind, actuals);
+		var _v0 = A2(
+			$elm$core$List$filter,
+			function (md) {
+				return _Utils_eq(
+					A2(
+						$elm$core$List$map,
+						function ($) {
+							return $.kind;
+						},
+						md.args),
+					actualKinds);
+			},
+			movesWithThatName);
+		if (_v0.b && (!_v0.b.b)) {
+			var m = _v0.a;
+			return $elm$parser$Parser$Advanced$succeed(
+				A2($author$project$Move$Do, m, actuals));
+		} else {
+			return $elm$parser$Parser$Advanced$problem(
+				$author$project$MoveParseError$InvalidMoveInvocation(
+					{actuals: actuals, options: movesWithThatName}));
+		}
+	};
 	return A2(
 		$elm$parser$Parser$Advanced$andThen,
-		function (location) {
-			return A2(
-				$elm$parser$Parser$Advanced$andThen,
-				typeCheckMove(location),
+		typeCheckMove,
+		A2(
+			$elm$parser$Parser$Advanced$keeper,
+			A2(
+				$elm$parser$Parser$Advanced$keeper,
+				$elm$parser$Parser$Advanced$succeed($elm$core$Tuple$pair),
 				A2(
-					$elm$parser$Parser$Advanced$keeper,
-					A2(
-						$elm$parser$Parser$Advanced$keeper,
-						$elm$parser$Parser$Advanced$succeed($elm$core$Tuple$pair),
-						A2(
-							$elm$parser$Parser$Advanced$andThen,
-							$author$project$MoveParser$lookupDefinitions(env.library),
-							$author$project$MoveParser$moveNameParser)),
-					$author$project$MoveParser$actualsParser(env)));
-		},
-		$author$project$MoveParser$getLocation);
+					$elm$parser$Parser$Advanced$andThen,
+					$author$project$MoveParser$lookupDefinitions(env.library),
+					$author$project$MoveParser$moveNameParser)),
+			$author$project$MoveParser$actualsParser(env)));
 };
 var $author$project$MoveParser$enterRepeat = function (env) {
 	return _Utils_update(
@@ -8690,16 +8776,16 @@ var $author$project$MoveParser$repeatParser = function (env) {
 		A2(
 			$elm$parser$Parser$Advanced$keeper,
 			A2(
-				$elm$parser$Parser$Advanced$keeper,
-				$elm$parser$Parser$Advanced$succeed(
-					F3(
-						function (location, n, moves) {
-							return A3($author$project$Move$Repeat, location, n, moves);
-						})),
+				$elm$parser$Parser$Advanced$ignorer,
 				A2(
 					$elm$parser$Parser$Advanced$ignorer,
-					A2($elm$parser$Parser$Advanced$ignorer, $author$project$MoveParser$getLocation, $author$project$MoveParser$keywordRepeat),
-					$author$project$MoveParser$spaces)),
+					$elm$parser$Parser$Advanced$succeed(
+						F2(
+							function (n, moves) {
+								return A2($author$project$Move$Repeat, n, moves);
+							})),
+					$author$project$MoveParser$keywordRepeat),
+				$author$project$MoveParser$spaces),
 			A2(
 				$elm$parser$Parser$Advanced$ignorer,
 				A2(
@@ -8908,12 +8994,14 @@ var $author$project$MoveEditor$init = function (maybePreviousState) {
 	var previousStateOrInitial = A2($elm$core$Maybe$withDefault, $author$project$MoveEditor$freshStartInitialState, maybePreviousState);
 	var model = {
 		backwards: previousStateOrInitial.backwards,
-		finalImage: previousStateOrInitial.initialImage,
+		displayMode: $author$project$MoveEditor$Edit,
+		evalResult: $author$project$MoveEditor$Complete(
+			{error: $elm$core$Maybe$Nothing, lastImage: previousStateOrInitial.initialImage, steps: 0}),
 		initialImage: $author$project$ImageEditor$init(previousStateOrInitial.initialImage),
 		library: previousStateOrInitial.library,
 		movesAndDefinitions: $elm$core$Result$Ok(
 			{definitions: _List_Nil, moves: _List_Nil}),
-		performanceFailure: $elm$core$Maybe$Nothing,
+		onlyApplyFirstNSteps: $elm$core$Maybe$Nothing,
 		text: previousStateOrInitial.text
 	};
 	return _Utils_Tuple2(
@@ -9177,6 +9265,7 @@ var $author$project$Main$loadInitialLibrary = $elm$http$Http$get(
 		expect: $elm$http$Http$expectString($author$project$Main$GotInitialLibrary),
 		url: '/init.txt'
 	});
+var $elm$core$Debug$log = _Debug_log;
 var $elm$core$Platform$Cmd$map = _Platform_map;
 var $author$project$MoveEditor$StoredState = F4(
 	function (text, initialImage, backwards, library) {
@@ -9544,47 +9633,51 @@ var $author$project$Palette$white = A3($mdgriffith$elm_ui$Element$rgb255, 255, 2
 var $author$project$Toasts$toast = function (msg) {
 	return {bgColor: $author$project$Palette$greenBook, fontColor: $author$project$Palette$white, msg: msg};
 };
-var $author$project$Main$init = function (previousStateJson) {
-	var _v0 = function () {
-		var _v1 = A2($elm$json$Json$Decode$decodeValue, $author$project$MoveEditor$storedStateDecoder, previousStateJson);
-		if (_v1.$ === 'Ok') {
-			var previousState = _v1.a;
-			return _Utils_Tuple3(
-				$elm$core$Maybe$Just(previousState),
-				'Welcome back.\nPrevious state loaded.',
-				$elm$core$Platform$Cmd$none);
-		} else {
-			var errorMessage = _v1.a;
-			return _Utils_Tuple3($elm$core$Maybe$Nothing, 'Welcome!\nLooks like this is your first time here.  Or maybe you cleared the browser cache?', $author$project$Main$loadInitialLibrary);
-		}
-	}();
-	var maybePreviousStoredState = _v0.a;
-	var firstToast = _v0.b;
-	var loadCmd = _v0.c;
-	var _v2 = A2(
-		$author$project$Toasts$add,
-		$author$project$Toasts$toast(firstToast),
-		$author$project$Toasts$init);
-	var toasts = _v2.a;
-	var toastCmd = _v2.b;
-	var _v3 = $author$project$MoveEditor$init(maybePreviousStoredState);
-	var moveEditor = _v3.a;
-	var moveEditorCmd = _v3.b;
-	return _Utils_Tuple2(
-		{activePage: $author$project$Main$MoveEditorPage, moveEditor: moveEditor, selectedMove: $elm$core$Maybe$Nothing, toasts: toasts, userKnows: ''},
-		$elm$core$Platform$Cmd$batch(
-			_List_fromArray(
-				[
-					loadCmd,
-					A2($elm$core$Platform$Cmd$map, $author$project$Main$MoveEditorChanged, moveEditorCmd),
-					A2($elm$core$Platform$Cmd$map, $author$project$Main$ToastsChanged, toastCmd)
-				])));
-};
+var $author$project$Main$init = F3(
+	function (previousStateJson, url, key) {
+		var _v0 = function () {
+			var _v1 = A2($elm$json$Json$Decode$decodeValue, $author$project$MoveEditor$storedStateDecoder, previousStateJson);
+			if (_v1.$ === 'Ok') {
+				var previousState = _v1.a;
+				return _Utils_Tuple3(
+					$elm$core$Maybe$Just(previousState),
+					'Welcome back.\nPrevious state loaded.',
+					$elm$core$Platform$Cmd$none);
+			} else {
+				var errorMessage = _v1.a;
+				return _Utils_Tuple3($elm$core$Maybe$Nothing, 'Welcome!\nLooks like this is your first time here.  Or maybe you cleared the browser cache?', $author$project$Main$loadInitialLibrary);
+			}
+		}();
+		var maybePreviousStoredState = _v0.a;
+		var firstToast = _v0.b;
+		var loadCmd = _v0.c;
+		var _v2 = A2(
+			$author$project$Toasts$add,
+			$author$project$Toasts$toast(firstToast),
+			$author$project$Toasts$init);
+		var toasts = _v2.a;
+		var toastCmd = _v2.b;
+		var _v3 = $author$project$MoveEditor$init(maybePreviousStoredState);
+		var moveEditor = _v3.a;
+		var moveEditorCmd = _v3.b;
+		var _v4 = A2($elm$core$Debug$log, 'url', url);
+		return _Utils_Tuple2(
+			{activePage: $author$project$Main$EditorPage, moveEditor: moveEditor, nav: key, selectedMove: $elm$core$Maybe$Nothing, toasts: toasts, userKnows: ''},
+			$elm$core$Platform$Cmd$batch(
+				_List_fromArray(
+					[
+						loadCmd,
+						A2($elm$core$Platform$Cmd$map, $author$project$Main$MoveEditorChanged, moveEditorCmd),
+						A2($elm$core$Platform$Cmd$map, $author$project$Main$ToastsChanged, toastCmd)
+					])));
+	});
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
 var $author$project$Main$subscriptions = function (_v0) {
 	return $elm$core$Platform$Sub$none;
 };
+var $author$project$Main$LibraryPage = {$: 'LibraryPage'};
+var $author$project$MoveEditor$Show = {$: 'Show'};
 var $author$project$ViewMove$doPrettyPrintExpr = function (e) {
 	switch (e.$) {
 		case 'ExprArgument':
@@ -9613,8 +9706,8 @@ var $author$project$ViewMove$ppIndented = function (l) {
 };
 var $author$project$ViewMove$doPrettyPrint = function (move) {
 	if (move.$ === 'Do') {
-		var def = move.b;
-		var exprs = move.c;
+		var def = move.a;
+		var exprs = move.b;
 		return _List_fromArray(
 			[
 				def.name + (' ' + A2(
@@ -9623,8 +9716,8 @@ var $author$project$ViewMove$doPrettyPrint = function (move) {
 				A2($elm$core$List$map, $author$project$ViewMove$doPrettyPrintExpr, exprs)))
 			]);
 	} else {
-		var n = move.b;
-		var moves = move.c;
+		var n = move.a;
+		var moves = move.b;
 		return A2(
 			$elm$core$List$cons,
 			'repeat ' + $author$project$ViewMove$doPrettyPrintExpr(n),
@@ -9861,7 +9954,8 @@ var $author$project$MoveEditor$editDefinition = F2(
 				model,
 				{library: newLibrary}));
 	});
-var $elm$core$Debug$log = _Debug_log;
+var $elm$browser$Browser$Navigation$load = _Browser_load;
+var $elm$browser$Browser$Navigation$pushUrl = _Browser_pushUrl;
 var $elm$json$Json$Encode$bool = _Json_wrap;
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
@@ -10063,6 +10157,12 @@ var $author$project$Main$saveState = function (model) {
 	return $author$project$Ports$storeState(
 		$author$project$MoveEditor$encodeStoredState(storedState));
 };
+var $author$project$MoveEditor$setDisplayMode = F2(
+	function (displayMode, model) {
+		return _Utils_update(
+			model,
+			{displayMode: displayMode});
+	});
 var $author$project$MoveEditor$setLibrary = F2(
 	function (library, model) {
 		return A2(
@@ -10072,6 +10172,50 @@ var $author$project$MoveEditor$setLibrary = F2(
 				model,
 				{library: library}));
 	});
+var $elm$url$Url$addPort = F2(
+	function (maybePort, starter) {
+		if (maybePort.$ === 'Nothing') {
+			return starter;
+		} else {
+			var port_ = maybePort.a;
+			return starter + (':' + $elm$core$String$fromInt(port_));
+		}
+	});
+var $elm$url$Url$addPrefixed = F3(
+	function (prefix, maybeSegment, starter) {
+		if (maybeSegment.$ === 'Nothing') {
+			return starter;
+		} else {
+			var segment = maybeSegment.a;
+			return _Utils_ap(
+				starter,
+				_Utils_ap(prefix, segment));
+		}
+	});
+var $elm$url$Url$toString = function (url) {
+	var http = function () {
+		var _v0 = url.protocol;
+		if (_v0.$ === 'Http') {
+			return 'http://';
+		} else {
+			return 'https://';
+		}
+	}();
+	return A3(
+		$elm$url$Url$addPrefixed,
+		'#',
+		url.fragment,
+		A3(
+			$elm$url$Url$addPrefixed,
+			'?',
+			url.query,
+			_Utils_ap(
+				A2(
+					$elm$url$Url$addPort,
+					url.port_,
+					_Utils_ap(http, url.host)),
+				url.path)));
+};
 var $author$project$MoveEditor$Focus = function (a) {
 	return {$: 'Focus', a: a};
 };
@@ -10100,13 +10244,21 @@ var $author$project$ViewMove$prettyPrint = function (m) {
 };
 var $elm$file$File$toString = _File_toString;
 var $author$project$MoveEditor$toggleForwardsBackwards = function (model) {
-	var newInitialImage = model.finalImage;
+	var newInitialImage = function () {
+		var _v0 = model.evalResult;
+		if (_v0.$ === 'Complete') {
+			var r = _v0.a;
+			return r.lastImage;
+		} else {
+			var complete = _v0.a.complete;
+			return complete.lastImage;
+		}
+	}();
 	return $author$project$MoveEditor$applyMoves(
 		_Utils_update(
 			model,
 			{
 				backwards: !model.backwards,
-				finalImage: newInitialImage,
 				initialImage: $author$project$ImageEditor$init(newInitialImage)
 			}));
 };
@@ -10494,12 +10646,22 @@ var $author$project$MoveEditor$update = F2(
 								model,
 								{text: content}))),
 					$elm$core$Platform$Cmd$none);
-			default:
+			case 'Focus':
 				if (msg.a.$ === 'Ok') {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
+			default:
+				var i = msg.a;
+				return _Utils_Tuple2(
+					$author$project$MoveEditor$applyMoves(
+						_Utils_update(
+							model,
+							{
+								onlyApplyFirstNSteps: $elm$core$Maybe$Just(i)
+							})),
+					$elm$core$Platform$Cmd$none);
 		}
 	});
 var $author$project$Toasts$update = F2(
@@ -10513,6 +10675,307 @@ var $author$project$Toasts$update = F2(
 					toasts: A2($elm$core$Dict$remove, toastid, model.toasts)
 				}));
 	});
+var $elm$url$Url$Parser$State = F5(
+	function (visited, unvisited, params, frag, value) {
+		return {frag: frag, params: params, unvisited: unvisited, value: value, visited: visited};
+	});
+var $elm$url$Url$Parser$getFirstMatch = function (states) {
+	getFirstMatch:
+	while (true) {
+		if (!states.b) {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			var state = states.a;
+			var rest = states.b;
+			var _v1 = state.unvisited;
+			if (!_v1.b) {
+				return $elm$core$Maybe$Just(state.value);
+			} else {
+				if ((_v1.a === '') && (!_v1.b.b)) {
+					return $elm$core$Maybe$Just(state.value);
+				} else {
+					var $temp$states = rest;
+					states = $temp$states;
+					continue getFirstMatch;
+				}
+			}
+		}
+	}
+};
+var $elm$url$Url$Parser$removeFinalEmpty = function (segments) {
+	if (!segments.b) {
+		return _List_Nil;
+	} else {
+		if ((segments.a === '') && (!segments.b.b)) {
+			return _List_Nil;
+		} else {
+			var segment = segments.a;
+			var rest = segments.b;
+			return A2(
+				$elm$core$List$cons,
+				segment,
+				$elm$url$Url$Parser$removeFinalEmpty(rest));
+		}
+	}
+};
+var $elm$url$Url$Parser$preparePath = function (path) {
+	var _v0 = A2($elm$core$String$split, '/', path);
+	if (_v0.b && (_v0.a === '')) {
+		var segments = _v0.b;
+		return $elm$url$Url$Parser$removeFinalEmpty(segments);
+	} else {
+		var segments = _v0;
+		return $elm$url$Url$Parser$removeFinalEmpty(segments);
+	}
+};
+var $elm$url$Url$Parser$addToParametersHelp = F2(
+	function (value, maybeList) {
+		if (maybeList.$ === 'Nothing') {
+			return $elm$core$Maybe$Just(
+				_List_fromArray(
+					[value]));
+		} else {
+			var list = maybeList.a;
+			return $elm$core$Maybe$Just(
+				A2($elm$core$List$cons, value, list));
+		}
+	});
+var $elm$url$Url$percentDecode = _Url_percentDecode;
+var $elm$url$Url$Parser$addParam = F2(
+	function (segment, dict) {
+		var _v0 = A2($elm$core$String$split, '=', segment);
+		if ((_v0.b && _v0.b.b) && (!_v0.b.b.b)) {
+			var rawKey = _v0.a;
+			var _v1 = _v0.b;
+			var rawValue = _v1.a;
+			var _v2 = $elm$url$Url$percentDecode(rawKey);
+			if (_v2.$ === 'Nothing') {
+				return dict;
+			} else {
+				var key = _v2.a;
+				var _v3 = $elm$url$Url$percentDecode(rawValue);
+				if (_v3.$ === 'Nothing') {
+					return dict;
+				} else {
+					var value = _v3.a;
+					return A3(
+						$elm$core$Dict$update,
+						key,
+						$elm$url$Url$Parser$addToParametersHelp(value),
+						dict);
+				}
+			}
+		} else {
+			return dict;
+		}
+	});
+var $elm$url$Url$Parser$prepareQuery = function (maybeQuery) {
+	if (maybeQuery.$ === 'Nothing') {
+		return $elm$core$Dict$empty;
+	} else {
+		var qry = maybeQuery.a;
+		return A3(
+			$elm$core$List$foldr,
+			$elm$url$Url$Parser$addParam,
+			$elm$core$Dict$empty,
+			A2($elm$core$String$split, '&', qry));
+	}
+};
+var $elm$url$Url$Parser$parse = F2(
+	function (_v0, url) {
+		var parser = _v0.a;
+		return $elm$url$Url$Parser$getFirstMatch(
+			parser(
+				A5(
+					$elm$url$Url$Parser$State,
+					_List_Nil,
+					$elm$url$Url$Parser$preparePath(url.path),
+					$elm$url$Url$Parser$prepareQuery(url.query),
+					url.fragment,
+					$elm$core$Basics$identity)));
+	});
+var $author$project$Route$Editor = {$: 'Editor'};
+var $author$project$Route$Library = function (a) {
+	return {$: 'Library', a: a};
+};
+var $author$project$Route$Show = {$: 'Show'};
+var $elm$url$Url$Parser$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var $elm$url$Url$Parser$mapState = F2(
+	function (func, _v0) {
+		var visited = _v0.visited;
+		var unvisited = _v0.unvisited;
+		var params = _v0.params;
+		var frag = _v0.frag;
+		var value = _v0.value;
+		return A5(
+			$elm$url$Url$Parser$State,
+			visited,
+			unvisited,
+			params,
+			frag,
+			func(value));
+	});
+var $elm$url$Url$Parser$map = F2(
+	function (subValue, _v0) {
+		var parseArg = _v0.a;
+		return $elm$url$Url$Parser$Parser(
+			function (_v1) {
+				var visited = _v1.visited;
+				var unvisited = _v1.unvisited;
+				var params = _v1.params;
+				var frag = _v1.frag;
+				var value = _v1.value;
+				return A2(
+					$elm$core$List$map,
+					$elm$url$Url$Parser$mapState(value),
+					parseArg(
+						A5($elm$url$Url$Parser$State, visited, unvisited, params, frag, subValue)));
+			});
+	});
+var $elm$url$Url$Parser$Internal$Parser = function (a) {
+	return {$: 'Parser', a: a};
+};
+var $elm$url$Url$Parser$Query$map = F2(
+	function (func, _v0) {
+		var a = _v0.a;
+		return $elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					a(dict));
+			});
+	});
+var $elm$url$Url$Parser$oneOf = function (parsers) {
+	return $elm$url$Url$Parser$Parser(
+		function (state) {
+			return A2(
+				$elm$core$List$concatMap,
+				function (_v0) {
+					var parser = _v0.a;
+					return parser(state);
+				},
+				parsers);
+		});
+};
+var $elm$url$Url$Parser$query = function (_v0) {
+	var queryParser = _v0.a;
+	return $elm$url$Url$Parser$Parser(
+		function (_v1) {
+			var visited = _v1.visited;
+			var unvisited = _v1.unvisited;
+			var params = _v1.params;
+			var frag = _v1.frag;
+			var value = _v1.value;
+			return _List_fromArray(
+				[
+					A5(
+					$elm$url$Url$Parser$State,
+					visited,
+					unvisited,
+					params,
+					frag,
+					value(
+						queryParser(params)))
+				]);
+		});
+};
+var $elm$url$Url$Parser$slash = F2(
+	function (_v0, _v1) {
+		var parseBefore = _v0.a;
+		var parseAfter = _v1.a;
+		return $elm$url$Url$Parser$Parser(
+			function (state) {
+				return A2(
+					$elm$core$List$concatMap,
+					parseAfter,
+					parseBefore(state));
+			});
+	});
+var $elm$url$Url$Parser$questionMark = F2(
+	function (parser, queryParser) {
+		return A2(
+			$elm$url$Url$Parser$slash,
+			parser,
+			$elm$url$Url$Parser$query(queryParser));
+	});
+var $elm$url$Url$Parser$s = function (str) {
+	return $elm$url$Url$Parser$Parser(
+		function (_v0) {
+			var visited = _v0.visited;
+			var unvisited = _v0.unvisited;
+			var params = _v0.params;
+			var frag = _v0.frag;
+			var value = _v0.value;
+			if (!unvisited.b) {
+				return _List_Nil;
+			} else {
+				var next = unvisited.a;
+				var rest = unvisited.b;
+				return _Utils_eq(next, str) ? _List_fromArray(
+					[
+						A5(
+						$elm$url$Url$Parser$State,
+						A2($elm$core$List$cons, next, visited),
+						rest,
+						params,
+						frag,
+						value)
+					]) : _List_Nil;
+			}
+		});
+};
+var $elm$url$Url$Parser$Query$custom = F2(
+	function (key, func) {
+		return $elm$url$Url$Parser$Internal$Parser(
+			function (dict) {
+				return func(
+					A2(
+						$elm$core$Maybe$withDefault,
+						_List_Nil,
+						A2($elm$core$Dict$get, key, dict)));
+			});
+	});
+var $elm$url$Url$Parser$Query$string = function (key) {
+	return A2(
+		$elm$url$Url$Parser$Query$custom,
+		key,
+		function (stringList) {
+			if (stringList.b && (!stringList.b.b)) {
+				var str = stringList.a;
+				return $elm$core$Maybe$Just(str);
+			} else {
+				return $elm$core$Maybe$Nothing;
+			}
+		});
+};
+var $elm$url$Url$Parser$top = $elm$url$Url$Parser$Parser(
+	function (state) {
+		return _List_fromArray(
+			[state]);
+	});
+var $author$project$Route$routeParser = $elm$url$Url$Parser$oneOf(
+	_List_fromArray(
+		[
+			A2($elm$url$Url$Parser$map, $author$project$Route$Editor, $elm$url$Url$Parser$top),
+			A2(
+			$elm$url$Url$Parser$map,
+			$author$project$Route$Show,
+			$elm$url$Url$Parser$s('show')),
+			A2(
+			$elm$url$Url$Parser$map,
+			$author$project$Route$Library,
+			A2(
+				$elm$url$Url$Parser$questionMark,
+				$elm$url$Url$Parser$s('library'),
+				A2(
+					$elm$url$Url$Parser$Query$map,
+					$elm$core$Maybe$map($author$project$Move$unsafeIdentifierFromText),
+					$elm$url$Url$Parser$Query$string('selection'))))
+		]));
+var $author$project$Route$urlToRoute = function (url) {
+	return A2($elm$url$Url$Parser$parse, $author$project$Route$routeParser, url);
+};
 var $author$project$Main$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -10541,10 +11004,22 @@ var $author$project$Main$update = F2(
 					{toasts: newToasts});
 				return _Utils_Tuple2(newModel, $elm$core$Platform$Cmd$none);
 			case 'SetActivePage':
-				var page = msg.a;
+				var _v2 = msg.a;
+				var page = _v2.a;
+				var dm = _v2.b;
 				var newModel = _Utils_update(
 					model,
-					{activePage: page});
+					{
+						activePage: page,
+						moveEditor: function () {
+							if (dm.$ === 'Nothing') {
+								return model.moveEditor;
+							} else {
+								var d = dm.a;
+								return A2($author$project$MoveEditor$setDisplayMode, d, model.moveEditor);
+							}
+						}()
+					});
 				return _Utils_Tuple2(newModel, $elm$core$Platform$Cmd$none);
 			case 'SelectDefinition':
 				var id = msg.a;
@@ -10561,8 +11036,11 @@ var $author$project$Main$update = F2(
 					_Utils_update(
 						model,
 						{
-							activePage: $author$project$Main$MoveEditorPage,
-							moveEditor: A2($author$project$MoveEditor$editDefinition, id, model.moveEditor),
+							activePage: $author$project$Main$EditorPage,
+							moveEditor: A2(
+								$author$project$MoveEditor$setDisplayMode,
+								$author$project$MoveEditor$Edit,
+								A2($author$project$MoveEditor$editDefinition, id, model.moveEditor)),
 							selectedMove: $elm$core$Maybe$Nothing
 						}),
 					$elm$core$Platform$Cmd$none);
@@ -10573,15 +11051,15 @@ var $author$project$Main$update = F2(
 						model,
 						{userKnows: s}),
 					$elm$core$Platform$Cmd$none);
-			default:
+			case 'GotInitialLibrary':
 				if (msg.a.$ === 'Err') {
 					var error = msg.a.a;
-					var _v2 = A2(
+					var _v4 = A2(
 						$author$project$Toasts$add,
 						$author$project$Toasts$toast('Failed to load initial library'),
 						model.toasts);
-					var toasts = _v2.a;
-					var toastCmd = _v2.b;
+					var toasts = _v4.a;
+					var toastCmd = _v4.b;
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
@@ -10589,14 +11067,11 @@ var $author$project$Main$update = F2(
 						A2($elm$core$Platform$Cmd$map, $author$project$Main$ToastsChanged, toastCmd));
 				} else {
 					var what = msg.a.a;
-					var _v3 = A2(
-						$elm$core$Debug$log,
-						'initial',
-						A2($author$project$MoveParser$parseMoves, $author$project$Primitives$primitives, what));
-					if (_v3.$ === 'Err') {
+					var _v5 = A2($author$project$MoveParser$parseMoves, $author$project$Primitives$primitives, what);
+					if (_v5.$ === 'Err') {
 						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 					} else {
-						var definitions = _v3.a.definitions;
+						var definitions = _v5.a.definitions;
 						var newLibrary = $author$project$MoveLibrary$fromList(
 							_Utils_ap(
 								$author$project$MoveLibrary$toListTopSort($author$project$Primitives$primitives),
@@ -10609,6 +11084,57 @@ var $author$project$Main$update = F2(
 								}),
 							$elm$core$Platform$Cmd$none);
 					}
+				}
+			case 'UrlChanged':
+				var url = msg.a;
+				var _v6 = $author$project$Route$urlToRoute(url);
+				if (_v6.$ === 'Nothing') {
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+				} else {
+					switch (_v6.a.$) {
+						case 'Show':
+							var _v7 = _v6.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										activePage: $author$project$Main$EditorPage,
+										moveEditor: A2($author$project$MoveEditor$setDisplayMode, $author$project$MoveEditor$Show, model.moveEditor)
+									}),
+								$elm$core$Platform$Cmd$none);
+						case 'Editor':
+							var _v8 = _v6.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										activePage: $author$project$Main$EditorPage,
+										moveEditor: A2($author$project$MoveEditor$setDisplayMode, $author$project$MoveEditor$Edit, model.moveEditor)
+									}),
+								$elm$core$Platform$Cmd$none);
+						default:
+							var selectedMove = _v6.a.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{activePage: $author$project$Main$LibraryPage, selectedMove: selectedMove}),
+								$elm$core$Platform$Cmd$none);
+					}
+				}
+			default:
+				if (msg.a.$ === 'Internal') {
+					var url = msg.a.a;
+					return _Utils_Tuple2(
+						model,
+						A2(
+							$elm$browser$Browser$Navigation$pushUrl,
+							model.nav,
+							$elm$url$Url$toString(url)));
+				} else {
+					var href = msg.a.a;
+					return _Utils_Tuple2(
+						model,
+						$elm$browser$Browser$Navigation$load(href));
 				}
 		}
 	});
@@ -16000,6 +16526,19 @@ var $mdgriffith$elm_ui$Internal$Model$Fill = function (a) {
 	return {$: 'Fill', a: a};
 };
 var $mdgriffith$elm_ui$Element$fill = $mdgriffith$elm_ui$Internal$Model$Fill(1);
+var $elm$html$Html$Attributes$boolProperty = F2(
+	function (key, bool) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			$elm$json$Json$Encode$bool(bool));
+	});
+var $elm$html$Html$Attributes$autofocus = $elm$html$Html$Attributes$boolProperty('autofocus');
+var $mdgriffith$elm_ui$Element$Input$focusedOnLoad = $mdgriffith$elm_ui$Internal$Model$Attr(
+	$elm$html$Html$Attributes$autofocus(true));
+var $author$project$MoveEditor$getDisplayMode = function (model) {
+	return model.displayMode;
+};
 var $author$project$MoveEditor$getLibrary = function (model) {
 	return model.library;
 };
@@ -17137,13 +17676,6 @@ var $mdgriffith$elm_ui$Element$Input$renderPlaceholder = F3(
 	});
 var $mdgriffith$elm_ui$Element$scrollbarY = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$overflow, $mdgriffith$elm_ui$Internal$Style$classes.scrollbarsY);
 var $elm$html$Html$span = _VirtualDom_node('span');
-var $elm$html$Html$Attributes$boolProperty = F2(
-	function (key, bool) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			$elm$json$Json$Encode$bool(bool));
-	});
 var $elm$html$Html$Attributes$spellcheck = $elm$html$Html$Attributes$boolProperty('spellcheck');
 var $mdgriffith$elm_ui$Element$Input$spellcheck = A2($elm$core$Basics$composeL, $mdgriffith$elm_ui$Internal$Model$Attr, $elm$html$Html$Attributes$spellcheck);
 var $elm$html$Html$Attributes$type_ = $elm$html$Html$Attributes$stringProperty('type');
@@ -17401,12 +17933,95 @@ var $mdgriffith$elm_ui$Element$Input$text = $mdgriffith$elm_ui$Element$Input$tex
 		spellchecked: false,
 		type_: $mdgriffith$elm_ui$Element$Input$TextInputNode('text')
 	});
-var $author$project$Main$LibraryPage = {$: 'LibraryPage'};
-var $author$project$Main$SetActivePage = function (a) {
-	return {$: 'SetActivePage', a: a};
-};
 var $mdgriffith$elm_ui$Internal$Flag$fontWeight = $mdgriffith$elm_ui$Internal$Flag$flag(13);
 var $mdgriffith$elm_ui$Element$Font$bold = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$fontWeight, $mdgriffith$elm_ui$Internal$Style$classes.bold);
+var $elm$url$Url$Builder$toQueryPair = function (_v0) {
+	var key = _v0.a;
+	var value = _v0.b;
+	return key + ('=' + value);
+};
+var $elm$url$Url$Builder$toQuery = function (parameters) {
+	if (!parameters.b) {
+		return '';
+	} else {
+		return '?' + A2(
+			$elm$core$String$join,
+			'&',
+			A2($elm$core$List$map, $elm$url$Url$Builder$toQueryPair, parameters));
+	}
+};
+var $elm$url$Url$Builder$absolute = F2(
+	function (pathSegments, parameters) {
+		return '/' + (A2($elm$core$String$join, '/', pathSegments) + $elm$url$Url$Builder$toQuery(parameters));
+	});
+var $elm$url$Url$Builder$QueryParameter = F2(
+	function (a, b) {
+		return {$: 'QueryParameter', a: a, b: b};
+	});
+var $elm$url$Url$percentEncode = _Url_percentEncode;
+var $elm$url$Url$Builder$string = F2(
+	function (key, value) {
+		return A2(
+			$elm$url$Url$Builder$QueryParameter,
+			$elm$url$Url$percentEncode(key),
+			$elm$url$Url$percentEncode(value));
+	});
+var $author$project$Route$routeToString = function (r) {
+	switch (r.$) {
+		case 'Editor':
+			return A2($elm$url$Url$Builder$absolute, _List_Nil, _List_Nil);
+		case 'Show':
+			return A2(
+				$elm$url$Url$Builder$absolute,
+				_List_fromArray(
+					['show']),
+				_List_Nil);
+		default:
+			if (r.a.$ === 'Just') {
+				var s = r.a.a;
+				return A2(
+					$elm$url$Url$Builder$absolute,
+					_List_fromArray(
+						['library']),
+					_List_fromArray(
+						[
+							A2(
+							$elm$url$Url$Builder$string,
+							'selection',
+							$author$project$Move$identifierText(s))
+						]));
+			} else {
+				var _v1 = r.a;
+				return A2(
+					$elm$url$Url$Builder$absolute,
+					_List_fromArray(
+						['library']),
+					_List_Nil);
+			}
+	}
+};
+var $author$project$Main$getUrlOfPage = function (_v0) {
+	var activePage = _v0.a;
+	var displayMode = _v0.b;
+	var route = function () {
+		var _v1 = _Utils_Tuple2(activePage, displayMode);
+		if (_v1.a.$ === 'EditorPage') {
+			if (_v1.b.$ === 'Show') {
+				var _v2 = _v1.a;
+				var _v3 = _v1.b;
+				return $author$project$Route$Show;
+			} else {
+				var _v4 = _v1.a;
+				var _v5 = _v1.b;
+				return $author$project$Route$Editor;
+			}
+		} else {
+			var _v6 = _v1.a;
+			return $author$project$Route$Library($elm$core$Maybe$Nothing);
+		}
+	}();
+	return $author$project$Route$routeToString(route);
+};
 var $mdgriffith$elm_ui$Element$row = F2(
 	function (attrs, children) {
 		return A4(
@@ -17425,6 +18040,190 @@ var $mdgriffith$elm_ui$Element$row = F2(
 						attrs))),
 			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
 	});
+var $elm$html$Html$Attributes$href = function (url) {
+	return A2(
+		$elm$html$Html$Attributes$stringProperty,
+		'href',
+		_VirtualDom_noJavaScriptUri(url));
+};
+var $elm$html$Html$Attributes$rel = _VirtualDom_attribute('rel');
+var $mdgriffith$elm_ui$Element$link = F2(
+	function (attrs, _v0) {
+		var url = _v0.url;
+		var label = _v0.label;
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asEl,
+			$mdgriffith$elm_ui$Internal$Model$NodeName('a'),
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Internal$Model$Attr(
+					$elm$html$Html$Attributes$href(url)),
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Internal$Model$Attr(
+						$elm$html$Html$Attributes$rel('noopener noreferrer')),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+						A2(
+							$elm$core$List$cons,
+							$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+							A2(
+								$elm$core$List$cons,
+								$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentCenterX + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.contentCenterY + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.link)))),
+								attrs))))),
+			$mdgriffith$elm_ui$Internal$Model$Unkeyed(
+				_List_fromArray(
+					[label])));
+	});
+var $mdgriffith$elm_ui$Element$Border$roundEach = function (_v0) {
+	var topLeft = _v0.topLeft;
+	var topRight = _v0.topRight;
+	var bottomLeft = _v0.bottomLeft;
+	var bottomRight = _v0.bottomRight;
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$borderRound,
+		A3(
+			$mdgriffith$elm_ui$Internal$Model$Single,
+			'br-' + ($elm$core$String$fromInt(topLeft) + ('-' + ($elm$core$String$fromInt(topRight) + ($elm$core$String$fromInt(bottomLeft) + ('-' + $elm$core$String$fromInt(bottomRight)))))),
+			'border-radius',
+			$elm$core$String$fromInt(topLeft) + ('px ' + ($elm$core$String$fromInt(topRight) + ('px ' + ($elm$core$String$fromInt(bottomRight) + ('px ' + ($elm$core$String$fromInt(bottomLeft) + 'px'))))))));
+};
+var $mdgriffith$elm_ui$Element$Border$widthXY = F2(
+	function (x, y) {
+		return A2(
+			$mdgriffith$elm_ui$Internal$Model$StyleClass,
+			$mdgriffith$elm_ui$Internal$Flag$borderWidth,
+			A5(
+				$mdgriffith$elm_ui$Internal$Model$BorderWidth,
+				'b-' + ($elm$core$String$fromInt(x) + ('-' + $elm$core$String$fromInt(y))),
+				y,
+				x,
+				y,
+				x));
+	});
+var $mdgriffith$elm_ui$Element$Border$widthEach = function (_v0) {
+	var bottom = _v0.bottom;
+	var top = _v0.top;
+	var left = _v0.left;
+	var right = _v0.right;
+	return (_Utils_eq(top, bottom) && _Utils_eq(left, right)) ? (_Utils_eq(top, right) ? $mdgriffith$elm_ui$Element$Border$width(top) : A2($mdgriffith$elm_ui$Element$Border$widthXY, left, top)) : A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$borderWidth,
+		A5(
+			$mdgriffith$elm_ui$Internal$Model$BorderWidth,
+			'b-' + ($elm$core$String$fromInt(top) + ('-' + ($elm$core$String$fromInt(right) + ('-' + ($elm$core$String$fromInt(bottom) + ('-' + $elm$core$String$fromInt(left))))))),
+			top,
+			right,
+			bottom,
+			left));
+};
+var $author$project$Main$tabEl = F3(
+	function (toUrl, activePage, thisTab) {
+		var isSelected = _Utils_eq(thisTab.page, activePage);
+		var padOffset = isSelected ? 0 : 2;
+		var corners = isSelected ? {bottomLeft: 0, bottomRight: 0, topLeft: 6, topRight: 6} : {bottomLeft: 0, bottomRight: 0, topLeft: 0, topRight: 0};
+		var borderWidths = isSelected ? {bottom: 0, left: 2, right: 2, top: 2} : {bottom: 2, left: 0, right: 0, top: 0};
+		return A2(
+			$mdgriffith$elm_ui$Element$el,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$Border$widthEach(borderWidths),
+					$mdgriffith$elm_ui$Element$Border$roundEach(corners),
+					$mdgriffith$elm_ui$Element$Border$color($author$project$Palette$greenBook)
+				]),
+			A2(
+				$mdgriffith$elm_ui$Element$el,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$centerX,
+						$mdgriffith$elm_ui$Element$centerY,
+						$mdgriffith$elm_ui$Element$paddingEach(
+						{bottom: 10 - padOffset, left: 30, right: 30, top: 10 + padOffset})
+					]),
+				A2(
+					$mdgriffith$elm_ui$Element$link,
+					_List_Nil,
+					{
+						label: $mdgriffith$elm_ui$Element$text(thisTab.label),
+						url: toUrl(thisTab.page)
+					})));
+	});
+var $author$project$Main$topBar = F2(
+	function (activePage, displayMode) {
+		var tab = A2(
+			$author$project$Main$tabEl,
+			$author$project$Main$getUrlOfPage,
+			_Utils_Tuple2(activePage, displayMode));
+		var tabs = A2(
+			$mdgriffith$elm_ui$Element$row,
+			_List_fromArray(
+				[$mdgriffith$elm_ui$Element$centerX]),
+			_List_fromArray(
+				[
+					tab(
+					{
+						label: 'Show',
+						page: _Utils_Tuple2($author$project$Main$EditorPage, $author$project$MoveEditor$Show)
+					}),
+					tab(
+					{
+						label: 'Learn',
+						page: _Utils_Tuple2($author$project$Main$EditorPage, $author$project$MoveEditor$Edit)
+					}),
+					tab(
+					{
+						label: 'Library',
+						page: _Utils_Tuple2($author$project$Main$LibraryPage, displayMode)
+					})
+				]));
+		return A2(
+			$mdgriffith$elm_ui$Element$row,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$paddingEach(
+					{bottom: 0, left: 10, right: 10, top: 10}),
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$Font$bold,
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$Border$widthEach(
+							{bottom: 2, left: 0, right: 0, top: 0}),
+							$mdgriffith$elm_ui$Element$paddingEach(
+							{bottom: 8, left: 9, right: 0, top: 12}),
+							$mdgriffith$elm_ui$Element$Border$color($author$project$Palette$greenBook)
+						]),
+					$mdgriffith$elm_ui$Element$text('🍺 Finding The Way Home')),
+					tabs,
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$Border$widthEach(
+							{bottom: 2, left: 0, right: 0, top: 0}),
+							$mdgriffith$elm_ui$Element$paddingEach(
+							{bottom: 8, left: 0, right: 0, top: 12}),
+							$mdgriffith$elm_ui$Element$Border$color($author$project$Palette$greenBook)
+						]),
+					$mdgriffith$elm_ui$Element$text(''))
+				]));
+	});
+var $author$project$MoveEditor$ImageEditorChanged = function (a) {
+	return {$: 'ImageEditorChanged', a: a};
+};
+var $author$project$MoveEditor$MoveDefinitionsIntoLibrary = {$: 'MoveDefinitionsIntoLibrary'};
+var $author$project$MoveEditor$SetMoves = function (a) {
+	return {$: 'SetMoves', a: a};
+};
 var $mdgriffith$elm_ui$Internal$Model$Button = {$: 'Button'};
 var $elm$html$Html$Attributes$disabled = $elm$html$Html$Attributes$boolProperty('disabled');
 var $mdgriffith$elm_ui$Element$Input$enter = 'Enter';
@@ -17546,141 +18345,6 @@ var $mdgriffith$elm_ui$Element$Input$button = F2(
 				_List_fromArray(
 					[label])));
 	});
-var $mdgriffith$elm_ui$Element$Border$roundEach = function (_v0) {
-	var topLeft = _v0.topLeft;
-	var topRight = _v0.topRight;
-	var bottomLeft = _v0.bottomLeft;
-	var bottomRight = _v0.bottomRight;
-	return A2(
-		$mdgriffith$elm_ui$Internal$Model$StyleClass,
-		$mdgriffith$elm_ui$Internal$Flag$borderRound,
-		A3(
-			$mdgriffith$elm_ui$Internal$Model$Single,
-			'br-' + ($elm$core$String$fromInt(topLeft) + ('-' + ($elm$core$String$fromInt(topRight) + ($elm$core$String$fromInt(bottomLeft) + ('-' + $elm$core$String$fromInt(bottomRight)))))),
-			'border-radius',
-			$elm$core$String$fromInt(topLeft) + ('px ' + ($elm$core$String$fromInt(topRight) + ('px ' + ($elm$core$String$fromInt(bottomRight) + ('px ' + ($elm$core$String$fromInt(bottomLeft) + 'px'))))))));
-};
-var $mdgriffith$elm_ui$Element$Border$widthXY = F2(
-	function (x, y) {
-		return A2(
-			$mdgriffith$elm_ui$Internal$Model$StyleClass,
-			$mdgriffith$elm_ui$Internal$Flag$borderWidth,
-			A5(
-				$mdgriffith$elm_ui$Internal$Model$BorderWidth,
-				'b-' + ($elm$core$String$fromInt(x) + ('-' + $elm$core$String$fromInt(y))),
-				y,
-				x,
-				y,
-				x));
-	});
-var $mdgriffith$elm_ui$Element$Border$widthEach = function (_v0) {
-	var bottom = _v0.bottom;
-	var top = _v0.top;
-	var left = _v0.left;
-	var right = _v0.right;
-	return (_Utils_eq(top, bottom) && _Utils_eq(left, right)) ? (_Utils_eq(top, right) ? $mdgriffith$elm_ui$Element$Border$width(top) : A2($mdgriffith$elm_ui$Element$Border$widthXY, left, top)) : A2(
-		$mdgriffith$elm_ui$Internal$Model$StyleClass,
-		$mdgriffith$elm_ui$Internal$Flag$borderWidth,
-		A5(
-			$mdgriffith$elm_ui$Internal$Model$BorderWidth,
-			'b-' + ($elm$core$String$fromInt(top) + ('-' + ($elm$core$String$fromInt(right) + ('-' + ($elm$core$String$fromInt(bottom) + ('-' + $elm$core$String$fromInt(left))))))),
-			top,
-			right,
-			bottom,
-			left));
-};
-var $author$project$Main$tabEl = F3(
-	function (makeMsg, selectedTab, thisTab) {
-		var isSelected = _Utils_eq(thisTab.tab, selectedTab);
-		var padOffset = isSelected ? 0 : 2;
-		var corners = isSelected ? {bottomLeft: 0, bottomRight: 0, topLeft: 6, topRight: 6} : {bottomLeft: 0, bottomRight: 0, topLeft: 0, topRight: 0};
-		var borderWidths = isSelected ? {bottom: 0, left: 2, right: 2, top: 2} : {bottom: 2, left: 0, right: 0, top: 0};
-		return A2(
-			$mdgriffith$elm_ui$Element$el,
-			_List_fromArray(
-				[
-					$mdgriffith$elm_ui$Element$Border$widthEach(borderWidths),
-					$mdgriffith$elm_ui$Element$Border$roundEach(corners),
-					$mdgriffith$elm_ui$Element$Border$color($author$project$Palette$greenBook)
-				]),
-			A2(
-				$mdgriffith$elm_ui$Element$el,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$centerX,
-						$mdgriffith$elm_ui$Element$centerY,
-						$mdgriffith$elm_ui$Element$paddingEach(
-						{bottom: 10 - padOffset, left: 30, right: 30, top: 10 + padOffset})
-					]),
-				A2(
-					$mdgriffith$elm_ui$Element$Input$button,
-					_List_Nil,
-					{
-						label: $mdgriffith$elm_ui$Element$text(thisTab.label),
-						onPress: $elm$core$Maybe$Just(
-							makeMsg(thisTab.tab))
-					})));
-	});
-var $author$project$Main$topBar = function (activePage) {
-	var tab = A2($author$project$Main$tabEl, $author$project$Main$SetActivePage, activePage);
-	var tabs = A2(
-		$mdgriffith$elm_ui$Element$row,
-		_List_fromArray(
-			[$mdgriffith$elm_ui$Element$centerX]),
-		_List_fromArray(
-			[
-				tab(
-				{label: 'Performance', tab: $author$project$Main$MoveEditorPage}),
-				tab(
-				{label: 'Library', tab: $author$project$Main$LibraryPage})
-			]));
-	return A2(
-		$mdgriffith$elm_ui$Element$row,
-		_List_fromArray(
-			[
-				$mdgriffith$elm_ui$Element$paddingEach(
-				{bottom: 0, left: 10, right: 10, top: 10}),
-				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-			]),
-		_List_fromArray(
-			[
-				A2(
-				$mdgriffith$elm_ui$Element$el,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$Font$bold,
-						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-						$mdgriffith$elm_ui$Element$Border$widthEach(
-						{bottom: 2, left: 0, right: 0, top: 0}),
-						$mdgriffith$elm_ui$Element$paddingEach(
-						{bottom: 8, left: 9, right: 0, top: 12}),
-						$mdgriffith$elm_ui$Element$Border$color($author$project$Palette$greenBook)
-					]),
-				$mdgriffith$elm_ui$Element$text('🍺 Finding The Way Home')),
-				tabs,
-				A2(
-				$mdgriffith$elm_ui$Element$el,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-						$mdgriffith$elm_ui$Element$Border$widthEach(
-						{bottom: 2, left: 0, right: 0, top: 0}),
-						$mdgriffith$elm_ui$Element$paddingEach(
-						{bottom: 8, left: 0, right: 0, top: 12}),
-						$mdgriffith$elm_ui$Element$Border$color($author$project$Palette$greenBook)
-					]),
-				$mdgriffith$elm_ui$Element$text(''))
-			]));
-};
-var $author$project$MoveEditor$ImageEditorChanged = function (a) {
-	return {$: 'ImageEditorChanged', a: a};
-};
-var $author$project$MoveEditor$MoveDefinitionsIntoLibrary = {$: 'MoveDefinitionsIntoLibrary'};
-var $author$project$MoveEditor$SetMoves = function (a) {
-	return {$: 'SetMoves', a: a};
-};
-var $author$project$MoveEditor$ToggleForwardsBackwards = {$: 'ToggleForwardsBackwards'};
-var $author$project$Palette$blueBook = A3($mdgriffith$elm_ui$Element$rgb255, 1, 1, 75);
 var $author$project$Move$signature = function (_v0) {
 	var name = _v0.name;
 	var args = _v0.args;
@@ -17711,9 +18375,6 @@ var $mdgriffith$elm_ui$Element$Font$family = function (families) {
 			families));
 };
 var $mdgriffith$elm_ui$Element$fillPortion = $mdgriffith$elm_ui$Internal$Model$Fill;
-var $elm$html$Html$Attributes$autofocus = $elm$html$Html$Attributes$boolProperty('autofocus');
-var $mdgriffith$elm_ui$Element$Input$focusedOnLoad = $mdgriffith$elm_ui$Internal$Model$Attr(
-	$elm$html$Html$Attributes$autofocus(true));
 var $mdgriffith$elm_ui$Internal$Model$boxShadowClass = function (shadow) {
 	return $elm$core$String$concat(
 		_List_fromArray(
@@ -17880,41 +18541,104 @@ var $mdgriffith$elm_ui$Element$padding = function (x) {
 			f));
 };
 var $author$project$Palette$redBook = A3($mdgriffith$elm_ui$Element$rgb255, 128, 0, 0);
-var $mdgriffith$elm_ui$Internal$Model$Scale = function (a) {
-	return {$: 'Scale', a: a};
-};
-var $mdgriffith$elm_ui$Internal$Flag$scale = $mdgriffith$elm_ui$Internal$Flag$flag(23);
-var $mdgriffith$elm_ui$Element$scale = function (n) {
-	return A2(
-		$mdgriffith$elm_ui$Internal$Model$TransformComponent,
-		$mdgriffith$elm_ui$Internal$Flag$scale,
-		$mdgriffith$elm_ui$Internal$Model$Scale(
-			_Utils_Tuple3(n, n, 1)));
-};
 var $mdgriffith$elm_ui$Element$Font$size = function (i) {
 	return A2(
 		$mdgriffith$elm_ui$Internal$Model$StyleClass,
 		$mdgriffith$elm_ui$Internal$Flag$fontSize,
 		$mdgriffith$elm_ui$Internal$Model$FontSize(i));
 };
-var $mdgriffith$elm_ui$Element$Keyed$column = F2(
-	function (attrs, children) {
-		return A4(
-			$mdgriffith$elm_ui$Internal$Model$element,
-			$mdgriffith$elm_ui$Internal$Model$asColumn,
-			$mdgriffith$elm_ui$Internal$Model$div,
-			A2(
-				$elm$core$List$cons,
-				$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentTop + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.contentLeft)),
-				A2(
-					$elm$core$List$cons,
-					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
-					A2(
-						$elm$core$List$cons,
-						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
-						attrs))),
-			$mdgriffith$elm_ui$Internal$Model$Keyed(children));
+var $author$project$ViewMove$defaultConfig = {moveUrl: $elm$core$Maybe$Nothing};
+var $elm_community$dict_extra$Dict$Extra$groupBy = F2(
+	function (keyfn, list) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, acc) {
+					return A3(
+						$elm$core$Dict$update,
+						keyfn(x),
+						A2(
+							$elm$core$Basics$composeR,
+							$elm$core$Maybe$map(
+								$elm$core$List$cons(x)),
+							A2(
+								$elm$core$Basics$composeR,
+								$elm$core$Maybe$withDefault(
+									_List_fromArray(
+										[x])),
+								$elm$core$Maybe$Just)),
+						acc);
+				}),
+			$elm$core$Dict$empty,
+			list);
 	});
+var $author$project$MoveParseError$gatherDeadEndsByLocation = function (deadEnds) {
+	var dedupProblems = function (problems) {
+		dedupProblems:
+		while (true) {
+			if (!problems.b) {
+				return _List_Nil;
+			} else {
+				if (!problems.b.b) {
+					var x = problems.a;
+					return _List_fromArray(
+						[x]);
+				} else {
+					var x = problems.a;
+					var xs = problems.b;
+					if (A2($elm$core$List$member, x, xs)) {
+						var $temp$problems = xs;
+						problems = $temp$problems;
+						continue dedupProblems;
+					} else {
+						return A2(
+							$elm$core$List$cons,
+							x,
+							dedupProblems(xs));
+					}
+				}
+			}
+		}
+	};
+	return A2(
+		$elm$core$List$map,
+		function (_v1) {
+			var _v2 = _v1.a;
+			var row = _v2.a;
+			var col = _v2.b;
+			var ds = _v1.b;
+			return {
+				col: col,
+				problems: dedupProblems(
+					A2(
+						$elm$core$List$map,
+						function ($) {
+							return $.problem;
+						},
+						ds)),
+				row: row
+			};
+		},
+		$elm$core$Dict$toList(
+			A2(
+				$elm_community$dict_extra$Dict$Extra$groupBy,
+				function (d) {
+					return _Utils_Tuple2(d.row, d.col);
+				},
+				deadEnds)));
+};
+var $elm$core$String$lines = _String_lines;
+var $author$project$ElmUiUtils$mono = function (s) {
+	return A2(
+		$mdgriffith$elm_ui$Element$el,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$Font$family(
+				_List_fromArray(
+					[$mdgriffith$elm_ui$Element$Font$monospace]))
+			]),
+		$mdgriffith$elm_ui$Element$text(s));
+};
 var $mdgriffith$elm_ui$Internal$Model$Paragraph = {$: 'Paragraph'};
 var $mdgriffith$elm_ui$Element$paragraph = F2(
 	function (attrs, children) {
@@ -17933,6 +18657,1128 @@ var $mdgriffith$elm_ui$Element$paragraph = F2(
 						$mdgriffith$elm_ui$Element$spacing(5),
 						attrs))),
 			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
+	});
+var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var $elm$core$String$repeatHelp = F3(
+	function (n, chunk, result) {
+		return (n <= 0) ? result : A3(
+			$elm$core$String$repeatHelp,
+			n >> 1,
+			_Utils_ap(chunk, chunk),
+			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+	});
+var $elm$core$String$repeat = F2(
+	function (n, chunk) {
+		return A3($elm$core$String$repeatHelp, n, chunk, '');
+	});
+var $mdgriffith$elm_ui$Internal$Model$AsTextColumn = {$: 'AsTextColumn'};
+var $mdgriffith$elm_ui$Internal$Model$asTextColumn = $mdgriffith$elm_ui$Internal$Model$AsTextColumn;
+var $mdgriffith$elm_ui$Internal$Model$Max = F2(
+	function (a, b) {
+		return {$: 'Max', a: a, b: b};
+	});
+var $mdgriffith$elm_ui$Element$maximum = F2(
+	function (i, l) {
+		return A2($mdgriffith$elm_ui$Internal$Model$Max, i, l);
+	});
+var $mdgriffith$elm_ui$Element$textColumn = F2(
+	function (attrs, children) {
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asTextColumn,
+			$mdgriffith$elm_ui$Internal$Model$div,
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Element$width(
+					A2(
+						$mdgriffith$elm_ui$Element$maximum,
+						750,
+						A2($mdgriffith$elm_ui$Element$minimum, 500, $mdgriffith$elm_ui$Element$fill))),
+				attrs),
+			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
+	});
+var $author$project$ElmUiUtils$boldMono = function (s) {
+	return A2(
+		$mdgriffith$elm_ui$Element$el,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$Font$family(
+				_List_fromArray(
+					[$mdgriffith$elm_ui$Element$Font$monospace])),
+				$mdgriffith$elm_ui$Element$Font$bold
+			]),
+		$mdgriffith$elm_ui$Element$text(s));
+};
+var $author$project$ViewMove$indented = function (elem) {
+	return A2(
+		$mdgriffith$elm_ui$Element$row,
+		_List_Nil,
+		_List_fromArray(
+			[
+				A2(
+				$mdgriffith$elm_ui$Element$el,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width(
+						$mdgriffith$elm_ui$Element$px(30))
+					]),
+				$mdgriffith$elm_ui$Element$none),
+				elem
+			]));
+};
+var $mdgriffith$elm_ui$Element$Font$italic = $mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.italic);
+var $author$project$ViewMove$textSpacing = 8;
+var $mdgriffith$elm_ui$Element$rgba255 = F4(
+	function (red, green, blue, a) {
+		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, red / 255, green / 255, blue / 255, a);
+	});
+var $author$project$Palette$linkButton = _List_fromArray(
+	[
+		$mdgriffith$elm_ui$Element$Border$color(
+		A4($mdgriffith$elm_ui$Element$rgba255, 255, 255, 255, 255)),
+		$mdgriffith$elm_ui$Element$Border$widthEach(
+		{bottom: 1, left: 0, right: 0, top: 0}),
+		$mdgriffith$elm_ui$Element$mouseOver(
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$Border$color($author$project$Palette$redBook)
+			]))
+	]);
+var $author$project$ViewMove$viewExpr = function (e) {
+	switch (e.$) {
+		case 'ExprArgument':
+			var a = e.a;
+			return $author$project$ElmUiUtils$mono(a.name);
+		case 'ExprValue':
+			if (e.a.$ === 'Int') {
+				var i = e.a.a;
+				return $author$project$ElmUiUtils$mono(
+					$elm$core$String$fromInt(i));
+			} else {
+				var p = e.a.a;
+				return $author$project$ElmUiUtils$mono(p);
+			}
+		default:
+			var pn = e.a;
+			return $author$project$ElmUiUtils$mono(pn.name);
+	}
+};
+var $author$project$ViewMove$view = F2(
+	function (viewConfig, move) {
+		if (move.$ === 'Do') {
+			var def = move.a;
+			var exprs = move.b;
+			var nameMaybeLinked = function () {
+				var vn = $author$project$ElmUiUtils$mono(def.name);
+				var _v1 = _Utils_Tuple2(def.path, viewConfig.moveUrl);
+				if ((!_v1.a.b) && (_v1.b.$ === 'Just')) {
+					var moveUrl = _v1.b.a;
+					return A2(
+						$mdgriffith$elm_ui$Element$link,
+						$author$project$Palette$linkButton,
+						{
+							label: vn,
+							url: moveUrl(
+								$author$project$Move$identifier(def))
+						});
+				} else {
+					return vn;
+				}
+			}();
+			return A2(
+				$mdgriffith$elm_ui$Element$row,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$spacing(10)
+					]),
+				A2(
+					$elm$core$List$cons,
+					nameMaybeLinked,
+					A2($elm$core$List$map, $author$project$ViewMove$viewExpr, exprs)));
+		} else {
+			var n = move.a;
+			var moves = move.b;
+			return A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$spacing($author$project$ViewMove$textSpacing)
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$mdgriffith$elm_ui$Element$row,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$spacing(10)
+							]),
+						_List_fromArray(
+							[
+								$author$project$ElmUiUtils$boldMono('repeat'),
+								$author$project$ViewMove$viewExpr(n)
+							])),
+						$author$project$ViewMove$indented(
+						A2($author$project$ViewMove$viewMoves, viewConfig, moves)),
+						$author$project$ElmUiUtils$boldMono('end')
+					]));
+		}
+	});
+var $author$project$ViewMove$viewMoves = F2(
+	function (viewConfig, moves) {
+		return A2(
+			$mdgriffith$elm_ui$Element$column,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$spacing($author$project$ViewMove$textSpacing)
+				]),
+			A2(
+				$elm$core$List$map,
+				$author$project$ViewMove$view(viewConfig),
+				moves));
+	});
+var $author$project$ViewMove$viewDefinition = F2(
+	function (viewConfig, md) {
+		var body = function () {
+			var _v1 = md.body;
+			if (_v1.$ === 'UserDefined') {
+				var moves = _v1.a.moves;
+				var definitions = _v1.a.definitions;
+				var temporaryPiles = _v1.a.temporaryPiles;
+				return A2(
+					$mdgriffith$elm_ui$Element$column,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$spacing($author$project$ViewMove$textSpacing),
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+						]),
+					A2(
+						$elm$core$List$cons,
+						function () {
+							if (!temporaryPiles.b) {
+								return $mdgriffith$elm_ui$Element$none;
+							} else {
+								return $author$project$ViewMove$indented(
+									A2(
+										$mdgriffith$elm_ui$Element$row,
+										_List_fromArray(
+											[
+												$mdgriffith$elm_ui$Element$spacing(10)
+											]),
+										A2(
+											$elm$core$List$cons,
+											$author$project$ElmUiUtils$boldMono('temp'),
+											A2($elm$core$List$map, $author$project$ElmUiUtils$mono, temporaryPiles))));
+							}
+						}(),
+						_Utils_ap(
+							A2(
+								$elm$core$List$map,
+								A2(
+									$elm$core$Basics$composeL,
+									$author$project$ViewMove$indented,
+									$author$project$ViewMove$viewDefinition(viewConfig)),
+								definitions),
+							_List_fromArray(
+								[
+									$author$project$ViewMove$indented(
+									A2($author$project$ViewMove$viewMoves, viewConfig, moves))
+								]))));
+			} else {
+				return $author$project$ViewMove$indented(
+					$mdgriffith$elm_ui$Element$text('This is a builtin'));
+			}
+		}();
+		return A2(
+			$mdgriffith$elm_ui$Element$column,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$spacing($author$project$ViewMove$textSpacing),
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+				]),
+			A2(
+				$elm$core$List$cons,
+				A2(
+					$mdgriffith$elm_ui$Element$row,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$spacing(10),
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+						]),
+					A2(
+						$elm$core$List$cons,
+						$author$project$ElmUiUtils$boldMono('def'),
+						A2(
+							$elm$core$List$cons,
+							$author$project$ElmUiUtils$mono(md.name),
+							A2(
+								$elm$core$List$map,
+								A2(
+									$elm$core$Basics$composeL,
+									$author$project$ElmUiUtils$mono,
+									function ($) {
+										return $.name;
+									}),
+								md.args)))),
+				A2(
+					$elm$core$List$cons,
+					function () {
+						var _v0 = md.doc;
+						if (_v0 === '') {
+							return $mdgriffith$elm_ui$Element$none;
+						} else {
+							var d = _v0;
+							return $author$project$ViewMove$indented(
+								A2(
+									$mdgriffith$elm_ui$Element$paragraph,
+									_List_fromArray(
+										[
+											$mdgriffith$elm_ui$Element$spacing($author$project$ViewMove$textSpacing),
+											$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+										]),
+									_List_fromArray(
+										[
+											$author$project$ElmUiUtils$boldMono('doc'),
+											$author$project$ElmUiUtils$mono(' '),
+											A2(
+											$mdgriffith$elm_ui$Element$el,
+											_List_fromArray(
+												[
+													$mdgriffith$elm_ui$Element$Font$italic,
+													$mdgriffith$elm_ui$Element$Font$family(
+													_List_fromArray(
+														[$mdgriffith$elm_ui$Element$Font$monospace]))
+												]),
+											$mdgriffith$elm_ui$Element$text(d))
+										])));
+						}
+					}(),
+					A2(
+						$elm$core$List$cons,
+						body,
+						_List_fromArray(
+							[
+								$author$project$ElmUiUtils$boldMono('end')
+							])))));
+	});
+var $author$project$MoveParseError$view = F2(
+	function (source, deadEnds) {
+		var viewExpectation = function (ex) {
+			switch (ex.$) {
+				case 'EKeyword':
+					var s = ex.a;
+					return $author$project$ElmUiUtils$mono(s);
+				case 'EPileName':
+					return A2(
+						$mdgriffith$elm_ui$Element$row,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text('a pile name (e.g. '),
+								$author$project$ElmUiUtils$mono('deck'),
+								$mdgriffith$elm_ui$Element$text(')')
+							]));
+				case 'ENumberName':
+					return A2(
+						$mdgriffith$elm_ui$Element$row,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text('a name of numeric argument (e.g. '),
+								$author$project$ElmUiUtils$mono('N'),
+								$mdgriffith$elm_ui$Element$text(')')
+							]));
+				case 'EInt':
+					return A2(
+						$mdgriffith$elm_ui$Element$row,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text('a number (e.g. '),
+								$author$project$ElmUiUtils$mono('52'),
+								$mdgriffith$elm_ui$Element$text(')')
+							]));
+				case 'EEndOfLine':
+					return $mdgriffith$elm_ui$Element$text('the next line');
+				case 'EEndOfInput':
+					return $mdgriffith$elm_ui$Element$text('the end');
+				default:
+					return A2(
+						$mdgriffith$elm_ui$Element$row,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text('a move name (e.g. '),
+								$author$project$ElmUiUtils$mono('deal'),
+								$mdgriffith$elm_ui$Element$text(')')
+							]));
+			}
+		};
+		var viewProblem = function (problem) {
+			switch (problem.$) {
+				case 'UnknownMove':
+					var n = problem.a;
+					return A2(
+						$mdgriffith$elm_ui$Element$row,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text('Don\'t know how to do '),
+								$author$project$ElmUiUtils$mono(n)
+							]));
+				case 'Expected':
+					var ex = problem.a;
+					return A2(
+						$mdgriffith$elm_ui$Element$row,
+						_List_Nil,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$text('Expected '),
+								viewExpectation(ex)
+							]));
+				case 'NoSuchArgument':
+					var name = problem.a.name;
+					var kind = problem.a.kind;
+					if (kind.$ === 'KindInt') {
+						return A2(
+							$mdgriffith$elm_ui$Element$paragraph,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$spacing(5),
+									$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+								]),
+							_List_fromArray(
+								[
+									$author$project$ElmUiUtils$mono(name),
+									$mdgriffith$elm_ui$Element$text(' looks like a number argument, but no such argument was defined')
+								]));
+					} else {
+						return A2(
+							$mdgriffith$elm_ui$Element$textColumn,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$spacing(20),
+									$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+								]),
+							_List_fromArray(
+								[
+									A2(
+									$mdgriffith$elm_ui$Element$paragraph,
+									_List_fromArray(
+										[
+											$mdgriffith$elm_ui$Element$spacing(5),
+											$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+										]),
+									_List_fromArray(
+										[
+											$mdgriffith$elm_ui$Element$text('There is neither an argument nor a temporary pile called '),
+											$author$project$ElmUiUtils$mono(name),
+											$mdgriffith$elm_ui$Element$text('.')
+										])),
+									A2(
+									$mdgriffith$elm_ui$Element$paragraph,
+									_List_fromArray(
+										[
+											$mdgriffith$elm_ui$Element$spacing(5),
+											$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+										]),
+									_List_fromArray(
+										[
+											$mdgriffith$elm_ui$Element$text('Note that inside a definition you cannot refer to a pile directly.\n                                   Everything must either be an argument to the definition or be\n                                   explicitly defined as a temporary.')
+										]))
+								]));
+					}
+				case 'InvalidMoveInvocation':
+					var options = problem.a.options;
+					var actuals = problem.a.actuals;
+					return A2(
+						$mdgriffith$elm_ui$Element$column,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$spacing(20),
+								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+							]),
+						A2(
+							$elm$core$List$map,
+							function (md) {
+								return A2(
+									$mdgriffith$elm_ui$Element$column,
+									_List_fromArray(
+										[
+											$mdgriffith$elm_ui$Element$spacing(5),
+											$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+										]),
+									_List_fromArray(
+										[
+											$author$project$ElmUiUtils$mono(
+											$author$project$Move$signature(md)),
+											A2(
+											$mdgriffith$elm_ui$Element$paragraph,
+											_List_fromArray(
+												[
+													$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+													$mdgriffith$elm_ui$Element$spacing(5)
+												]),
+											_List_fromArray(
+												[
+													$mdgriffith$elm_ui$Element$text(md.doc)
+												]))
+										]));
+							},
+							options));
+				default:
+					var previousDefinition = problem.a;
+					return A2(
+						$mdgriffith$elm_ui$Element$column,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$spacing(20),
+								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+							]),
+						_List_fromArray(
+							[
+								A2(
+								$mdgriffith$elm_ui$Element$paragraph,
+								_List_fromArray(
+									[
+										$mdgriffith$elm_ui$Element$spacing(5),
+										$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+									]),
+								_List_fromArray(
+									[
+										$mdgriffith$elm_ui$Element$text('There is already a previous definition with the same arguments.')
+									])),
+								A2($author$project$ViewMove$viewDefinition, $author$project$ViewMove$defaultConfig, previousDefinition)
+							]));
+			}
+		};
+		var relevantLineAndPlace = F2(
+			function (row, col) {
+				var _v6 = A2(
+					$elm_community$list_extra$List$Extra$getAt,
+					row - 1,
+					$elm$core$String$lines(source));
+				if (_v6.$ === 'Nothing') {
+					return $mdgriffith$elm_ui$Element$text('THIS SHOULD NOT HAPPEN');
+				} else {
+					var line = _v6.a;
+					return A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$family(
+								_List_fromArray(
+									[$mdgriffith$elm_ui$Element$Font$monospace]))
+							]),
+						A2(
+							$mdgriffith$elm_ui$Element$column,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$spacing(5)
+								]),
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$text(line),
+									$mdgriffith$elm_ui$Element$text(
+									A2($elm$core$String$repeat, col - 1, ' ') + '^')
+								])));
+				}
+			});
+		var viewDeadEnd = function (deadEnd) {
+			var _v1 = A2(
+				$elm$core$List$partition,
+				function (p) {
+					if (p.$ === 'Expected') {
+						return true;
+					} else {
+						return false;
+					}
+				},
+				deadEnd.problems);
+			var wrappedExpectedProblems = _v1.a;
+			var otherProblems = _v1.b;
+			var viewOtherProblems = function () {
+				if (!otherProblems.b) {
+					return $mdgriffith$elm_ui$Element$none;
+				} else {
+					var others = otherProblems;
+					return A2(
+						$mdgriffith$elm_ui$Element$column,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$spacing(5)
+							]),
+						A2($elm$core$List$map, viewProblem, others));
+				}
+			}();
+			var expectedProblems = A2(
+				$elm$core$List$map,
+				function (e) {
+					if (e.$ === 'Expected') {
+						var x = e.a;
+						return x;
+					} else {
+						return $author$project$MoveParseError$EKeyword('');
+					}
+				},
+				wrappedExpectedProblems);
+			var viewExpectedProblems = function () {
+				var _v3 = $elm$core$List$reverse(expectedProblems);
+				if (!_v3.b) {
+					return $mdgriffith$elm_ui$Element$none;
+				} else {
+					if (!_v3.b.b) {
+						var ex = _v3.a;
+						return A2(
+							$mdgriffith$elm_ui$Element$row,
+							_List_Nil,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$text('Expected '),
+									viewExpectation(ex)
+								]));
+					} else {
+						var exs = _v3;
+						return A2(
+							$mdgriffith$elm_ui$Element$column,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$spacing(5)
+								]),
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$text('Expected one of: '),
+									A2(
+									$mdgriffith$elm_ui$Element$row,
+									_List_Nil,
+									_List_fromArray(
+										[
+											A2(
+											$mdgriffith$elm_ui$Element$el,
+											_List_fromArray(
+												[
+													$mdgriffith$elm_ui$Element$width(
+													$mdgriffith$elm_ui$Element$px(20))
+												]),
+											$mdgriffith$elm_ui$Element$none),
+											A2(
+											$mdgriffith$elm_ui$Element$column,
+											_List_fromArray(
+												[
+													$mdgriffith$elm_ui$Element$spacing(5)
+												]),
+											A2($elm$core$List$map, viewExpectation, exs))
+										]))
+								]));
+					}
+				}
+			}();
+			return A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$spacing(5)
+					]),
+				_List_fromArray(
+					[
+						A2(relevantLineAndPlace, deadEnd.row, deadEnd.col),
+						viewExpectedProblems,
+						viewOtherProblems
+					]));
+		};
+		var _v0 = $author$project$MoveParseError$gatherDeadEndsByLocation(deadEnds);
+		if (!_v0.b) {
+			return $mdgriffith$elm_ui$Element$none;
+		} else {
+			var des = _v0;
+			return A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$spacing(10)
+					]),
+				A2($elm$core$List$map, viewDeadEnd, des));
+		}
+	});
+var $author$project$MoveEditor$ToggleForwardsBackwards = {$: 'ToggleForwardsBackwards'};
+var $author$project$Palette$blueBook = A3($mdgriffith$elm_ui$Element$rgb255, 1, 1, 75);
+var $mdgriffith$elm_ui$Internal$Model$Scale = function (a) {
+	return {$: 'Scale', a: a};
+};
+var $mdgriffith$elm_ui$Internal$Flag$scale = $mdgriffith$elm_ui$Internal$Flag$flag(23);
+var $mdgriffith$elm_ui$Element$scale = function (n) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$TransformComponent,
+		$mdgriffith$elm_ui$Internal$Flag$scale,
+		$mdgriffith$elm_ui$Internal$Model$Scale(
+			_Utils_Tuple3(n, n, 1)));
+};
+var $author$project$MoveEditor$viewDirectionButton = function (model) {
+	var directionLabel = model.backwards ? '☚' : '☛';
+	return A2(
+		$mdgriffith$elm_ui$Element$Input$button,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$Font$size(35),
+				$mdgriffith$elm_ui$Element$Font$color($author$project$Palette$blueBook),
+				$mdgriffith$elm_ui$Element$padding(10),
+				$mdgriffith$elm_ui$Element$mouseOver(
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$scale(1.1)
+					]))
+			]),
+		{
+			label: $mdgriffith$elm_ui$Element$text(directionLabel),
+			onPress: $elm$core$Maybe$Just($author$project$MoveEditor$ToggleForwardsBackwards)
+		});
+};
+var $elm$core$List$intersperse = F2(
+	function (sep, xs) {
+		if (!xs.b) {
+			return _List_Nil;
+		} else {
+			var hd = xs.a;
+			var tl = xs.b;
+			var step = F2(
+				function (x, rest) {
+					return A2(
+						$elm$core$List$cons,
+						sep,
+						A2($elm$core$List$cons, x, rest));
+				});
+			var spersed = A3($elm$core$List$foldr, step, _List_Nil, tl);
+			return A2($elm$core$List$cons, hd, spersed);
+		}
+	});
+var $author$project$EvalResult$viewBacktrace = function (backtrace) {
+	return A2(
+		$mdgriffith$elm_ui$Element$column,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$spacing(5)
+			]),
+		A2(
+			$elm$core$List$map,
+			function (_v0) {
+				var location = _v0.location;
+				var step = _v0.step;
+				return A2(
+					$mdgriffith$elm_ui$Element$paragraph,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$spacing(5),
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+						]),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$text('➥ '),
+						A2(
+							$elm$core$List$cons,
+							$author$project$ElmUiUtils$mono(
+								$elm$core$String$fromInt(location) + ': '),
+							function () {
+								if (step.$ === 'BtRepeat') {
+									var nth = step.a.nth;
+									var total = step.a.total;
+									return _List_fromArray(
+										[
+											$author$project$ElmUiUtils$boldMono('repeat '),
+											$author$project$ElmUiUtils$mono(
+											$elm$core$String$fromInt(nth)),
+											$mdgriffith$elm_ui$Element$text(' of '),
+											$author$project$ElmUiUtils$mono(
+											$elm$core$String$fromInt(total))
+										]);
+								} else {
+									var md = step.a;
+									var exprs = step.b;
+									var actuals = step.c;
+									return A2(
+										$elm$core$List$intersperse,
+										$mdgriffith$elm_ui$Element$text(' '),
+										A2(
+											$elm$core$List$cons,
+											$author$project$ElmUiUtils$mono(md.name),
+											A3(
+												$elm$core$List$map2,
+												F2(
+													function (arg, v) {
+														if (v.$ === 'Int') {
+															var i = v.a;
+															return A2(
+																$mdgriffith$elm_ui$Element$row,
+																_List_Nil,
+																_List_fromArray(
+																	[
+																		$author$project$ElmUiUtils$mono(arg.name),
+																		$author$project$ElmUiUtils$mono('='),
+																		$author$project$ElmUiUtils$mono(
+																		$elm$core$String$fromInt(i))
+																	]));
+														} else {
+															var p = v.a;
+															return A2(
+																$mdgriffith$elm_ui$Element$row,
+																_List_Nil,
+																_List_fromArray(
+																	[
+																		$author$project$ElmUiUtils$mono(arg.name),
+																		$author$project$ElmUiUtils$mono('='),
+																		$author$project$ElmUiUtils$mono(p)
+																	]));
+														}
+													}),
+												md.args,
+												actuals)));
+								}
+							}())));
+			},
+			backtrace));
+};
+var $author$project$EvalResult$viewProblem = function (problem) {
+	switch (problem.$) {
+		case 'EarlyExit':
+			return $mdgriffith$elm_ui$Element$none;
+		case 'Bug':
+			var msg = problem.a;
+			return A2(
+				$mdgriffith$elm_ui$Element$paragraph,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$spacing(5),
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$Font$bold,
+						$mdgriffith$elm_ui$Element$Font$color($author$project$Palette$redBook)
+					]),
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$text('INTERNAL ERROR CONTACT BENE '),
+						$mdgriffith$elm_ui$Element$text(msg)
+					]));
+		case 'NotEnoughCards':
+			var expected = problem.a.expected;
+			var inPile = problem.a.inPile;
+			var got = problem.a.got;
+			return A2(
+				$mdgriffith$elm_ui$Element$paragraph,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$spacing(5),
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+					]),
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$text('Expected '),
+						$author$project$ElmUiUtils$mono(
+						$elm$core$String$fromInt(expected)),
+						$mdgriffith$elm_ui$Element$text(' cards in '),
+						$author$project$ElmUiUtils$mono(inPile),
+						$mdgriffith$elm_ui$Element$text(' but got only '),
+						$author$project$ElmUiUtils$mono(
+						$elm$core$String$fromInt(got)),
+						$mdgriffith$elm_ui$Element$text('!')
+					]));
+		case 'NoSuchPile':
+			var name = problem.a.name;
+			return A2(
+				$mdgriffith$elm_ui$Element$paragraph,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$spacing(5),
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+					]),
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$text('There is no pile called '),
+						$author$project$ElmUiUtils$mono(name),
+						$mdgriffith$elm_ui$Element$text('!')
+					]));
+		default:
+			var names = problem.a.names;
+			var moveDefinition = problem.a.moveDefinition;
+			if (names.b && (!names.b.b)) {
+				var name = names.a;
+				return A2(
+					$mdgriffith$elm_ui$Element$paragraph,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$spacing(5),
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+						]),
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$text('The temporary pile '),
+							$author$project$ElmUiUtils$mono(name),
+							$mdgriffith$elm_ui$Element$text(' is not empty at the end of the call to '),
+							$author$project$ElmUiUtils$mono(moveDefinition.name),
+							$mdgriffith$elm_ui$Element$text('!')
+						]));
+			} else {
+				return A2(
+					$mdgriffith$elm_ui$Element$paragraph,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$spacing(5),
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+						]),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$text('The temporary piles '),
+						_Utils_ap(
+							A2(
+								$elm$core$List$intersperse,
+								$mdgriffith$elm_ui$Element$text(', '),
+								A2($elm$core$List$map, $author$project$ElmUiUtils$mono, names)),
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$text(' are not empty!')
+								]))));
+			}
+	}
+};
+var $author$project$EvalResult$viewError = function (error) {
+	return A2(
+		$mdgriffith$elm_ui$Element$column,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$spacing(20)
+			]),
+		_List_fromArray(
+			[
+				$author$project$EvalResult$viewProblem(error.problem),
+				$author$project$EvalResult$viewBacktrace(error.backtrace)
+			]));
+};
+var $author$project$MoveEditor$editView = function (model) {
+	var viewMessage = F2(
+		function (title, m) {
+			return A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$height(
+						A2(
+							$mdgriffith$elm_ui$Element$minimum,
+							0,
+							$mdgriffith$elm_ui$Element$fillPortion(1))),
+						$mdgriffith$elm_ui$Element$scrollbarY,
+						$mdgriffith$elm_ui$Element$spacing(10)
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$bold,
+								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+							]),
+						$mdgriffith$elm_ui$Element$text(title)),
+						A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+								$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+								$mdgriffith$elm_ui$Element$Font$family(
+								_List_fromArray(
+									[$mdgriffith$elm_ui$Element$Font$monospace]))
+							]),
+						$mdgriffith$elm_ui$Element$text(m))
+					]));
+		});
+	var viewErrorMessage = F2(
+		function (title, error) {
+			return A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$height(
+						A2(
+							$mdgriffith$elm_ui$Element$minimum,
+							0,
+							$mdgriffith$elm_ui$Element$fillPortion(1))),
+						$mdgriffith$elm_ui$Element$scrollbarY,
+						$mdgriffith$elm_ui$Element$spacing(10)
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$Font$bold,
+								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+							]),
+						$mdgriffith$elm_ui$Element$text(title)),
+						A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+								$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill)
+							]),
+						error)
+					]));
+		});
+	var moveDefinitionsIntoLibraryButton = function () {
+		var _v5 = model.movesAndDefinitions;
+		if (_v5.$ === 'Err') {
+			return $mdgriffith$elm_ui$Element$none;
+		} else {
+			var definitions = _v5.a.definitions;
+			if (!definitions.b) {
+				return $mdgriffith$elm_ui$Element$none;
+			} else {
+				var ds = definitions;
+				return A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							A2($mdgriffith$elm_ui$Element$paddingXY, 2, 0)
+						]),
+					A2(
+						$mdgriffith$elm_ui$Element$Input$button,
+						_List_fromArray(
+							[
+								$mdgriffith$elm_ui$Element$padding(3),
+								$mdgriffith$elm_ui$Element$Border$rounded(3),
+								$mdgriffith$elm_ui$Element$Font$color($author$project$Palette$white),
+								$mdgriffith$elm_ui$Element$Font$size(14),
+								$mdgriffith$elm_ui$Element$Background$color($author$project$Palette$greenBook),
+								$mdgriffith$elm_ui$Element$mouseOver(
+								_List_fromArray(
+									[
+										A2($mdgriffith$elm_ui$Element$Border$glow, $author$project$Palette$grey, 1)
+									]))
+							]),
+						{
+							label: $mdgriffith$elm_ui$Element$text('Move definitions into Library'),
+							onPress: $elm$core$Maybe$Just($author$project$MoveEditor$MoveDefinitionsIntoLibrary)
+						}));
+			}
+		}
+	}();
+	var maybeEvalError = function () {
+		var _v4 = model.evalResult;
+		if (_v4.$ === 'Complete') {
+			var r = _v4.a;
+			return r.error;
+		} else {
+			var partial = _v4.a.partial;
+			return partial.error;
+		}
+	}();
+	var _v0 = function () {
+		var _v1 = _Utils_Tuple2(model.movesAndDefinitions, maybeEvalError);
+		if (_v1.a.$ === 'Err') {
+			var errorMsg = _v1.a.a;
+			return _Utils_Tuple2(
+				$author$project$Palette$redBook,
+				A2(
+					viewErrorMessage,
+					'That makes no sense',
+					A2($author$project$MoveParseError$view, model.text, errorMsg)));
+		} else {
+			if (_v1.b.$ === 'Nothing') {
+				var _v2 = _v1.b;
+				return _Utils_Tuple2(
+					$author$project$Palette$greenBook,
+					A2(viewMessage, 'Reference', $author$project$MoveEditor$defaultInfoText));
+			} else {
+				var error = _v1.b.a;
+				var title = function () {
+					var _v3 = error.problem;
+					if (_v3.$ === 'EarlyExit') {
+						return 'Stopped during performance';
+					} else {
+						return 'Failure during performance';
+					}
+				}();
+				return _Utils_Tuple2(
+					$author$project$Palette$redBook,
+					A2(
+						viewErrorMessage,
+						title,
+						$author$project$EvalResult$viewError(error)));
+			}
+		}
+	}();
+	var movesBorderColor = _v0.a;
+	var infoText = _v0.b;
+	return A2(
+		$mdgriffith$elm_ui$Element$column,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$spacing(10)
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$mdgriffith$elm_ui$Element$Input$multiline,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+						$mdgriffith$elm_ui$Element$height(
+						A2(
+							$mdgriffith$elm_ui$Element$minimum,
+							0,
+							$mdgriffith$elm_ui$Element$fillPortion(2))),
+						$mdgriffith$elm_ui$Element$scrollbarY,
+						$mdgriffith$elm_ui$Element$Border$color(movesBorderColor),
+						$mdgriffith$elm_ui$Element$Input$focusedOnLoad
+					]),
+				{
+					label: A2(
+						$mdgriffith$elm_ui$Element$Input$labelAbove,
+						_List_Nil,
+						A2(
+							$mdgriffith$elm_ui$Element$row,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$spacing(40)
+								]),
+							_List_fromArray(
+								[
+									A2(
+									$mdgriffith$elm_ui$Element$el,
+									_List_fromArray(
+										[$mdgriffith$elm_ui$Element$Font$bold]),
+									$mdgriffith$elm_ui$Element$text('Definitions & Moves')),
+									$author$project$MoveEditor$viewDirectionButton(model),
+									moveDefinitionsIntoLibraryButton
+								]))),
+					onChange: $author$project$MoveEditor$SetMoves,
+					placeholder: $elm$core$Maybe$Nothing,
+					spellcheck: false,
+					text: model.text
+				}),
+				infoText
+			]));
+};
+var $mdgriffith$elm_ui$Element$Keyed$column = F2(
+	function (attrs, children) {
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asColumn,
+			$mdgriffith$elm_ui$Internal$Model$div,
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentTop + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.contentLeft)),
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+						attrs))),
+			$mdgriffith$elm_ui$Internal$Model$Keyed(children));
 	});
 var $mdgriffith$elm_ui$Internal$Model$VariantActive = function (a) {
 	return {$: 'VariantActive', a: a};
@@ -18235,10 +20081,6 @@ var $author$project$ImageEditor$Add = function (a) {
 var $mdgriffith$elm_ui$Internal$Model$Bottom = {$: 'Bottom'};
 var $mdgriffith$elm_ui$Element$alignBottom = $mdgriffith$elm_ui$Internal$Model$AlignY($mdgriffith$elm_ui$Internal$Model$Bottom);
 var $elm$core$List$sortBy = _List_sortBy;
-var $mdgriffith$elm_ui$Element$rgba255 = F4(
-	function (red, green, blue, a) {
-		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, red / 255, green / 255, blue / 255, a);
-	});
 var $author$project$Palette$transparentGrey = A4($mdgriffith$elm_ui$Element$rgba255, 128, 128, 128, 0.5);
 var $author$project$ImageEditor$viewImageToAddChooser = F2(
 	function (toMsg, options) {
@@ -18570,950 +20412,645 @@ var $author$project$ImageEditor$view = F2(
 					})
 				]));
 	});
-var $elm_community$dict_extra$Dict$Extra$groupBy = F2(
-	function (keyfn, list) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, acc) {
-					return A3(
-						$elm$core$Dict$update,
-						keyfn(x),
-						A2(
-							$elm$core$Basics$composeR,
-							$elm$core$Maybe$map(
-								$elm$core$List$cons(x)),
-							A2(
-								$elm$core$Basics$composeR,
-								$elm$core$Maybe$withDefault(
-									_List_fromArray(
-										[x])),
-								$elm$core$Maybe$Just)),
-						acc);
-				}),
-			$elm$core$Dict$empty,
-			list);
-	});
-var $author$project$MoveParseError$gatherDeadEndsByLocation = function (deadEnds) {
-	var dedupProblems = function (problems) {
-		dedupProblems:
-		while (true) {
-			if (!problems.b) {
-				return _List_Nil;
-			} else {
-				if (!problems.b.b) {
-					var x = problems.a;
-					return _List_fromArray(
-						[x]);
+var $author$project$MoveEditor$viewMoveWeStoppedAtInContext = function (_v0) {
+	var problem = _v0.problem;
+	var backtrace = _v0.backtrace;
+	var _v1 = $elm$core$List$reverse(
+		A2(
+			$elm$core$List$filterMap,
+			function (_v2) {
+				var step = _v2.step;
+				if (step.$ === 'BtRepeat') {
+					return $elm$core$Maybe$Nothing;
 				} else {
-					var x = problems.a;
-					var xs = problems.b;
-					if (A2($elm$core$List$member, x, xs)) {
-						var $temp$problems = xs;
-						problems = $temp$problems;
-						continue dedupProblems;
+					var def = step.a;
+					var exprs = step.b;
+					var actuals = step.c;
+					return $elm$core$Maybe$Just(
+						_Utils_Tuple3(def, exprs, actuals));
+				}
+			},
+			backtrace));
+	if (!_v1.b) {
+		return $mdgriffith$elm_ui$Element$text('???');
+	} else {
+		if (!_v1.b.b) {
+			var _v4 = _v1.a;
+			var def = _v4.a;
+			var exprs = _v4.b;
+			var actuals = _v4.c;
+			return A2(
+				$author$project$ViewMove$view,
+				$author$project$ViewMove$defaultConfig,
+				A2($author$project$Move$Do, def, exprs));
+		} else {
+			var _v5 = _v1.a;
+			var def = _v5.a;
+			var exprs = _v5.b;
+			var actuals = _v5.c;
+			var _v6 = _v1.b;
+			var _v7 = _v6.a;
+			var outerDef = _v7.a;
+			return A2($author$project$ViewMove$viewDefinition, $author$project$ViewMove$defaultConfig, outerDef);
+		}
+	}
+};
+var $author$project$MoveEditor$AdjustSteps = function (a) {
+	return {$: 'AdjustSteps', a: a};
+};
+var $mdgriffith$elm_ui$Element$Input$Thumb = function (a) {
+	return {$: 'Thumb', a: a};
+};
+var $mdgriffith$elm_ui$Element$Input$defaultThumb = $mdgriffith$elm_ui$Element$Input$Thumb(
+	_List_fromArray(
+		[
+			$mdgriffith$elm_ui$Element$width(
+			$mdgriffith$elm_ui$Element$px(16)),
+			$mdgriffith$elm_ui$Element$height(
+			$mdgriffith$elm_ui$Element$px(16)),
+			$mdgriffith$elm_ui$Element$Border$rounded(8),
+			$mdgriffith$elm_ui$Element$Border$width(1),
+			$mdgriffith$elm_ui$Element$Border$color(
+			A3($mdgriffith$elm_ui$Element$rgb, 0.5, 0.5, 0.5)),
+			$mdgriffith$elm_ui$Element$Background$color(
+			A3($mdgriffith$elm_ui$Element$rgb, 1, 1, 1))
+		]));
+var $mdgriffith$elm_ui$Internal$Flag$active = $mdgriffith$elm_ui$Internal$Flag$flag(32);
+var $mdgriffith$elm_ui$Internal$Flag$focus = $mdgriffith$elm_ui$Internal$Flag$flag(31);
+var $mdgriffith$elm_ui$Internal$Model$getHeight = function (attrs) {
+	return A3(
+		$elm$core$List$foldr,
+		F2(
+			function (attr, acc) {
+				if (acc.$ === 'Just') {
+					var x = acc.a;
+					return $elm$core$Maybe$Just(x);
+				} else {
+					if (attr.$ === 'Height') {
+						var len = attr.a;
+						return $elm$core$Maybe$Just(len);
 					} else {
-						return A2(
-							$elm$core$List$cons,
-							x,
-							dedupProblems(xs));
+						return $elm$core$Maybe$Nothing;
+					}
+				}
+			}),
+		$elm$core$Maybe$Nothing,
+		attrs);
+};
+var $mdgriffith$elm_ui$Internal$Model$getSpacing = F2(
+	function (attrs, _default) {
+		return A2(
+			$elm$core$Maybe$withDefault,
+			_default,
+			A3(
+				$elm$core$List$foldr,
+				F2(
+					function (attr, acc) {
+						if (acc.$ === 'Just') {
+							var x = acc.a;
+							return $elm$core$Maybe$Just(x);
+						} else {
+							if ((attr.$ === 'StyleClass') && (attr.b.$ === 'SpacingStyle')) {
+								var _v2 = attr.b;
+								var x = _v2.b;
+								var y = _v2.c;
+								return $elm$core$Maybe$Just(
+									_Utils_Tuple2(x, y));
+							} else {
+								return $elm$core$Maybe$Nothing;
+							}
+						}
+					}),
+				$elm$core$Maybe$Nothing,
+				attrs));
+	});
+var $mdgriffith$elm_ui$Internal$Model$getWidth = function (attrs) {
+	return A3(
+		$elm$core$List$foldr,
+		F2(
+			function (attr, acc) {
+				if (acc.$ === 'Just') {
+					var x = acc.a;
+					return $elm$core$Maybe$Just(x);
+				} else {
+					if (attr.$ === 'Width') {
+						var len = attr.a;
+						return $elm$core$Maybe$Just(len);
+					} else {
+						return $elm$core$Maybe$Nothing;
+					}
+				}
+			}),
+		$elm$core$Maybe$Nothing,
+		attrs);
+};
+var $elm$html$Html$Attributes$max = $elm$html$Html$Attributes$stringProperty('max');
+var $elm$html$Html$Attributes$min = $elm$html$Html$Attributes$stringProperty('min');
+var $mdgriffith$elm_ui$Element$spacingXY = F2(
+	function (x, y) {
+		return A2(
+			$mdgriffith$elm_ui$Internal$Model$StyleClass,
+			$mdgriffith$elm_ui$Internal$Flag$spacing,
+			A3(
+				$mdgriffith$elm_ui$Internal$Model$SpacingStyle,
+				A2($mdgriffith$elm_ui$Internal$Model$spacingName, x, y),
+				x,
+				y));
+	});
+var $elm$html$Html$Attributes$step = function (n) {
+	return A2($elm$html$Html$Attributes$stringProperty, 'step', n);
+};
+var $elm$core$Basics$abs = function (n) {
+	return (n < 0) ? (-n) : n;
+};
+var $mdgriffith$elm_ui$Internal$Model$mapAttr = F2(
+	function (fn, attr) {
+		switch (attr.$) {
+			case 'NoAttribute':
+				return $mdgriffith$elm_ui$Internal$Model$NoAttribute;
+			case 'Describe':
+				var description = attr.a;
+				return $mdgriffith$elm_ui$Internal$Model$Describe(description);
+			case 'AlignX':
+				var x = attr.a;
+				return $mdgriffith$elm_ui$Internal$Model$AlignX(x);
+			case 'AlignY':
+				var y = attr.a;
+				return $mdgriffith$elm_ui$Internal$Model$AlignY(y);
+			case 'Width':
+				var x = attr.a;
+				return $mdgriffith$elm_ui$Internal$Model$Width(x);
+			case 'Height':
+				var x = attr.a;
+				return $mdgriffith$elm_ui$Internal$Model$Height(x);
+			case 'Class':
+				var x = attr.a;
+				var y = attr.b;
+				return A2($mdgriffith$elm_ui$Internal$Model$Class, x, y);
+			case 'StyleClass':
+				var flag = attr.a;
+				var style = attr.b;
+				return A2($mdgriffith$elm_ui$Internal$Model$StyleClass, flag, style);
+			case 'Nearby':
+				var location = attr.a;
+				var elem = attr.b;
+				return A2(
+					$mdgriffith$elm_ui$Internal$Model$Nearby,
+					location,
+					A2($mdgriffith$elm_ui$Internal$Model$map, fn, elem));
+			case 'Attr':
+				var htmlAttr = attr.a;
+				return $mdgriffith$elm_ui$Internal$Model$Attr(
+					A2($elm$virtual_dom$VirtualDom$mapAttribute, fn, htmlAttr));
+			default:
+				var fl = attr.a;
+				var trans = attr.b;
+				return A2($mdgriffith$elm_ui$Internal$Model$TransformComponent, fl, trans);
+		}
+	});
+var $mdgriffith$elm_ui$Element$Input$viewHorizontalThumb = F3(
+	function (factor, thumbAttributes, trackHeight) {
+		return A2(
+			$mdgriffith$elm_ui$Element$row,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+					$mdgriffith$elm_ui$Element$height(
+					A2($elm$core$Maybe$withDefault, $mdgriffith$elm_ui$Element$fill, trackHeight)),
+					$mdgriffith$elm_ui$Element$centerY
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width(
+							$mdgriffith$elm_ui$Element$fillPortion(
+								$elm$core$Basics$round(factor * 10000)))
+						]),
+					$mdgriffith$elm_ui$Element$none),
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$centerY,
+						A2(
+							$elm$core$List$map,
+							$mdgriffith$elm_ui$Internal$Model$mapAttr($elm$core$Basics$never),
+							thumbAttributes)),
+					$mdgriffith$elm_ui$Element$none),
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width(
+							$mdgriffith$elm_ui$Element$fillPortion(
+								$elm$core$Basics$round(
+									$elm$core$Basics$abs(1 - factor) * 10000)))
+						]),
+					$mdgriffith$elm_ui$Element$none)
+				]));
+	});
+var $mdgriffith$elm_ui$Element$Input$viewVerticalThumb = F3(
+	function (factor, thumbAttributes, trackWidth) {
+		return A2(
+			$mdgriffith$elm_ui$Element$column,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+					$mdgriffith$elm_ui$Element$width(
+					A2($elm$core$Maybe$withDefault, $mdgriffith$elm_ui$Element$fill, trackWidth)),
+					$mdgriffith$elm_ui$Element$centerX
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$height(
+							$mdgriffith$elm_ui$Element$fillPortion(
+								$elm$core$Basics$round(
+									$elm$core$Basics$abs(1 - factor) * 10000)))
+						]),
+					$mdgriffith$elm_ui$Element$none),
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$centerX,
+						A2(
+							$elm$core$List$map,
+							$mdgriffith$elm_ui$Internal$Model$mapAttr($elm$core$Basics$never),
+							thumbAttributes)),
+					$mdgriffith$elm_ui$Element$none),
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$height(
+							$mdgriffith$elm_ui$Element$fillPortion(
+								$elm$core$Basics$round(factor * 10000)))
+						]),
+					$mdgriffith$elm_ui$Element$none)
+				]));
+	});
+var $mdgriffith$elm_ui$Element$Input$slider = F2(
+	function (attributes, input) {
+		var trackWidth = $mdgriffith$elm_ui$Internal$Model$getWidth(attributes);
+		var trackHeight = $mdgriffith$elm_ui$Internal$Model$getHeight(attributes);
+		var vertical = function () {
+			var _v8 = _Utils_Tuple2(trackWidth, trackHeight);
+			_v8$3:
+			while (true) {
+				if (_v8.a.$ === 'Nothing') {
+					if (_v8.b.$ === 'Nothing') {
+						var _v9 = _v8.a;
+						var _v10 = _v8.b;
+						return false;
+					} else {
+						break _v8$3;
+					}
+				} else {
+					if ((_v8.a.a.$ === 'Px') && (_v8.b.$ === 'Just')) {
+						switch (_v8.b.a.$) {
+							case 'Px':
+								var w = _v8.a.a.a;
+								var h = _v8.b.a.a;
+								return _Utils_cmp(h, w) > 0;
+							case 'Fill':
+								return true;
+							default:
+								break _v8$3;
+						}
+					} else {
+						break _v8$3;
 					}
 				}
 			}
-		}
-	};
-	return A2(
-		$elm$core$List$map,
-		function (_v1) {
-			var _v2 = _v1.a;
-			var row = _v2.a;
-			var col = _v2.b;
-			var ds = _v1.b;
-			return {
-				col: col,
-				problems: dedupProblems(
-					A2(
-						$elm$core$List$map,
-						function ($) {
-							return $.problem;
-						},
-						ds)),
-				row: row
-			};
-		},
-		$elm$core$Dict$toList(
-			A2(
-				$elm_community$dict_extra$Dict$Extra$groupBy,
-				function (d) {
-					return _Utils_Tuple2(d.row, d.col);
-				},
-				deadEnds)));
-};
-var $elm$core$String$lines = _String_lines;
-var $author$project$ElmUiUtils$mono = function (s) {
-	return A2(
-		$mdgriffith$elm_ui$Element$el,
-		_List_fromArray(
-			[
-				$mdgriffith$elm_ui$Element$Font$family(
-				_List_fromArray(
-					[$mdgriffith$elm_ui$Element$Font$monospace]))
-			]),
-		$mdgriffith$elm_ui$Element$text(s));
-};
-var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
-var $elm$core$String$repeatHelp = F3(
-	function (n, chunk, result) {
-		return (n <= 0) ? result : A3(
-			$elm$core$String$repeatHelp,
-			n >> 1,
-			_Utils_ap(chunk, chunk),
-			(!(n & 1)) ? result : _Utils_ap(result, chunk));
-	});
-var $elm$core$String$repeat = F2(
-	function (n, chunk) {
-		return A3($elm$core$String$repeatHelp, n, chunk, '');
-	});
-var $mdgriffith$elm_ui$Internal$Model$AsTextColumn = {$: 'AsTextColumn'};
-var $mdgriffith$elm_ui$Internal$Model$asTextColumn = $mdgriffith$elm_ui$Internal$Model$AsTextColumn;
-var $mdgriffith$elm_ui$Internal$Model$Max = F2(
-	function (a, b) {
-		return {$: 'Max', a: a, b: b};
-	});
-var $mdgriffith$elm_ui$Element$maximum = F2(
-	function (i, l) {
-		return A2($mdgriffith$elm_ui$Internal$Model$Max, i, l);
-	});
-var $mdgriffith$elm_ui$Element$textColumn = F2(
-	function (attrs, children) {
-		return A4(
-			$mdgriffith$elm_ui$Internal$Model$element,
-			$mdgriffith$elm_ui$Internal$Model$asTextColumn,
-			$mdgriffith$elm_ui$Internal$Model$div,
-			A2(
-				$elm$core$List$cons,
-				$mdgriffith$elm_ui$Element$width(
-					A2(
-						$mdgriffith$elm_ui$Element$maximum,
-						750,
-						A2($mdgriffith$elm_ui$Element$minimum, 500, $mdgriffith$elm_ui$Element$fill))),
-				attrs),
-			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
-	});
-var $author$project$ElmUiUtils$boldMono = function (s) {
-	return A2(
-		$mdgriffith$elm_ui$Element$el,
-		_List_fromArray(
-			[
-				$mdgriffith$elm_ui$Element$Font$family(
-				_List_fromArray(
-					[$mdgriffith$elm_ui$Element$Font$monospace])),
-				$mdgriffith$elm_ui$Element$Font$bold
-			]),
-		$mdgriffith$elm_ui$Element$text(s));
-};
-var $author$project$ViewMove$indented = function (elem) {
-	return A2(
-		$mdgriffith$elm_ui$Element$row,
-		_List_Nil,
-		_List_fromArray(
-			[
-				A2(
-				$mdgriffith$elm_ui$Element$el,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$width(
-						$mdgriffith$elm_ui$Element$px(30))
-					]),
-				$mdgriffith$elm_ui$Element$none),
-				elem
-			]));
-};
-var $mdgriffith$elm_ui$Element$Font$italic = $mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.italic);
-var $author$project$ViewMove$textSpacing = 8;
-var $author$project$Palette$linkButton = _List_fromArray(
-	[
-		$mdgriffith$elm_ui$Element$Border$color(
-		A4($mdgriffith$elm_ui$Element$rgba255, 255, 255, 255, 255)),
-		$mdgriffith$elm_ui$Element$Border$widthEach(
-		{bottom: 1, left: 0, right: 0, top: 0}),
-		$mdgriffith$elm_ui$Element$mouseOver(
-		_List_fromArray(
-			[
-				$mdgriffith$elm_ui$Element$Border$color($author$project$Palette$redBook)
-			]))
-	]);
-var $author$project$ViewMove$viewExpr = function (e) {
-	switch (e.$) {
-		case 'ExprArgument':
-			var a = e.a;
-			return $author$project$ElmUiUtils$mono(a.name);
-		case 'ExprValue':
-			if (e.a.$ === 'Int') {
-				var i = e.a.a;
-				return $author$project$ElmUiUtils$mono(
-					$elm$core$String$fromInt(i));
+			return false;
+		}();
+		var factor = (input.value - input.min) / (input.max - input.min);
+		var _v0 = input.thumb;
+		var thumbAttributes = _v0.a;
+		var height = $mdgriffith$elm_ui$Internal$Model$getHeight(thumbAttributes);
+		var thumbHeightString = function () {
+			if (height.$ === 'Nothing') {
+				return '20px';
 			} else {
-				var p = e.a.a;
-				return $author$project$ElmUiUtils$mono(p);
-			}
-		default:
-			var pn = e.a;
-			return $author$project$ElmUiUtils$mono(pn.name);
-	}
-};
-var $author$project$ViewMove$view = F2(
-	function (maybeOnClickMove, move) {
-		if (move.$ === 'Do') {
-			var def = move.b;
-			var exprs = move.c;
-			var nameMaybeLinked = function () {
-				var vn = $author$project$ElmUiUtils$mono(def.name);
-				var _v1 = _Utils_Tuple2(def.path, maybeOnClickMove);
-				if ((!_v1.a.b) && (_v1.b.$ === 'Just')) {
-					var onClickMove = _v1.b.a;
-					return A2(
-						$mdgriffith$elm_ui$Element$Input$button,
-						$author$project$Palette$linkButton,
-						{
-							label: vn,
-							onPress: $elm$core$Maybe$Just(
-								onClickMove(
-									$author$project$Move$identifier(def)))
-						});
+				if (height.a.$ === 'Px') {
+					var px = height.a.a;
+					return $elm$core$String$fromInt(px) + 'px';
 				} else {
-					return vn;
+					return '100%';
 				}
-			}();
-			return A2(
+			}
+		}();
+		var width = $mdgriffith$elm_ui$Internal$Model$getWidth(thumbAttributes);
+		var thumbWidthString = function () {
+			if (width.$ === 'Nothing') {
+				return '20px';
+			} else {
+				if (width.a.$ === 'Px') {
+					var px = width.a.a;
+					return $elm$core$String$fromInt(px) + 'px';
+				} else {
+					return '100%';
+				}
+			}
+		}();
+		var className = 'thmb-' + (thumbWidthString + ('-' + thumbHeightString));
+		var thumbShadowStyle = _List_fromArray(
+			[
+				A2($mdgriffith$elm_ui$Internal$Model$Property, 'width', thumbWidthString),
+				A2($mdgriffith$elm_ui$Internal$Model$Property, 'height', thumbHeightString)
+			]);
+		var _v1 = A2(
+			$mdgriffith$elm_ui$Internal$Model$getSpacing,
+			attributes,
+			_Utils_Tuple2(5, 5));
+		var spacingX = _v1.a;
+		var spacingY = _v1.b;
+		return A3(
+			$mdgriffith$elm_ui$Element$Input$applyLabel,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$Input$isHiddenLabel(input.label) ? $mdgriffith$elm_ui$Internal$Model$NoAttribute : A2($mdgriffith$elm_ui$Element$spacingXY, spacingX, spacingY),
+					$mdgriffith$elm_ui$Element$Region$announce,
+					$mdgriffith$elm_ui$Element$width(
+					function () {
+						if (trackWidth.$ === 'Nothing') {
+							return $mdgriffith$elm_ui$Element$fill;
+						} else {
+							if (trackWidth.a.$ === 'Px') {
+								return $mdgriffith$elm_ui$Element$shrink;
+							} else {
+								var x = trackWidth.a;
+								return x;
+							}
+						}
+					}()),
+					$mdgriffith$elm_ui$Element$height(
+					function () {
+						if (trackHeight.$ === 'Nothing') {
+							return $mdgriffith$elm_ui$Element$shrink;
+						} else {
+							if (trackHeight.a.$ === 'Px') {
+								return $mdgriffith$elm_ui$Element$shrink;
+							} else {
+								var x = trackHeight.a;
+								return x;
+							}
+						}
+					}())
+				]),
+			input.label,
+			A2(
 				$mdgriffith$elm_ui$Element$row,
 				_List_fromArray(
 					[
-						$mdgriffith$elm_ui$Element$spacing(10)
+						$mdgriffith$elm_ui$Element$width(
+						A2($elm$core$Maybe$withDefault, $mdgriffith$elm_ui$Element$fill, trackWidth)),
+						$mdgriffith$elm_ui$Element$height(
+						A2(
+							$elm$core$Maybe$withDefault,
+							$mdgriffith$elm_ui$Element$px(20),
+							trackHeight))
 					]),
-				A2(
-					$elm$core$List$cons,
-					nameMaybeLinked,
-					A2($elm$core$List$map, $author$project$ViewMove$viewExpr, exprs)));
-		} else {
-			var n = move.b;
-			var moves = move.c;
-			return A2(
-				$mdgriffith$elm_ui$Element$column,
 				_List_fromArray(
 					[
-						$mdgriffith$elm_ui$Element$spacing($author$project$ViewMove$textSpacing)
-					]),
-				A2(
-					$elm$core$List$cons,
-					A2(
-						$mdgriffith$elm_ui$Element$row,
+						A4(
+						$mdgriffith$elm_ui$Internal$Model$element,
+						$mdgriffith$elm_ui$Internal$Model$asEl,
+						$mdgriffith$elm_ui$Internal$Model$NodeName('input'),
 						_List_fromArray(
 							[
-								$mdgriffith$elm_ui$Element$spacing(10)
+								$mdgriffith$elm_ui$Element$Input$hiddenLabelAttribute(input.label),
+								A2(
+								$mdgriffith$elm_ui$Internal$Model$StyleClass,
+								$mdgriffith$elm_ui$Internal$Flag$active,
+								A2($mdgriffith$elm_ui$Internal$Model$Style, 'input[type=\"range\"].' + (className + '::-moz-range-thumb'), thumbShadowStyle)),
+								A2(
+								$mdgriffith$elm_ui$Internal$Model$StyleClass,
+								$mdgriffith$elm_ui$Internal$Flag$hover,
+								A2($mdgriffith$elm_ui$Internal$Model$Style, 'input[type=\"range\"].' + (className + '::-webkit-slider-thumb'), thumbShadowStyle)),
+								A2(
+								$mdgriffith$elm_ui$Internal$Model$StyleClass,
+								$mdgriffith$elm_ui$Internal$Flag$focus,
+								A2($mdgriffith$elm_ui$Internal$Model$Style, 'input[type=\"range\"].' + (className + '::-ms-thumb'), thumbShadowStyle)),
+								$mdgriffith$elm_ui$Internal$Model$Attr(
+								$elm$html$Html$Attributes$class(className + ' ui-slide-bar focusable-parent')),
+								$mdgriffith$elm_ui$Internal$Model$Attr(
+								$elm$html$Html$Events$onInput(
+									function (str) {
+										var _v4 = $elm$core$String$toFloat(str);
+										if (_v4.$ === 'Nothing') {
+											return input.onChange(0);
+										} else {
+											var val = _v4.a;
+											return input.onChange(val);
+										}
+									})),
+								$mdgriffith$elm_ui$Internal$Model$Attr(
+								$elm$html$Html$Attributes$type_('range')),
+								$mdgriffith$elm_ui$Internal$Model$Attr(
+								$elm$html$Html$Attributes$step(
+									function () {
+										var _v5 = input.step;
+										if (_v5.$ === 'Nothing') {
+											return 'any';
+										} else {
+											var step = _v5.a;
+											return $elm$core$String$fromFloat(step);
+										}
+									}())),
+								$mdgriffith$elm_ui$Internal$Model$Attr(
+								$elm$html$Html$Attributes$min(
+									$elm$core$String$fromFloat(input.min))),
+								$mdgriffith$elm_ui$Internal$Model$Attr(
+								$elm$html$Html$Attributes$max(
+									$elm$core$String$fromFloat(input.max))),
+								$mdgriffith$elm_ui$Internal$Model$Attr(
+								$elm$html$Html$Attributes$value(
+									$elm$core$String$fromFloat(input.value))),
+								vertical ? $mdgriffith$elm_ui$Internal$Model$Attr(
+								A2($elm$html$Html$Attributes$attribute, 'orient', 'vertical')) : $mdgriffith$elm_ui$Internal$Model$NoAttribute,
+								$mdgriffith$elm_ui$Element$width(
+								vertical ? A2(
+									$elm$core$Maybe$withDefault,
+									$mdgriffith$elm_ui$Element$px(20),
+									trackHeight) : A2($elm$core$Maybe$withDefault, $mdgriffith$elm_ui$Element$fill, trackWidth)),
+								$mdgriffith$elm_ui$Element$height(
+								vertical ? A2($elm$core$Maybe$withDefault, $mdgriffith$elm_ui$Element$fill, trackWidth) : A2(
+									$elm$core$Maybe$withDefault,
+									$mdgriffith$elm_ui$Element$px(20),
+									trackHeight))
 							]),
-						_List_fromArray(
-							[
-								$author$project$ElmUiUtils$boldMono('repeat'),
-								$author$project$ViewMove$viewExpr(n)
-							])),
-					_Utils_ap(
+						$mdgriffith$elm_ui$Internal$Model$Unkeyed(_List_Nil)),
 						A2(
-							$elm$core$List$map,
-							A2(
-								$elm$core$Basics$composeL,
-								$author$project$ViewMove$indented,
-								$author$project$ViewMove$view(maybeOnClickMove)),
-							moves),
-						_List_fromArray(
-							[
-								$author$project$ElmUiUtils$boldMono('end')
-							]))));
-		}
-	});
-var $author$project$ViewMove$viewDefinition = F2(
-	function (onClickMoveName, md) {
-		var body = function () {
-			var _v1 = md.body;
-			if (_v1.$ === 'UserDefined') {
-				var moves = _v1.a.moves;
-				var definitions = _v1.a.definitions;
-				var temporaryPiles = _v1.a.temporaryPiles;
-				return A2(
-					$mdgriffith$elm_ui$Element$column,
-					_List_fromArray(
-						[
-							$mdgriffith$elm_ui$Element$spacing($author$project$ViewMove$textSpacing),
-							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-						]),
-					A2(
-						$elm$core$List$cons,
-						function () {
-							if (!temporaryPiles.b) {
-								return $mdgriffith$elm_ui$Element$none;
-							} else {
-								return $author$project$ViewMove$indented(
-									A2(
-										$mdgriffith$elm_ui$Element$row,
-										_List_fromArray(
-											[
-												$mdgriffith$elm_ui$Element$spacing(10)
-											]),
-										A2(
-											$elm$core$List$cons,
-											$author$project$ElmUiUtils$boldMono('temp'),
-											A2($elm$core$List$map, $author$project$ElmUiUtils$mono, temporaryPiles))));
-							}
-						}(),
-						_Utils_ap(
-							A2(
-								$elm$core$List$map,
-								A2(
-									$elm$core$Basics$composeL,
-									$author$project$ViewMove$indented,
-									$author$project$ViewMove$viewDefinition(onClickMoveName)),
-								definitions),
-							A2(
-								$elm$core$List$map,
-								A2(
-									$elm$core$Basics$composeL,
-									$author$project$ViewMove$indented,
-									$author$project$ViewMove$view(onClickMoveName)),
-								moves))));
-			} else {
-				return $author$project$ViewMove$indented(
-					$mdgriffith$elm_ui$Element$text('This is a builtin'));
-			}
-		}();
-		return A2(
-			$mdgriffith$elm_ui$Element$column,
-			_List_fromArray(
-				[
-					$mdgriffith$elm_ui$Element$spacing($author$project$ViewMove$textSpacing),
-					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-				]),
-			A2(
-				$elm$core$List$cons,
-				A2(
-					$mdgriffith$elm_ui$Element$row,
-					_List_fromArray(
-						[
-							$mdgriffith$elm_ui$Element$spacing(10),
-							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-						]),
-					A2(
-						$elm$core$List$cons,
-						$author$project$ElmUiUtils$boldMono('def'),
-						A2(
-							$elm$core$List$cons,
-							$author$project$ElmUiUtils$mono(md.name),
-							A2(
-								$elm$core$List$map,
-								A2(
-									$elm$core$Basics$composeL,
-									$author$project$ElmUiUtils$mono,
-									function ($) {
-										return $.name;
-									}),
-								md.args)))),
-				A2(
-					$elm$core$List$cons,
-					function () {
-						var _v0 = md.doc;
-						if (_v0 === '') {
-							return $mdgriffith$elm_ui$Element$none;
-						} else {
-							var d = _v0;
-							return $author$project$ViewMove$indented(
-								A2(
-									$mdgriffith$elm_ui$Element$paragraph,
-									_List_fromArray(
-										[
-											$mdgriffith$elm_ui$Element$spacing($author$project$ViewMove$textSpacing),
-											$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-										]),
-									_List_fromArray(
-										[
-											$author$project$ElmUiUtils$boldMono('doc'),
-											$author$project$ElmUiUtils$mono(' '),
-											A2(
-											$mdgriffith$elm_ui$Element$el,
-											_List_fromArray(
-												[
-													$mdgriffith$elm_ui$Element$Font$italic,
-													$mdgriffith$elm_ui$Element$Font$family(
-													_List_fromArray(
-														[$mdgriffith$elm_ui$Element$Font$monospace]))
-												]),
-											$mdgriffith$elm_ui$Element$text(d))
-										])));
-						}
-					}(),
-					A2(
-						$elm$core$List$cons,
-						body,
-						_List_fromArray(
-							[
-								$author$project$ElmUiUtils$boldMono('end')
-							])))));
-	});
-var $author$project$MoveParseError$view = F2(
-	function (source, deadEnds) {
-		var viewExpectation = function (ex) {
-			switch (ex.$) {
-				case 'EKeyword':
-					var s = ex.a;
-					return $author$project$ElmUiUtils$mono(s);
-				case 'EPileName':
-					return A2(
-						$mdgriffith$elm_ui$Element$row,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$text('a pile name (e.g. '),
-								$author$project$ElmUiUtils$mono('deck'),
-								$mdgriffith$elm_ui$Element$text(')')
-							]));
-				case 'ENumberName':
-					return A2(
-						$mdgriffith$elm_ui$Element$row,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$text('a name of numeric argument (e.g. '),
-								$author$project$ElmUiUtils$mono('N'),
-								$mdgriffith$elm_ui$Element$text(')')
-							]));
-				case 'EInt':
-					return A2(
-						$mdgriffith$elm_ui$Element$row,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$text('a number (e.g. '),
-								$author$project$ElmUiUtils$mono('52'),
-								$mdgriffith$elm_ui$Element$text(')')
-							]));
-				case 'EEndOfLine':
-					return $mdgriffith$elm_ui$Element$text('the next line');
-				case 'EEndOfInput':
-					return $mdgriffith$elm_ui$Element$text('the end');
-				default:
-					return A2(
-						$mdgriffith$elm_ui$Element$row,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$text('a move name (e.g. '),
-								$author$project$ElmUiUtils$mono('deal'),
-								$mdgriffith$elm_ui$Element$text(')')
-							]));
-			}
-		};
-		var viewProblem = function (problem) {
-			switch (problem.$) {
-				case 'UnknownMove':
-					var n = problem.a;
-					return A2(
-						$mdgriffith$elm_ui$Element$row,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$text('Don\'t know how to do '),
-								$author$project$ElmUiUtils$mono(n)
-							]));
-				case 'Expected':
-					var ex = problem.a;
-					return A2(
-						$mdgriffith$elm_ui$Element$row,
-						_List_Nil,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$text('Expected '),
-								viewExpectation(ex)
-							]));
-				case 'NoSuchArgument':
-					var name = problem.a.name;
-					var kind = problem.a.kind;
-					if (kind.$ === 'KindInt') {
-						return A2(
-							$mdgriffith$elm_ui$Element$paragraph,
-							_List_fromArray(
-								[
-									$mdgriffith$elm_ui$Element$spacing(5),
-									$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-								]),
-							_List_fromArray(
-								[
-									$author$project$ElmUiUtils$mono(name),
-									$mdgriffith$elm_ui$Element$text(' looks like a number argument, but no such argument was defined')
-								]));
-					} else {
-						return A2(
-							$mdgriffith$elm_ui$Element$textColumn,
-							_List_fromArray(
-								[
-									$mdgriffith$elm_ui$Element$spacing(20),
-									$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-								]),
-							_List_fromArray(
-								[
-									A2(
-									$mdgriffith$elm_ui$Element$paragraph,
-									_List_fromArray(
-										[
-											$mdgriffith$elm_ui$Element$spacing(5),
-											$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-										]),
-									_List_fromArray(
-										[
-											$mdgriffith$elm_ui$Element$text('There is neither an argument nor a temporary pile called '),
-											$author$project$ElmUiUtils$mono(name),
-											$mdgriffith$elm_ui$Element$text('.')
-										])),
-									A2(
-									$mdgriffith$elm_ui$Element$paragraph,
-									_List_fromArray(
-										[
-											$mdgriffith$elm_ui$Element$spacing(5),
-											$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-										]),
-									_List_fromArray(
-										[
-											$mdgriffith$elm_ui$Element$text('Note that inside a definition you cannot refer to a pile directly.\n                                   Everything must either be an argument to the definition or be\n                                   explicitly defined as a temporary.')
-										]))
-								]));
-					}
-				case 'InvalidMoveInvocation':
-					var options = problem.a.options;
-					var actuals = problem.a.actuals;
-					return A2(
-						$mdgriffith$elm_ui$Element$column,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$spacing(20),
-								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-							]),
-						A2(
-							$elm$core$List$map,
-							function (md) {
-								return A2(
-									$mdgriffith$elm_ui$Element$column,
-									_List_fromArray(
-										[
-											$mdgriffith$elm_ui$Element$spacing(5),
-											$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-										]),
-									_List_fromArray(
-										[
-											$author$project$ElmUiUtils$mono(
-											$author$project$Move$signature(md)),
-											A2(
-											$mdgriffith$elm_ui$Element$paragraph,
-											_List_fromArray(
-												[
-													$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-													$mdgriffith$elm_ui$Element$spacing(5)
-												]),
-											_List_fromArray(
-												[
-													$mdgriffith$elm_ui$Element$text(md.doc)
-												]))
-										]));
-							},
-							options));
-				default:
-					var previousDefinition = problem.a;
-					return A2(
-						$mdgriffith$elm_ui$Element$column,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$spacing(20),
-								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-							]),
-						_List_fromArray(
-							[
-								A2(
-								$mdgriffith$elm_ui$Element$paragraph,
-								_List_fromArray(
-									[
-										$mdgriffith$elm_ui$Element$spacing(5),
-										$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-									]),
-								_List_fromArray(
-									[
-										$mdgriffith$elm_ui$Element$text('There is already a previous definition with the same arguments.')
-									])),
-								A2($author$project$ViewMove$viewDefinition, $elm$core$Maybe$Nothing, previousDefinition)
-							]));
-			}
-		};
-		var relevantLineAndPlace = F2(
-			function (row, col) {
-				var _v6 = A2(
-					$elm_community$list_extra$List$Extra$getAt,
-					row - 1,
-					$elm$core$String$lines(source));
-				if (_v6.$ === 'Nothing') {
-					return $mdgriffith$elm_ui$Element$text('THIS SHOULD NOT HAPPEN');
-				} else {
-					var line = _v6.a;
-					return A2(
 						$mdgriffith$elm_ui$Element$el,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$Font$family(
-								_List_fromArray(
-									[$mdgriffith$elm_ui$Element$Font$monospace]))
-							]),
-						A2(
-							$mdgriffith$elm_ui$Element$column,
-							_List_fromArray(
-								[
-									$mdgriffith$elm_ui$Element$spacing(5)
-								]),
-							_List_fromArray(
-								[
-									$mdgriffith$elm_ui$Element$text(line),
-									$mdgriffith$elm_ui$Element$text(
-									A2($elm$core$String$repeat, col - 1, ' ') + '^')
-								])));
-				}
-			});
-		var viewDeadEnd = function (deadEnd) {
-			var _v1 = A2(
-				$elm$core$List$partition,
-				function (p) {
-					if (p.$ === 'Expected') {
-						return true;
-					} else {
-						return false;
-					}
-				},
-				deadEnd.problems);
-			var wrappedExpectedProblems = _v1.a;
-			var otherProblems = _v1.b;
-			var viewOtherProblems = function () {
-				if (!otherProblems.b) {
-					return $mdgriffith$elm_ui$Element$none;
-				} else {
-					var others = otherProblems;
-					return A2(
-						$mdgriffith$elm_ui$Element$column,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$spacing(5)
-							]),
-						A2($elm$core$List$map, viewProblem, others));
-				}
-			}();
-			var expectedProblems = A2(
-				$elm$core$List$map,
-				function (e) {
-					if (e.$ === 'Expected') {
-						var x = e.a;
-						return x;
-					} else {
-						return $author$project$MoveParseError$EKeyword('');
-					}
-				},
-				wrappedExpectedProblems);
-			var viewExpectedProblems = function () {
-				var _v3 = $elm$core$List$reverse(expectedProblems);
-				if (!_v3.b) {
-					return $mdgriffith$elm_ui$Element$none;
-				} else {
-					if (!_v3.b.b) {
-						var ex = _v3.a;
-						return A2(
-							$mdgriffith$elm_ui$Element$row,
-							_List_Nil,
-							_List_fromArray(
-								[
-									$mdgriffith$elm_ui$Element$text('Expected '),
-									viewExpectation(ex)
-								]));
-					} else {
-						var exs = _v3;
-						return A2(
-							$mdgriffith$elm_ui$Element$column,
-							_List_fromArray(
-								[
-									$mdgriffith$elm_ui$Element$spacing(5)
-								]),
-							_List_fromArray(
-								[
-									$mdgriffith$elm_ui$Element$text('Expected one of: '),
-									A2(
-									$mdgriffith$elm_ui$Element$row,
-									_List_Nil,
-									_List_fromArray(
-										[
-											A2(
-											$mdgriffith$elm_ui$Element$el,
-											_List_fromArray(
-												[
-													$mdgriffith$elm_ui$Element$width(
-													$mdgriffith$elm_ui$Element$px(20))
-												]),
-											$mdgriffith$elm_ui$Element$none),
-											A2(
-											$mdgriffith$elm_ui$Element$column,
-											_List_fromArray(
-												[
-													$mdgriffith$elm_ui$Element$spacing(5)
-												]),
-											A2($elm$core$List$map, viewExpectation, exs))
-										]))
-								]));
-					}
-				}
-			}();
-			return A2(
-				$mdgriffith$elm_ui$Element$column,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$spacing(5)
-					]),
-				_List_fromArray(
-					[
-						A2(relevantLineAndPlace, deadEnd.row, deadEnd.col),
-						viewExpectedProblems,
-						viewOtherProblems
-					]));
-		};
-		var _v0 = $author$project$MoveParseError$gatherDeadEndsByLocation(deadEnds);
-		if (!_v0.b) {
-			return $mdgriffith$elm_ui$Element$none;
-		} else {
-			var des = _v0;
-			return A2(
-				$mdgriffith$elm_ui$Element$column,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$spacing(10)
-					]),
-				A2($elm$core$List$map, viewDeadEnd, des));
-		}
-	});
-var $elm$core$List$intersperse = F2(
-	function (sep, xs) {
-		if (!xs.b) {
-			return _List_Nil;
-		} else {
-			var hd = xs.a;
-			var tl = xs.b;
-			var step = F2(
-				function (x, rest) {
-					return A2(
-						$elm$core$List$cons,
-						sep,
-						A2($elm$core$List$cons, x, rest));
-				});
-			var spersed = A3($elm$core$List$foldr, step, _List_Nil, tl);
-			return A2($elm$core$List$cons, hd, spersed);
-		}
-	});
-var $author$project$EvalResult$viewBacktrace = F2(
-	function (sourceText, backtrace) {
-		return A2(
-			$mdgriffith$elm_ui$Element$column,
-			_List_fromArray(
-				[
-					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-					$mdgriffith$elm_ui$Element$spacing(5)
-				]),
-			A2(
-				$elm$core$List$map,
-				function (_v0) {
-					var location = _v0.location;
-					var step = _v0.step;
-					return A2(
-						$mdgriffith$elm_ui$Element$paragraph,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$spacing(5),
-								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-							]),
 						A2(
 							$elm$core$List$cons,
-							$mdgriffith$elm_ui$Element$text('➥ '),
+							$mdgriffith$elm_ui$Element$width(
+								A2($elm$core$Maybe$withDefault, $mdgriffith$elm_ui$Element$fill, trackWidth)),
 							A2(
 								$elm$core$List$cons,
-								$author$project$ElmUiUtils$mono(
-									$elm$core$String$fromInt(location.row) + ': '),
-								function () {
-									if (step.$ === 'BtRepeat') {
-										var nth = step.a.nth;
-										var total = step.a.total;
-										return _List_fromArray(
-											[
-												$author$project$ElmUiUtils$boldMono('repeat '),
-												$author$project$ElmUiUtils$mono(
-												$elm$core$String$fromInt(nth)),
-												$mdgriffith$elm_ui$Element$text(' of '),
-												$author$project$ElmUiUtils$mono(
-												$elm$core$String$fromInt(total))
-											]);
-									} else {
-										var md = step.a;
-										var actuals = step.b;
-										return A2(
-											$elm$core$List$intersperse,
-											$mdgriffith$elm_ui$Element$text(' '),
-											A2(
-												$elm$core$List$cons,
-												$author$project$ElmUiUtils$mono(md.name),
-												A3(
-													$elm$core$List$map2,
-													F2(
-														function (arg, v) {
-															if (v.$ === 'Int') {
-																var i = v.a;
-																return A2(
-																	$mdgriffith$elm_ui$Element$row,
-																	_List_Nil,
-																	_List_fromArray(
-																		[
-																			$author$project$ElmUiUtils$mono(arg.name),
-																			$author$project$ElmUiUtils$mono('='),
-																			$author$project$ElmUiUtils$mono(
-																			$elm$core$String$fromInt(i))
-																		]));
-															} else {
-																var p = v.a;
-																return A2(
-																	$mdgriffith$elm_ui$Element$row,
-																	_List_Nil,
-																	_List_fromArray(
-																		[
-																			$author$project$ElmUiUtils$mono(arg.name),
-																			$author$project$ElmUiUtils$mono('='),
-																			$author$project$ElmUiUtils$mono(p)
-																		]));
-															}
-														}),
-													md.args,
-													actuals)));
-									}
-								}())));
-				},
-				backtrace));
+								$mdgriffith$elm_ui$Element$height(
+									A2(
+										$elm$core$Maybe$withDefault,
+										$mdgriffith$elm_ui$Element$px(20),
+										trackHeight)),
+								_Utils_ap(
+									attributes,
+									_List_fromArray(
+										[
+											$mdgriffith$elm_ui$Element$behindContent(
+											vertical ? A3(
+												$mdgriffith$elm_ui$Element$Input$viewVerticalThumb,
+												factor,
+												A2(
+													$elm$core$List$cons,
+													$mdgriffith$elm_ui$Internal$Model$htmlClass('focusable-thumb'),
+													thumbAttributes),
+												trackWidth) : A3(
+												$mdgriffith$elm_ui$Element$Input$viewHorizontalThumb,
+												factor,
+												A2(
+													$elm$core$List$cons,
+													$mdgriffith$elm_ui$Internal$Model$htmlClass('focusable-thumb'),
+													thumbAttributes),
+												trackHeight))
+										])))),
+						$mdgriffith$elm_ui$Element$none)
+					])));
 	});
-var $author$project$EvalResult$viewProblem = function (problem) {
-	switch (problem.$) {
-		case 'Bug':
-			var msg = problem.a;
-			return A2(
-				$mdgriffith$elm_ui$Element$paragraph,
+var $author$project$MoveEditor$viewStepsInputs = function (model) {
+	var max = function () {
+		var _v4 = model.evalResult;
+		if (_v4.$ === 'Complete') {
+			var r = _v4.a;
+			return r.steps;
+		} else {
+			var partial = _v4.a.partial;
+			var complete = _v4.a.complete;
+			return complete.steps;
+		}
+	}();
+	var currentValue = function () {
+		var _v3 = model.onlyApplyFirstNSteps;
+		if (_v3.$ === 'Nothing') {
+			return $mdgriffith$elm_ui$Element$text('     ');
+		} else {
+			var i = _v3.a;
+			return $mdgriffith$elm_ui$Element$text(
+				$elm$core$String$fromInt(i));
+		}
+	}();
+	var _v0 = function () {
+		var _v1 = model.onlyApplyFirstNSteps;
+		if (_v1.$ === 'Nothing') {
+			return _Utils_Tuple3(
+				$elm$core$Maybe$Just(
+					$author$project$MoveEditor$AdjustSteps(0)),
+				$elm$core$Maybe$Just(
+					$author$project$MoveEditor$AdjustSteps(0)),
+				$elm$core$Maybe$Just(
+					$author$project$MoveEditor$AdjustSteps(max)));
+		} else {
+			var n = _v1.a;
+			return (_Utils_cmp(n, max) < 0) ? _Utils_Tuple3(
+				$elm$core$Maybe$Just(
+					$author$project$MoveEditor$AdjustSteps(
+						A2($elm$core$Basics$max, 0, n - 1))),
+				$elm$core$Maybe$Just(
+					$author$project$MoveEditor$AdjustSteps(n + 1)),
+				$elm$core$Maybe$Just(
+					$author$project$MoveEditor$AdjustSteps(max))) : _Utils_Tuple3(
+				$elm$core$Maybe$Just(
+					$author$project$MoveEditor$AdjustSteps(
+						A2($elm$core$Basics$max, 0, n - 1))),
+				$elm$core$Maybe$Nothing,
+				$elm$core$Maybe$Nothing);
+		}
+	}();
+	var oneStepBackMsg = _v0.a;
+	var oneStepForwardMsg = _v0.b;
+	var allForwardMsg = _v0.c;
+	var allForwardButton = A2(
+		$mdgriffith$elm_ui$Element$Input$button,
+		$author$project$Palette$regularButton,
+		{
+			label: $mdgriffith$elm_ui$Element$text('»'),
+			onPress: allForwardMsg
+		});
+	var oneStepBackButton = A2(
+		$mdgriffith$elm_ui$Element$Input$button,
+		$author$project$Palette$regularButton,
+		{
+			label: $mdgriffith$elm_ui$Element$text('‹'),
+			onPress: oneStepBackMsg
+		});
+	var oneStepForwardButton = A2(
+		$mdgriffith$elm_ui$Element$Input$button,
+		$author$project$Palette$regularButton,
+		{
+			label: $mdgriffith$elm_ui$Element$text('›'),
+			onPress: oneStepForwardMsg
+		});
+	return A2(
+		$mdgriffith$elm_ui$Element$row,
+		_List_fromArray(
+			[
+				A2($mdgriffith$elm_ui$Element$paddingXY, 10, 0),
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$spacing(5)
+			]),
+		_List_fromArray(
+			[
+				oneStepBackButton,
+				oneStepForwardButton,
+				allForwardButton,
+				currentValue,
+				A2(
+				$mdgriffith$elm_ui$Element$Input$slider,
 				_List_fromArray(
 					[
-						$mdgriffith$elm_ui$Element$spacing(5),
-						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-						$mdgriffith$elm_ui$Element$Font$bold,
-						$mdgriffith$elm_ui$Element$Font$color($author$project$Palette$redBook)
-					]),
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$text('INTERNAL ERROR CONTACT BENE '),
-						$mdgriffith$elm_ui$Element$text(msg)
-					]));
-		case 'NotEnoughCards':
-			var expected = problem.a.expected;
-			var inPile = problem.a.inPile;
-			var got = problem.a.got;
-			return A2(
-				$mdgriffith$elm_ui$Element$paragraph,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$spacing(5),
-						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-					]),
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$text('Expected '),
-						$author$project$ElmUiUtils$mono(
-						$elm$core$String$fromInt(expected)),
-						$mdgriffith$elm_ui$Element$text(' cards in '),
-						$author$project$ElmUiUtils$mono(inPile),
-						$mdgriffith$elm_ui$Element$text(' but got only '),
-						$author$project$ElmUiUtils$mono(
-						$elm$core$String$fromInt(got)),
-						$mdgriffith$elm_ui$Element$text('!')
-					]));
-		case 'NoSuchPile':
-			var name = problem.a.name;
-			return A2(
-				$mdgriffith$elm_ui$Element$paragraph,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$spacing(5),
-						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-					]),
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$text('There is no pile called '),
-						$author$project$ElmUiUtils$mono(name),
-						$mdgriffith$elm_ui$Element$text('!')
-					]));
-		default:
-			var names = problem.a.names;
-			var moveDefinition = problem.a.moveDefinition;
-			if (names.b && (!names.b.b)) {
-				var name = names.a;
-				return A2(
-					$mdgriffith$elm_ui$Element$paragraph,
-					_List_fromArray(
-						[
-							$mdgriffith$elm_ui$Element$spacing(5),
-							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-						]),
-					_List_fromArray(
-						[
-							$mdgriffith$elm_ui$Element$text('The temporary pile '),
-							$author$project$ElmUiUtils$mono(name),
-							$mdgriffith$elm_ui$Element$text(' is not empty at the end of the call to '),
-							$author$project$ElmUiUtils$mono(moveDefinition.name),
-							$mdgriffith$elm_ui$Element$text('!')
-						]));
-			} else {
-				return A2(
-					$mdgriffith$elm_ui$Element$paragraph,
-					_List_fromArray(
-						[
-							$mdgriffith$elm_ui$Element$spacing(5),
-							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-						]),
-					A2(
-						$elm$core$List$cons,
-						$mdgriffith$elm_ui$Element$text('The temporary piles '),
-						_Utils_ap(
-							A2(
-								$elm$core$List$intersperse,
-								$mdgriffith$elm_ui$Element$text(', '),
-								A2($elm$core$List$map, $author$project$ElmUiUtils$mono, names)),
+						$mdgriffith$elm_ui$Element$height(
+						$mdgriffith$elm_ui$Element$px(30)),
+						$mdgriffith$elm_ui$Element$behindContent(
+						A2(
+							$mdgriffith$elm_ui$Element$el,
 							_List_fromArray(
 								[
-									$mdgriffith$elm_ui$Element$text(' are not empty!')
-								]))));
-			}
-	}
+									$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+									$mdgriffith$elm_ui$Element$height(
+									$mdgriffith$elm_ui$Element$px(2)),
+									$mdgriffith$elm_ui$Element$centerY,
+									$mdgriffith$elm_ui$Element$Background$color($author$project$Palette$greenBook),
+									$mdgriffith$elm_ui$Element$Border$rounded(2)
+								]),
+							$mdgriffith$elm_ui$Element$none))
+					]),
+				{
+					label: $mdgriffith$elm_ui$Element$Input$labelHidden('Steps'),
+					max: max,
+					min: 0,
+					onChange: A2($elm$core$Basics$composeL, $author$project$MoveEditor$AdjustSteps, $elm$core$Basics$round),
+					step: $elm$core$Maybe$Just(1),
+					thumb: $mdgriffith$elm_ui$Element$Input$defaultThumb,
+					value: function () {
+						var _v2 = model.onlyApplyFirstNSteps;
+						if (_v2.$ === 'Nothing') {
+							return max;
+						} else {
+							var n = _v2.a;
+							return n;
+						}
+					}()
+				})
+			]));
 };
-var $author$project$EvalResult$viewError = F2(
-	function (sourceText, error) {
-		return A2(
-			$mdgriffith$elm_ui$Element$column,
-			_List_fromArray(
-				[
-					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-					$mdgriffith$elm_ui$Element$spacing(20)
-				]),
-			_List_fromArray(
-				[
-					$author$project$EvalResult$viewProblem(error.problem),
-					A2($author$project$EvalResult$viewBacktrace, sourceText, error.backtrace)
-				]));
-	});
 var $author$project$MoveEditor$view = function (model) {
 	var withWidthPortion = function (n) {
 		return $mdgriffith$elm_ui$Element$el(
@@ -19524,79 +21061,36 @@ var $author$project$MoveEditor$view = function (model) {
 					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill)
 				]));
 	};
-	var viewMessage = F2(
-		function (title, m) {
-			return A2(
-				$mdgriffith$elm_ui$Element$column,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-						$mdgriffith$elm_ui$Element$height(
-						A2(
-							$mdgriffith$elm_ui$Element$minimum,
-							0,
-							$mdgriffith$elm_ui$Element$fillPortion(1))),
-						$mdgriffith$elm_ui$Element$scrollbarY,
-						$mdgriffith$elm_ui$Element$spacing(10)
-					]),
-				_List_fromArray(
-					[
-						A2(
-						$mdgriffith$elm_ui$Element$el,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$Font$bold,
-								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-							]),
-						$mdgriffith$elm_ui$Element$text(title)),
-						A2(
-						$mdgriffith$elm_ui$Element$el,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-								$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
-								$mdgriffith$elm_ui$Element$Font$family(
-								_List_fromArray(
-									[$mdgriffith$elm_ui$Element$Font$monospace]))
-							]),
-						$mdgriffith$elm_ui$Element$text(m))
-					]));
-		});
-	var viewErrorMessage = F2(
-		function (title, error) {
-			return A2(
-				$mdgriffith$elm_ui$Element$column,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-						$mdgriffith$elm_ui$Element$height(
-						A2(
-							$mdgriffith$elm_ui$Element$minimum,
-							0,
-							$mdgriffith$elm_ui$Element$fillPortion(1))),
-						$mdgriffith$elm_ui$Element$scrollbarY,
-						$mdgriffith$elm_ui$Element$spacing(10)
-					]),
-				_List_fromArray(
-					[
-						A2(
-						$mdgriffith$elm_ui$Element$el,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$Font$bold,
-								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
-							]),
-						$mdgriffith$elm_ui$Element$text(title)),
-						A2(
-						$mdgriffith$elm_ui$Element$el,
-						_List_fromArray(
-							[
-								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-								$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill)
-							]),
-						error)
-					]));
-		});
+	var movesView = function () {
+		var _v3 = _Utils_Tuple2(model.displayMode, model.evalResult);
+		if (_v3.a.$ === 'Show') {
+			if (_v3.b.$ === 'Partial') {
+				var _v4 = _v3.a;
+				var partial = _v3.b.a.partial;
+				var partialError = _v3.b.a.partialError;
+				return A2(
+					$mdgriffith$elm_ui$Element$column,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+							$mdgriffith$elm_ui$Element$spacing(20),
+							A2($mdgriffith$elm_ui$Element$paddingXY, 0, 10)
+						]),
+					_List_fromArray(
+						[
+							$author$project$MoveEditor$viewMoveWeStoppedAtInContext(partialError),
+							$author$project$EvalResult$viewError(partialError)
+						]));
+			} else {
+				var _v5 = _v3.a;
+				return $author$project$MoveEditor$editView(model);
+			}
+		} else {
+			var _v6 = _v3.a;
+			return $author$project$MoveEditor$editView(model);
+		}
+	}();
 	var initialImageView = A2(
 		$mdgriffith$elm_ui$Element$el,
 		_List_fromArray(
@@ -19608,179 +21102,43 @@ var $author$project$MoveEditor$view = function (model) {
 				A2($mdgriffith$elm_ui$Element$paddingXY, 20, 10)
 			]),
 		A3($mdgriffith$elm_ui$Element$Lazy$lazy2, $author$project$ImageEditor$view, $author$project$MoveEditor$ImageEditorChanged, model.initialImage));
-	var finalImageView = A2(
-		$mdgriffith$elm_ui$Element$el,
-		_List_fromArray(
-			[
-				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-				$mdgriffith$elm_ui$Element$height(
-				A2($mdgriffith$elm_ui$Element$minimum, 0, $mdgriffith$elm_ui$Element$fill)),
-				$mdgriffith$elm_ui$Element$scrollbarY,
-				A2($mdgriffith$elm_ui$Element$paddingXY, 20, 10)
-			]),
-		A3(
-			$mdgriffith$elm_ui$Element$Lazy$lazy2,
-			$author$project$Image$view,
-			function (t) {
-				return A2(
-					$mdgriffith$elm_ui$Element$el,
-					_List_fromArray(
-						[$mdgriffith$elm_ui$Element$Font$bold]),
-					$mdgriffith$elm_ui$Element$text(t));
-			},
-			model.finalImage));
-	var directionButton = function () {
-		var directionLabel = model.backwards ? '☚' : '☛';
-		return A2(
-			$mdgriffith$elm_ui$Element$Input$button,
-			_List_fromArray(
-				[
-					$mdgriffith$elm_ui$Element$Font$size(35),
-					$mdgriffith$elm_ui$Element$Font$color($author$project$Palette$blueBook),
-					$mdgriffith$elm_ui$Element$padding(10),
-					$mdgriffith$elm_ui$Element$mouseOver(
-					_List_fromArray(
-						[
-							$mdgriffith$elm_ui$Element$scale(1.1)
-						]))
-				]),
-			{
-				label: $mdgriffith$elm_ui$Element$text(directionLabel),
-				onPress: $elm$core$Maybe$Just($author$project$MoveEditor$ToggleForwardsBackwards)
-			});
-	}();
-	var _v0 = function () {
-		var _v1 = _Utils_Tuple2(model.movesAndDefinitions, model.performanceFailure);
-		if (_v1.a.$ === 'Err') {
-			var errorMsg = _v1.a.a;
-			return _Utils_Tuple2(
-				$author$project$Palette$redBook,
-				A2(
-					viewErrorMessage,
-					'That makes no sense',
-					A2($author$project$MoveParseError$view, model.text, errorMsg)));
-		} else {
-			if (_v1.b.$ === 'Nothing') {
-				var _v2 = _v1.b;
-				return _Utils_Tuple2(
-					$author$project$Palette$greenBook,
-					A2(viewMessage, 'Reference', $author$project$MoveEditor$defaultInfoText));
+	var finalImageView = function () {
+		var finalImage = function () {
+			var _v2 = model.evalResult;
+			if (_v2.$ === 'Complete') {
+				var r = _v2.a;
+				return r.lastImage;
 			} else {
-				var error = _v1.b.a;
-				return _Utils_Tuple2(
-					$author$project$Palette$redBook,
-					A2(
-						viewErrorMessage,
-						'Failure during performance',
-						A2($author$project$EvalResult$viewError, model.text, error)));
-			}
-		}
-	}();
-	var movesBorderColor = _v0.a;
-	var infoText = _v0.b;
-	var movesView = function () {
-		var moveDefinitionsIntoLibraryButton = function () {
-			var _v3 = model.movesAndDefinitions;
-			if (_v3.$ === 'Err') {
-				return $mdgriffith$elm_ui$Element$none;
-			} else {
-				var definitions = _v3.a.definitions;
-				if (!definitions.b) {
-					return $mdgriffith$elm_ui$Element$none;
-				} else {
-					var ds = definitions;
-					return A2(
-						$mdgriffith$elm_ui$Element$el,
-						_List_fromArray(
-							[
-								A2($mdgriffith$elm_ui$Element$paddingXY, 2, 0)
-							]),
-						A2(
-							$mdgriffith$elm_ui$Element$Input$button,
-							_List_fromArray(
-								[
-									$mdgriffith$elm_ui$Element$padding(3),
-									$mdgriffith$elm_ui$Element$Border$rounded(3),
-									$mdgriffith$elm_ui$Element$Font$color($author$project$Palette$white),
-									$mdgriffith$elm_ui$Element$Font$size(14),
-									$mdgriffith$elm_ui$Element$Background$color($author$project$Palette$greenBook),
-									$mdgriffith$elm_ui$Element$mouseOver(
-									_List_fromArray(
-										[
-											A2($mdgriffith$elm_ui$Element$Border$glow, $author$project$Palette$grey, 1)
-										]))
-								]),
-							{
-								label: $mdgriffith$elm_ui$Element$text('Move definitions into Library'),
-								onPress: $elm$core$Maybe$Just($author$project$MoveEditor$MoveDefinitionsIntoLibrary)
-							}));
-				}
+				var partial = _v2.a.partial;
+				return partial.lastImage;
 			}
 		}();
 		return A2(
-			$mdgriffith$elm_ui$Element$column,
+			$mdgriffith$elm_ui$Element$el,
 			_List_fromArray(
 				[
 					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
-					$mdgriffith$elm_ui$Element$spacing(10)
+					$mdgriffith$elm_ui$Element$height(
+					A2($mdgriffith$elm_ui$Element$minimum, 0, $mdgriffith$elm_ui$Element$fill)),
+					$mdgriffith$elm_ui$Element$scrollbarY,
+					A2($mdgriffith$elm_ui$Element$paddingXY, 20, 10)
 				]),
-			_List_fromArray(
-				[
-					A2(
-					$mdgriffith$elm_ui$Element$Input$multiline,
-					_List_fromArray(
-						[
-							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-							$mdgriffith$elm_ui$Element$height(
-							A2(
-								$mdgriffith$elm_ui$Element$minimum,
-								0,
-								$mdgriffith$elm_ui$Element$fillPortion(2))),
-							$mdgriffith$elm_ui$Element$scrollbarY,
-							$mdgriffith$elm_ui$Element$Border$color(movesBorderColor),
-							$mdgriffith$elm_ui$Element$Input$focusedOnLoad
-						]),
-					{
-						label: A2(
-							$mdgriffith$elm_ui$Element$Input$labelAbove,
-							_List_Nil,
-							A2(
-								$mdgriffith$elm_ui$Element$row,
-								_List_fromArray(
-									[
-										$mdgriffith$elm_ui$Element$spacing(40)
-									]),
-								_List_fromArray(
-									[
-										A2(
-										$mdgriffith$elm_ui$Element$el,
-										_List_fromArray(
-											[$mdgriffith$elm_ui$Element$Font$bold]),
-										$mdgriffith$elm_ui$Element$text('Definitions & Moves')),
-										directionButton,
-										moveDefinitionsIntoLibraryButton
-									]))),
-						onChange: $author$project$MoveEditor$SetMoves,
-						placeholder: $elm$core$Maybe$Nothing,
-						spellcheck: false,
-						text: model.text
-					}),
-					infoText
-				]));
+			A3(
+				$mdgriffith$elm_ui$Element$Lazy$lazy2,
+				$author$project$Image$view,
+				function (t) {
+					return A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[$mdgriffith$elm_ui$Element$Font$bold]),
+						$mdgriffith$elm_ui$Element$text(t));
+				},
+				finalImage));
 	}();
-	var mainElements = model.backwards ? _List_fromArray(
-		[
-			A2(withWidthPortion, 4, finalImageView),
-			A2(withWidthPortion, 3, movesView),
-			A2(withWidthPortion, 4, initialImageView)
-		]) : _List_fromArray(
-		[
-			A2(withWidthPortion, 4, initialImageView),
-			A2(withWidthPortion, 3, movesView),
-			A2(withWidthPortion, 4, finalImageView)
-		]);
-	return A2(
+	var _v0 = model.backwards ? _Utils_Tuple2(finalImageView, initialImageView) : _Utils_Tuple2(initialImageView, finalImageView);
+	var leftImage = _v0.a;
+	var rightImage = _v0.b;
+	var mainElements = A2(
 		$mdgriffith$elm_ui$Element$row,
 		_List_fromArray(
 			[
@@ -19789,7 +21147,31 @@ var $author$project$MoveEditor$view = function (model) {
 				$mdgriffith$elm_ui$Element$height(
 				A2($mdgriffith$elm_ui$Element$minimum, 0, $mdgriffith$elm_ui$Element$fill))
 			]),
-		mainElements);
+		_List_fromArray(
+			[
+				A2(withWidthPortion, 4, leftImage),
+				A2(withWidthPortion, 3, movesView),
+				A2(withWidthPortion, 4, rightImage)
+			]));
+	var _v1 = model.displayMode;
+	if (_v1.$ === 'Show') {
+		return A2(
+			$mdgriffith$elm_ui$Element$column,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$spacing(10),
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+					$mdgriffith$elm_ui$Element$height(
+					A2($mdgriffith$elm_ui$Element$minimum, 0, $mdgriffith$elm_ui$Element$fill))
+				]),
+			_List_fromArray(
+				[
+					mainElements,
+					$author$project$MoveEditor$viewStepsInputs(model)
+				]));
+	} else {
+		return mainElements;
+	}
 };
 var $mdgriffith$elm_ui$Internal$Model$Right = {$: 'Right'};
 var $mdgriffith$elm_ui$Element$alignRight = $mdgriffith$elm_ui$Internal$Model$AlignX($mdgriffith$elm_ui$Internal$Model$Right);
@@ -19856,10 +21238,15 @@ var $author$project$Toasts$view = function (toasts) {
 var $author$project$Main$EditDefinition = function (a) {
 	return {$: 'EditDefinition', a: a};
 };
-var $author$project$Main$SelectDefinition = function (a) {
-	return {$: 'SelectDefinition', a: a};
-};
 var $mdgriffith$elm_ui$Element$scrollbarX = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$overflow, $mdgriffith$elm_ui$Internal$Style$classes.scrollbarsX);
+var $author$project$ViewMove$withMoveUrl = F2(
+	function (moveUrl, viewConfig) {
+		return _Utils_update(
+			viewConfig,
+			{
+				moveUrl: $elm$core$Maybe$Just(moveUrl)
+			});
+	});
 var $author$project$Main$viewLibrary = F2(
 	function (selectedMove, library) {
 		var selectedDefinition = A2(
@@ -19919,13 +21306,14 @@ var $author$project$Main$viewLibrary = F2(
 										$mdgriffith$elm_ui$Element$text(md.doc))
 									]));
 							return A2(
-								$mdgriffith$elm_ui$Element$Input$button,
+								$mdgriffith$elm_ui$Element$link,
 								_List_Nil,
 								{
 									label: listEl,
-									onPress: $elm$core$Maybe$Just(
-										$author$project$Main$SelectDefinition(
-											$author$project$Move$identifier(md)))
+									url: $author$project$Route$routeToString(
+										$author$project$Route$Library(
+											$elm$core$Maybe$Just(
+												$author$project$Move$identifier(md))))
 								});
 						},
 						$author$project$MoveLibrary$toListAlphabetic(library))),
@@ -19945,6 +21333,14 @@ var $author$project$Main$viewLibrary = F2(
 							return $mdgriffith$elm_ui$Element$none;
 						} else {
 							var d = selectedDefinition.a;
+							var viewConfig = A2(
+								$author$project$ViewMove$withMoveUrl,
+								function (id) {
+									return $author$project$Route$routeToString(
+										$author$project$Route$Library(
+											$elm$core$Maybe$Just(id)));
+								},
+								$author$project$ViewMove$defaultConfig);
 							var uses = function () {
 								var _v2 = A2(
 									$elm$core$List$filterMap,
@@ -19975,14 +21371,15 @@ var $author$project$Main$viewLibrary = F2(
 													$elm$core$List$map,
 													function (md) {
 														return A2(
-															$mdgriffith$elm_ui$Element$Input$button,
+															$mdgriffith$elm_ui$Element$link,
 															$author$project$Palette$linkButton,
 															{
 																label: $author$project$ElmUiUtils$mono(
 																	$author$project$Move$signature(md)),
-																onPress: $elm$core$Maybe$Just(
-																	$author$project$Main$SelectDefinition(
-																		$author$project$Move$identifier(md)))
+																url: $author$project$Route$routeToString(
+																	$author$project$Route$Library(
+																		$elm$core$Maybe$Just(
+																			$author$project$Move$identifier(md))))
 															});
 													},
 													l))));
@@ -20012,10 +21409,7 @@ var $author$project$Main$viewLibrary = F2(
 									]),
 								_List_fromArray(
 									[
-										A2(
-										$author$project$ViewMove$viewDefinition,
-										$elm$core$Maybe$Just($author$project$Main$SelectDefinition),
-										d),
+										A2($author$project$ViewMove$viewDefinition, viewConfig, d),
 										uses,
 										editButton
 									]));
@@ -20035,7 +21429,8 @@ var $author$project$Main$view = function (model) {
 							$mdgriffith$elm_ui$Element$width(
 							$mdgriffith$elm_ui$Element$px(200)),
 							$mdgriffith$elm_ui$Element$centerX,
-							$mdgriffith$elm_ui$Element$centerY
+							$mdgriffith$elm_ui$Element$centerY,
+							$mdgriffith$elm_ui$Element$Input$focusedOnLoad
 						]),
 					{
 						label: A2(
@@ -20050,7 +21445,7 @@ var $author$project$Main$view = function (model) {
 		} else {
 			var content = function () {
 				var _v0 = model.activePage;
-				if (_v0.$ === 'MoveEditorPage') {
+				if (_v0.$ === 'EditorPage') {
 					return A2(
 						$mdgriffith$elm_ui$Element$map,
 						$author$project$Main$MoveEditorChanged,
@@ -20065,12 +21460,15 @@ var $author$project$Main$view = function (model) {
 			}();
 			return _List_fromArray(
 				[
-					$author$project$Main$topBar(model.activePage),
+					A2(
+					$author$project$Main$topBar,
+					model.activePage,
+					$author$project$MoveEditor$getDisplayMode(model.moveEditor)),
 					content
 				]);
 		}
 	}();
-	return A2(
+	var body = A2(
 		$mdgriffith$elm_ui$Element$layout,
 		_List_fromArray(
 			[
@@ -20086,7 +21484,12 @@ var $author$project$Main$view = function (model) {
 					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill)
 				]),
 			page));
+	return {
+		body: _List_fromArray(
+			[body]),
+		title: 'Finding The Way Home'
+	};
 };
-var $author$project$Main$main = $elm$browser$Browser$element(
-	{init: $author$project$Main$init, subscriptions: $author$project$Main$subscriptions, update: $author$project$Main$update, view: $author$project$Main$view});
+var $author$project$Main$main = $elm$browser$Browser$application(
+	{init: $author$project$Main$init, onUrlChange: $author$project$Main$UrlChanged, onUrlRequest: $author$project$Main$UrlRequested, subscriptions: $author$project$Main$subscriptions, update: $author$project$Main$update, view: $author$project$Main$view});
 _Platform_export({'Main':{'init':$author$project$Main$main($elm$json$Json$Decode$value)(0)}});}(this));
