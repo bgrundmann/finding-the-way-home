@@ -122,7 +122,7 @@ type Msg
     | Load File
     | GotLoad String
     | Focus (Result Dom.Error ())
-    | AdjustSteps Int
+    | AdjustApplyFirstNSteps (Maybe Int)
 
 
 type DisplayMode
@@ -403,8 +403,8 @@ update msg model =
         Focus (Err _) ->
             ( model, Cmd.none )
 
-        AdjustSteps i ->
-            ( { model | onlyApplyFirstNSteps = Just i }
+        AdjustApplyFirstNSteps newValue ->
+            ( { model | onlyApplyFirstNSteps = newValue }
                 |> applyMoves
             , Cmd.none
             )
@@ -602,26 +602,29 @@ viewStepsInputs model =
                 Partial { partial, complete } ->
                     complete.steps
 
-        ( oneStepBackMsg, oneStepForwardMsg, allForwardMsg ) =
+        allForwardMsg =
+            AdjustApplyFirstNSteps Nothing
+
+        ( oneStepBackMsg, oneStepForwardMsg ) =
             case model.onlyApplyFirstNSteps of
                 Nothing ->
-                    ( Just (AdjustSteps 0), Just (AdjustSteps 0), Just (AdjustSteps max) )
+                    ( AdjustApplyFirstNSteps (Just (Basics.max 0 (max - 1)))
+                    , AdjustApplyFirstNSteps (Just 0)
+                    )
 
                 Just n ->
-                    if n < max then
-                        ( Just (AdjustSteps (Basics.max 0 (n - 1))), Just (AdjustSteps (n + 1)), Just (AdjustSteps max) )
-
-                    else
-                        ( Just (AdjustSteps (Basics.max 0 (n - 1))), Nothing, Nothing )
+                    ( AdjustApplyFirstNSteps (Just (Basics.max 0 (n - 1)))
+                    , AdjustApplyFirstNSteps (Just (Basics.min max (n + 1)))
+                    )
 
         oneStepBackButton =
-            Input.button Palette.regularButton { onPress = oneStepBackMsg, label = text "‹" }
+            Input.button Palette.regularButton { onPress = Just oneStepBackMsg, label = text "‹" }
 
         oneStepForwardButton =
-            Input.button Palette.regularButton { onPress = oneStepForwardMsg, label = text "›" }
+            Input.button Palette.regularButton { onPress = Just oneStepForwardMsg, label = text "›" }
 
         allForwardButton =
-            Input.button Palette.regularButton { onPress = allForwardMsg, label = text "»" }
+            Input.button Palette.regularButton { onPress = Just allForwardMsg, label = text "»" }
 
         currentValue =
             case model.onlyApplyFirstNSteps of
@@ -650,7 +653,7 @@ viewStepsInputs model =
                     Element.none
                 )
             ]
-            { onChange = AdjustSteps << round
+            { onChange = AdjustApplyFirstNSteps << Just << round
             , label = Input.labelHidden "Steps"
             , min = 0
             , max = toFloat max
