@@ -3,6 +3,7 @@ module ElmUiUtils exposing (boldMono, id, mono, onKey, tabEl)
 import Element exposing (Element, centerX, centerY, el, paddingEach, text)
 import Element.Border as Border
 import Element.Font as Font
+import Element.Input as Input
 import Html.Attributes
 import Html.Events
 import Json.Decode as Decode
@@ -53,8 +54,8 @@ onKey { enter, escape } =
         )
 
 
-tabEl : (page -> String) -> page -> { page : page, label : String } -> Element msg
-tabEl toUrl activePage thisTab =
+tabEl : (page -> msg) -> page -> { page : page, label : String } -> Element msg
+tabEl makeMsg activePage thisTab =
     let
         isSelected =
             thisTab.page == activePage
@@ -92,6 +93,6 @@ tabEl toUrl activePage thisTab =
             , centerY
             , paddingEach { left = 30, right = 30, top = 10 + padOffset, bottom = 10 - padOffset }
             ]
-            (Element.link [] { url = toUrl thisTab.page, label = text thisTab.label })
-         -- (Input.button [] { onPress = Just (makeMsg thisTab.tab), label = text thisTab.label })
+            -- (Element.link [] { url = toUrl thisTab.page, label = text thisTab.label })
+            (Input.button [] { onPress = Just (makeMsg thisTab.page), label = text thisTab.label })
         )

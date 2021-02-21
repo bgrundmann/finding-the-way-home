@@ -3,6 +3,7 @@ module MoveEditor exposing
     , Model
     , Msg
     , StoredState
+    , couldShow
     , editDefinition
     , encodeStoredState
     , getDefinitions
@@ -309,15 +310,30 @@ editDefinition id model =
             )
 
 
-setDisplayMode : DisplayMode -> Model -> Model
-setDisplayMode displayMode model =
-    -- We do not allow display mode Show
+{-| Could the display Mode be changed to show?
+-}
+couldShow : Model -> Bool
+couldShow model =
     case model.movesAndDefinitions of
         Ok _ ->
-            { model | displayMode = displayMode }
+            True
 
         Err _ ->
-            model
+            False
+
+
+setDisplayMode : DisplayMode -> Model -> Model
+setDisplayMode displayMode model =
+    case displayMode of
+        Show ->
+            if couldShow model then
+                { model | displayMode = displayMode }
+
+            else
+                model
+
+        Edit ->
+            { model | displayMode = displayMode }
 
 
 getDisplayMode : Model -> DisplayMode

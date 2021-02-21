@@ -70,7 +70,7 @@ type ActivePage
 type Msg
     = MoveEditorChanged MoveEditor.Msg
     | ToastsChanged Toasts.Msg
-    | SetActivePage ( ActivePage, Maybe MoveEditor.DisplayMode )
+    | SetActivePage ( ActivePage, MoveEditor.DisplayMode )
     | SelectDefinition MoveIdentifier
     | EditDefinition MoveIdentifier
     | UserKnowsChanged String
@@ -166,20 +166,23 @@ update msg model =
             ( newModel, Cmd.none )
 
         SetActivePage ( page, dm ) ->
-            let
-                newModel =
-                    { model
-                        | activePage = page
-                        , moveEditor =
-                            case dm of
-                                Nothing ->
-                                    model.moveEditor
+            case ( page, dm ) of
+                ( LibraryPage, _ ) ->
+                    ( model, Nav.pushUrl model.nav (Route.routeToString (Route.Library model.selectedMove)) )
 
-                                Just d ->
-                                    MoveEditor.setDisplayMode d model.moveEditor
-                    }
-            in
-            ( newModel, Cmd.none )
+                ( EditorPage, MoveEditor.Show ) ->
+                    if MoveEditor.couldShow model.moveEditor then
+                        ( model, Nav.pushUrl model.nav (Route.routeToString Route.Show) )
+
+                    else
+                        let
+                            ( toasts, toastCmd ) =
+                                Toasts.add (Toasts.toast "You are not ready to show this!") model.toasts
+                        in
+                        ( { model | toasts = toasts }, Cmd.map ToastsChanged toastCmd )
+
+                ( EditorPage, MoveEditor.Edit ) ->
+                    ( model, Nav.pushUrl model.nav (Route.routeToString Route.Editor) )
 
         SelectDefinition id ->
             ( { model | selectedMove = Just id }, Cmd.none )
@@ -295,7 +298,7 @@ topBar : ActivePage -> MoveEditor.DisplayMode -> Element Msg
 topBar activePage displayMode =
     let
         tab =
-            ElmUiUtils.tabEl getUrlOfPage ( activePage, displayMode )
+            ElmUiUtils.tabEl SetActivePage ( activePage, displayMode )
 
         tabs =
             row [ centerX ]
