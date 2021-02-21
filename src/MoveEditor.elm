@@ -2,8 +2,8 @@ module MoveEditor exposing
     ( DisplayMode(..)
     , Model
     , Msg
+    , ReasonsNotToShow(..)
     , StoredState
-    , couldShow
     , editDefinition
     , encodeStoredState
     , getDefinitions
@@ -11,6 +11,7 @@ module MoveEditor exposing
     , getLibrary
     , getStoredState
     , init
+    , reasonsNotToShow
     , setDisplayMode
     , setLibrary
     , storedStateDecoder
@@ -309,23 +310,32 @@ editDefinition id model =
             )
 
 
+type ReasonsNotToShow
+    = ParseError
+    | BackwardsNotSupported
+
+
 {-| Could the display Mode be changed to show?
 -}
-couldShow : Model -> Bool
-couldShow model =
-    case model.movesAndDefinitions of
-        Ok _ ->
-            True
+reasonsNotToShow : Model -> Maybe ReasonsNotToShow
+reasonsNotToShow model =
+    if model.backwards then
+        Just BackwardsNotSupported
 
-        Err _ ->
-            False
+    else
+        case model.movesAndDefinitions of
+            Ok _ ->
+                Nothing
+
+            Err _ ->
+                Just ParseError
 
 
 setDisplayMode : DisplayMode -> Model -> Model
 setDisplayMode displayMode model =
     case displayMode of
         Show ->
-            if couldShow model then
+            if reasonsNotToShow model == Nothing then
                 { model | displayMode = displayMode }
 
             else

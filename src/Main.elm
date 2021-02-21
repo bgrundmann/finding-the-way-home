@@ -166,15 +166,26 @@ update msg model =
                     ( model, Nav.pushUrl model.nav (Route.routeToString (Route.Library model.selectedMove)) )
 
                 ( EditorPage, MoveEditor.Show ) ->
-                    if MoveEditor.couldShow model.moveEditor then
-                        ( model, Nav.pushUrl model.nav (Route.routeToString Route.Show) )
+                    case MoveEditor.reasonsNotToShow model.moveEditor of
+                        Nothing ->
+                            ( model, Nav.pushUrl model.nav (Route.routeToString Route.Show) )
 
-                    else
-                        let
-                            ( toasts, toastCmd ) =
-                                Toasts.add (Toasts.toast "You are not ready to show this!") model.toasts
-                        in
-                        ( { model | toasts = toasts }, Cmd.map ToastsChanged toastCmd )
+                        Just reason ->
+                            let
+                                message =
+                                    case reason of
+                                        MoveEditor.ParseError ->
+                                            "You are not ready to show this! Fix the error first."
+
+                                        MoveEditor.BackwardsNotSupported ->
+                                            "Sorry show mode not support while going backwards."
+
+                                ( toasts, toastCmd ) =
+                                    Toasts.add
+                                        (Toasts.toast message |> Toasts.withWarning)
+                                        model.toasts
+                            in
+                            ( { model | toasts = toasts }, Cmd.map ToastsChanged toastCmd )
 
                 ( EditorPage, MoveEditor.Edit ) ->
                     ( model, Nav.pushUrl model.nav (Route.routeToString Route.Editor) )

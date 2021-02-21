@@ -1,4 +1,14 @@
-module Toasts exposing (Msg, Toast, Toasts, add, init, toast, update, view)
+module Toasts exposing
+    ( Msg
+    , Toast
+    , Toasts
+    , add
+    , init
+    , toast
+    , update
+    , view
+    , withWarning
+    )
 
 import Dict exposing (Dict)
 import Element
@@ -54,6 +64,11 @@ init =
 toast : String -> Toast
 toast msg =
     { msg = msg, bgColor = Palette.greenBook, fontColor = Palette.white }
+
+
+withWarning : Toast -> Toast
+withWarning t =
+    { t | bgColor = Palette.redBook }
 
 
 {-| Add a toast.
