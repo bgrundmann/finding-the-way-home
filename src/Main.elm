@@ -186,8 +186,7 @@ update msg model =
 
         EditDefinition id ->
             ( { model
-                | selectedMove = Nothing
-                , moveEditor =
+                | moveEditor =
                     MoveEditor.editDefinition id model.moveEditor
                         |> MoveEditor.setDisplayMode MoveEditor.Edit
                 , activePage = EditorPage

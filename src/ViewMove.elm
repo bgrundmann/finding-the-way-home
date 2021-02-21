@@ -5,6 +5,7 @@ module ViewMove exposing
     , prettyPrintDefinition
     , view
     , viewDefinition
+    , viewDefinitionsAndMoves
     , viewMoves
     , withMoveUrl
     )
@@ -114,6 +115,14 @@ viewExpr e =
 
         ExprTemporaryPile pn ->
             mono pn.name
+
+
+viewDefinitionsAndMoves : ViewConfig -> List MoveDefinition -> List Move -> Element msg
+viewDefinitionsAndMoves viewConfig defs moves =
+    column [ spacing textSpacing ]
+        (List.map (viewDefinition viewConfig) defs
+            ++ [ viewMoves viewConfig moves ]
+        )
 
 
 viewDefinition : ViewConfig -> MoveDefinition -> Element msg

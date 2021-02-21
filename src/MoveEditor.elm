@@ -311,7 +311,13 @@ editDefinition id model =
 
 setDisplayMode : DisplayMode -> Model -> Model
 setDisplayMode displayMode model =
-    { model | displayMode = displayMode }
+    -- We do not allow display mode Show
+    case model.movesAndDefinitions of
+        Ok _ ->
+            { model | displayMode = displayMode }
+
+        Err _ ->
+            model
 
 
 getDisplayMode : Model -> DisplayMode
@@ -734,7 +740,19 @@ view model =
                         ]
 
                 ( Show, Complete _ ) ->
-                    editView model
+                    case model.movesAndDefinitions of
+                        Err _ ->
+                            Element.none
+
+                        Ok { definitions, moves } ->
+                            el
+                                [ width fill
+                                , height (minimum 0 fill)
+                                , scrollbarY
+                                , paddingXY 20 10
+                                ]
+                            <|
+                                ViewMove.viewDefinitionsAndMoves ViewMove.defaultConfig definitions moves
 
                 ( Edit, _ ) ->
                     editView model
