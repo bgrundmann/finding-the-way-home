@@ -24,6 +24,9 @@ type Problem
     | EarlyExit
 
 
+{-| First element in the list is the first move that happened.
+Last element is the move that failed.
+-}
 type alias Backtrace =
     List
         { location : Int -- Nth move in the current list of moves
@@ -33,7 +36,7 @@ type alias Backtrace =
 
 type BacktraceStep
     = BtRepeat { nth : Int, total : Int }
-    | BtDo MoveDefinition (List ExprValue)
+    | BtDo MoveDefinition (List Move.Expr) (List ExprValue)
 
 
 type alias EvalError =
@@ -74,8 +77,8 @@ addBacktrace loc step result =
             }
 
 
-viewBacktrace : String -> Backtrace -> Element msg
-viewBacktrace sourceText backtrace =
+viewBacktrace : Backtrace -> Element msg
+viewBacktrace backtrace =
     column [ width fill, spacing 5 ]
         (List.map
             (\{ location, step } ->
@@ -90,7 +93,7 @@ viewBacktrace sourceText backtrace =
                                     , mono (String.fromInt total)
                                     ]
 
-                                BtDo md actuals ->
+                                BtDo md exprs actuals ->
                                     mono md.name
                                         :: List.map2
                                             (\arg v ->
@@ -111,11 +114,11 @@ viewBacktrace sourceText backtrace =
         )
 
 
-viewError : String -> EvalError -> Element msg
-viewError sourceText error =
+viewError : EvalError -> Element msg
+viewError error =
     column [ width fill, spacing 20 ]
         [ viewProblem error.problem
-        , viewBacktrace sourceText error.backtrace
+        , viewBacktrace error.backtrace
         ]
 
 

@@ -73,7 +73,7 @@ increaseSteps continue result =
                 nextResult
 
             else
-                reportError nextResult.lastImage nextResult.steps EarlyExit
+                reportError result.lastImage result.steps EarlyExit
 
 
 evalWithEnv : (EvalResult -> Bool) -> Env -> Image -> Int -> Int -> Move -> EvalResult
@@ -157,7 +157,7 @@ evalWithEnv continue env image steps location move =
             case beforeCallResult.error of
                 Just _ ->
                     beforeCallResult
-                        |> addBacktrace location (BtDo md actualValues)
+                        |> addBacktrace location (BtDo md actuals actualValues)
 
                 Nothing ->
                     case body of
@@ -165,7 +165,7 @@ evalWithEnv continue env image steps location move =
                             -- Here we pass in the original steps again, because in total
                             -- we only want to increase once
                             Primitives.eval image steps p actualValues
-                                |> addBacktrace location (BtDo md actualValues)
+                                |> addBacktrace location (BtDo md actuals actualValues)
                                 |> increaseSteps continue
 
                         UserDefined { moves, temporaryPiles } ->
@@ -197,7 +197,7 @@ evalWithEnv continue env image steps location move =
                             in
                             result
                                 |> checkTemporaryPilesAreGone actualTemporaryPiles md
-                                |> addBacktrace location (BtDo md actualValues)
+                                |> addBacktrace location (BtDo md actuals actualValues)
 
 
 

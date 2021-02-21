@@ -86,7 +86,14 @@ import ViewMove exposing (prettyPrint, prettyPrintDefinition)
 
 type EvalResultState
     = Complete EvalResult
-    | Partial { partial : EvalResult, complete : EvalResult }
+    | Partial
+        { partial : EvalResult
+
+        -- We know that a partial Result had to end in an error state
+        -- (EarlyExit)
+        , partialError : EvalResult.EvalError
+        , complete : EvalResult
+        }
 
 
 type alias Model =
@@ -246,16 +253,26 @@ applyMoves model =
                                     maybeBackwardsMoves
 
                         Just n ->
-                            Partial
-                                { partial =
-                                    Eval.eval (\{ steps } -> steps < n)
+                            let
+                                partialResult =
+                                    Eval.eval (\{ steps } -> steps <= n)
                                         (ImageEditor.getImage model.initialImage)
                                         maybeBackwardsMoves
-                                , complete =
-                                    Eval.eval (always True)
-                                        (ImageEditor.getImage model.initialImage)
-                                        maybeBackwardsMoves
-                                }
+                            in
+                            case partialResult.error of
+                                Nothing ->
+                                    -- Only one way that can happen, we evaluated all the way
+                                    Complete partialResult
+
+                                Just error ->
+                                    Partial
+                                        { partial = partialResult
+                                        , partialError = error
+                                        , complete =
+                                            Eval.eval (always True)
+                                                (ImageEditor.getImage model.initialImage)
+                                                maybeBackwardsMoves
+                                        }
 
                 -- apply
                 -- maybeBackwardsMoves
@@ -459,23 +476,25 @@ toggleForwardsBackwards model =
 -- VIEW
 
 
+viewDirectionButton : Model -> Element Msg
+viewDirectionButton model =
+    let
+        directionLabel =
+            if model.backwards then
+                "☚"
+
+            else
+                "☛"
+    in
+    Input.button [ Font.size 35, Font.color Palette.blueBook, padding 10, mouseOver [ scale 1.1 ] ]
+        { onPress = Just ToggleForwardsBackwards
+        , label = text directionLabel
+        }
+
+
 editView : Model -> Element Msg
 editView model =
     let
-        directionButton =
-            let
-                directionLabel =
-                    if model.backwards then
-                        "☚"
-
-                    else
-                        "☛"
-            in
-            Input.button [ Font.size 35, Font.color Palette.blueBook, padding 10, mouseOver [ scale 1.1 ] ]
-                { onPress = Just ToggleForwardsBackwards
-                , label = text directionLabel
-                }
-
         viewMessage title m =
             Element.column [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, spacing 10 ]
                 [ el [ Font.bold, width fill ] (text title)
@@ -508,9 +527,18 @@ editView model =
                     )
 
                 ( Ok _, Just error ) ->
+                    let
+                        title =
+                            case error.problem of
+                                EvalResult.EarlyExit ->
+                                    "Stopped during performance"
+
+                                _ ->
+                                    "Failure during performance"
+                    in
                     ( redBook
-                    , viewErrorMessage "Failure during performance"
-                        (EvalResult.viewError model.text error)
+                    , viewErrorMessage title
+                        (EvalResult.viewError error)
                     )
 
         moveDefinitionsIntoLibraryButton =
@@ -549,7 +577,7 @@ editView model =
                 Input.labelAbove []
                     (row [ spacing 40 ]
                         [ el [ Font.bold ] (text "Definitions & Moves")
-                        , directionButton
+                        , viewDirectionButton model
                         , moveDefinitionsIntoLibraryButton
                         ]
                     )
@@ -574,17 +602,20 @@ viewStepsInputs model =
                 Partial { partial, complete } ->
                     complete.steps
 
-        ( oneStepForwardMsg, allForwardMsg ) =
+        ( oneStepBackMsg, oneStepForwardMsg, allForwardMsg ) =
             case model.onlyApplyFirstNSteps of
                 Nothing ->
-                    ( Just (AdjustSteps 0), Just (AdjustSteps max) )
+                    ( Just (AdjustSteps 0), Just (AdjustSteps 0), Just (AdjustSteps max) )
 
                 Just n ->
                     if n < max then
-                        ( Just (AdjustSteps (n + 1)), Just (AdjustSteps max) )
+                        ( Just (AdjustSteps (Basics.max 0 (n - 1))), Just (AdjustSteps (n + 1)), Just (AdjustSteps max) )
 
                     else
-                        ( Nothing, Nothing )
+                        ( Just (AdjustSteps (Basics.max 0 (n - 1))), Nothing, Nothing )
+
+        oneStepBackButton =
+            Input.button Palette.regularButton { onPress = oneStepBackMsg, label = text "‹" }
 
         oneStepForwardButton =
             Input.button Palette.regularButton { onPress = oneStepForwardMsg, label = text "›" }
@@ -602,7 +633,8 @@ viewStepsInputs model =
                         |> text
     in
     row [ paddingXY 10 0, width fill, spacing 5 ]
-        [ oneStepForwardButton
+        [ oneStepBackButton
+        , oneStepForwardButton
         , allForwardButton
         , currentValue
         , Input.slider
@@ -635,6 +667,38 @@ viewStepsInputs model =
         ]
 
 
+viewMoveWeStoppedAtInContext : EvalResult.EvalError -> Element Msg
+viewMoveWeStoppedAtInContext { problem, backtrace } =
+    -- We know that only Do(s) can fail
+    case
+        backtrace
+            |> List.filterMap
+                (\{ step } ->
+                    case step of
+                        EvalResult.BtRepeat _ ->
+                            Nothing
+
+                        EvalResult.BtDo def exprs actuals ->
+                            Just ( def, exprs, actuals )
+                )
+            |> List.reverse
+    of
+        [] ->
+            -- Shouldn't really happen, but most make compiler happy
+            Element.text "???"
+
+        [ ( def, exprs, actuals ) ] ->
+            -- We stopped at a toplevel move
+            ViewMove.view ViewMove.defaultConfig (Move.Do def exprs)
+
+        ( def, exprs, actuals ) :: ( outerDef, _, _ ) :: _ ->
+            ViewMove.viewDefinition ViewMove.defaultConfig outerDef
+
+
+
+-- ViewMove.view ViewMove.defaultConfig (Move.Do def exprs)
+
+
 view : Model -> Element Msg
 view model =
     let
@@ -659,7 +723,18 @@ view model =
             el [ width (fillPortion n), height fill ]
 
         movesView =
-            editView model
+            case ( model.displayMode, model.evalResult ) of
+                ( Show, Partial { partial, partialError } ) ->
+                    Element.column [ width fill, height fill, spacing 20, paddingXY 0 10 ]
+                        [ viewMoveWeStoppedAtInContext partialError
+                        , EvalResult.viewError partialError
+                        ]
+
+                ( Show, Complete _ ) ->
+                    editView model
+
+                ( Edit, _ ) ->
+                    editView model
 
         ( leftImage, rightImage ) =
             if model.backwards then
