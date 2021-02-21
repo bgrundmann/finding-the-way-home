@@ -274,50 +274,6 @@ subscriptions _ =
 -- VIEW
 
 
-tabEl : (page -> String) -> page -> { page : page, label : String } -> Element msg
-tabEl toUrl activePage thisTab =
-    let
-        isSelected =
-            thisTab.page == activePage
-
-        padOffset =
-            if isSelected then
-                0
-
-            else
-                2
-
-        borderWidths =
-            if isSelected then
-                { left = 2, top = 2, right = 2, bottom = 0 }
-
-            else
-                { bottom = 2, top = 0, left = 0, right = 0 }
-
-        corners =
-            if isSelected then
-                { topLeft = 6, topRight = 6, bottomLeft = 0, bottomRight = 0 }
-
-            else
-                { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 0 }
-    in
-    el
-        [ Border.widthEach borderWidths
-        , Border.roundEach corners
-        , Border.color Palette.greenBook
-
-        --, onClick <| UserSelectedTab tab
-        ]
-        (el
-            [ centerX
-            , centerY
-            , paddingEach { left = 30, right = 30, top = 10 + padOffset, bottom = 10 - padOffset }
-            ]
-            (Element.link [] { url = toUrl thisTab.page, label = text thisTab.label })
-         -- (Input.button [] { onPress = Just (makeMsg thisTab.tab), label = text thisTab.label })
-        )
-
-
 getUrlOfPage : ( ActivePage, MoveEditor.DisplayMode ) -> String
 getUrlOfPage ( activePage, displayMode ) =
     let
@@ -339,7 +295,7 @@ topBar : ActivePage -> MoveEditor.DisplayMode -> Element Msg
 topBar activePage displayMode =
     let
         tab =
-            tabEl getUrlOfPage ( activePage, displayMode )
+            ElmUiUtils.tabEl getUrlOfPage ( activePage, displayMode )
 
         tabs =
             row [ centerX ]

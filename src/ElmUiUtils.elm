@@ -1,10 +1,12 @@
-module ElmUiUtils exposing (boldMono, id, mono, onKey)
+module ElmUiUtils exposing (boldMono, id, mono, onKey, tabEl)
 
-import Element exposing (Element, el, text)
+import Element exposing (Element, centerX, centerY, el, paddingEach, text)
+import Element.Border as Border
 import Element.Font as Font
 import Html.Attributes
 import Html.Events
 import Json.Decode as Decode
+import Palette
 
 
 id : String -> Element.Attribute msg
@@ -48,4 +50,48 @@ onKey { enter, escape } =
                             Decode.fail "Not the enter or escape key"
                     )
             )
+        )
+
+
+tabEl : (page -> String) -> page -> { page : page, label : String } -> Element msg
+tabEl toUrl activePage thisTab =
+    let
+        isSelected =
+            thisTab.page == activePage
+
+        padOffset =
+            if isSelected then
+                0
+
+            else
+                2
+
+        borderWidths =
+            if isSelected then
+                { left = 2, top = 2, right = 2, bottom = 0 }
+
+            else
+                { bottom = 2, top = 0, left = 0, right = 0 }
+
+        corners =
+            if isSelected then
+                { topLeft = 6, topRight = 6, bottomLeft = 0, bottomRight = 0 }
+
+            else
+                { topLeft = 0, topRight = 0, bottomLeft = 0, bottomRight = 0 }
+    in
+    el
+        [ Border.widthEach borderWidths
+        , Border.roundEach corners
+        , Border.color Palette.greenBook
+
+        --, onClick <| UserSelectedTab tab
+        ]
+        (el
+            [ centerX
+            , centerY
+            , paddingEach { left = 30, right = 30, top = 10 + padOffset, bottom = 10 - padOffset }
+            ]
+            (Element.link [] { url = toUrl thisTab.page, label = text thisTab.label })
+         -- (Input.button [] { onPress = Just (makeMsg thisTab.tab), label = text thisTab.label })
         )
