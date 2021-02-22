@@ -3,6 +3,7 @@ module Pile exposing
     , fromString
     , pileParser
     , poker_deck
+    , sort
     , toString
     , turnover
     , view
@@ -29,6 +30,41 @@ poker_deck =
         ++ all Diamonds
         ++ (all Hearts |> List.reverse)
         ++ (all Spades |> List.reverse)
+
+
+{-| Sort a pile so that all cards that there are appear in the same order
+as new deck order.
+-}
+sort : Pile -> Pile
+sort p =
+    let
+        -- First add the numbers as per new deck order
+        -- This algorithm is quadratric but 52 * 52 is still not that big
+        pileLen =
+            List.length p
+
+        numberedPile =
+            List.indexedMap
+                (\originalPosition card ->
+                    case List.Extra.elemIndex card poker_deck of
+                        Just ndx ->
+                            ( ndx, card )
+
+                        Nothing ->
+                            -- Not found try turning the card over
+                            case List.Extra.elemIndex (Card.turnover card) poker_deck of
+                                Just ndx ->
+                                    ( ndx, card )
+
+                                Nothing ->
+                                    -- Still not found, keep order relativ to other
+                                    -- not found cards but before all sorted cards
+                                    ( -pileLen + originalPosition, card )
+                )
+                p
+    in
+    List.sortBy Tuple.first numberedPile
+        |> List.map Tuple.second
 
 
 separatedByComma : Parser a -> Parser (List a)

@@ -47,6 +47,7 @@ type Msg
     = Delete PileName
     | Add Image
     | OpenAdd
+    | SortPile PileName
     | ReversePile PileName
     | TurnoverPile PileName
     | StartEditPile PileName
@@ -203,6 +204,18 @@ update toFocusMsg msg state =
             , Cmd.none
             )
 
+        SortPile pileName ->
+            let
+                sort maybePile =
+                    Maybe.map Pile.sort maybePile
+            in
+            ( { state
+                | image = Image.update pileName sort state.image
+                , editing = NotEditing
+              }
+            , Cmd.none
+            )
+
         TurnoverPile pileName ->
             let
                 turnover maybePile =
@@ -326,6 +339,10 @@ viewPileNameAndButtons toMsg state pileName =
             case ifEditingThisPile pileName state of
                 Nothing ->
                     [ Input.button regularButton
+                        { onPress = SortPile pileName |> toMsg |> Just
+                        , label = text "Sort"
+                        }
+                    , Input.button regularButton
                         { onPress = ReversePile pileName |> toMsg |> Just
                         , label = text "Reverse"
                         }
