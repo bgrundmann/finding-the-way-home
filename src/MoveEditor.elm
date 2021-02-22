@@ -108,7 +108,6 @@ type alias Model =
     , evalResult : EvalResultState
     , backwards : Bool
     , library : MoveLibrary
-    , onlyApplyFirstNSteps : Maybe Int
     , displayMode : DisplayMode
     }
 
@@ -123,7 +122,8 @@ type Msg
     | Load File
     | GotLoad String
     | Focus (Result Dom.Error ())
-    | AdjustApplyFirstNSteps (Maybe Int)
+    | Play
+    | SetStep Int
 
 
 type DisplayMode
@@ -197,13 +197,12 @@ init maybePreviousState =
             , movesAndDefinitions = Ok { moves = [], definitions = [] }
             , backwards = previousStateOrInitial.backwards
             , library = previousStateOrInitial.library
-            , onlyApplyFirstNSteps = Nothing
             , displayMode = Edit
             }
     in
     ( model
         |> parseMoves
-        |> applyMoves
+        |> applyMoves (always True)
     , Cmd.none
     )
 
@@ -227,8 +226,18 @@ parseMoves model =
     }
 
 
-applyMoves : Model -> Model
-applyMoves model =
+continueUntilCurrentMax : Model -> (EvalResult -> Bool)
+continueUntilCurrentMax model =
+    case model.evalResult of
+        Complete complete ->
+            always True
+
+        Partial { partial } ->
+            \{ steps } -> steps <= partial.steps
+
+
+applyMoves : (EvalResult -> Bool) -> Model -> Model
+applyMoves continue model =
     case model.movesAndDefinitions of
         Err _ ->
             model
@@ -245,35 +254,29 @@ applyMoves model =
                 initialImage =
                     ImageEditor.getImage model.initialImage
 
+                result =
+                    Eval.eval continue initialImage maybeBackwardsMoves
+
                 evalResult =
-                    case model.onlyApplyFirstNSteps of
-                        Nothing ->
-                            Complete <|
-                                Eval.eval (always True)
-                                    initialImage
-                                    maybeBackwardsMoves
-
-                        Just n ->
-                            let
-                                partialResult =
-                                    Eval.eval (\{ steps } -> steps <= n)
-                                        initialImage
-                                        maybeBackwardsMoves
-                            in
-                            case partialResult.error of
-                                Nothing ->
-                                    -- Only one way that can happen, we evaluated all the way
-                                    Complete partialResult
-
-                                Just error ->
+                    case result.error of
+                        Just ({ problem, backtrace } as error) ->
+                            case problem of
+                                EvalResult.EarlyExit ->
                                     Partial
-                                        { partial = partialResult
+                                        { partial = result
                                         , partialError = error
                                         , complete =
-                                            Eval.eval (always True)
-                                                (ImageEditor.getImage model.initialImage)
+                                            Eval.eval
+                                                (always True)
+                                                initialImage
                                                 maybeBackwardsMoves
                                         }
+
+                                _ ->
+                                    Complete result
+
+                        Nothing ->
+                            Complete result
 
                 -- apply
                 -- maybeBackwardsMoves
@@ -290,7 +293,7 @@ updateMovesText : (String -> String) -> Model -> Model
 updateMovesText f model =
     { model | text = f model.text }
         |> parseMoves
-        |> applyMoves
+        |> applyMoves (always True)
 
 
 editDefinition : MoveIdentifier -> Model -> Model
@@ -399,7 +402,7 @@ update msg model =
 
                 newModel =
                     { model | initialImage = newInitialImage }
-                        |> applyMoves
+                        |> applyMoves (continueUntilCurrentMax model)
             in
             ( newModel
             , imageCmd
@@ -424,7 +427,7 @@ update msg model =
         GotLoad content ->
             ( { model | text = content }
                 |> parseMoves
-                |> applyMoves
+                |> applyMoves (always True)
             , Cmd.none
             )
 
@@ -434,9 +437,13 @@ update msg model =
         Focus (Err _) ->
             ( model, Cmd.none )
 
-        AdjustApplyFirstNSteps newValue ->
-            ( { model | onlyApplyFirstNSteps = newValue }
-                |> applyMoves
+        SetStep newValue ->
+            ( model |> applyMoves (\{ steps } -> steps <= newValue)
+            , Cmd.none
+            )
+
+        Play ->
+            ( model |> applyMoves (always True)
             , Cmd.none
             )
 
@@ -496,11 +503,12 @@ toggleForwardsBackwards model =
                     complete.lastImage
     in
     -- applyMoves will take care of updating evalResult
+    -- TODO: Adjust partial result how?
     { model
         | initialImage = ImageEditor.init newInitialImage
         , backwards = not model.backwards
     }
-        |> applyMoves
+        |> applyMoves (always True)
 
 
 
@@ -625,28 +633,18 @@ viewStepsInputs : Model -> Element Msg
 viewStepsInputs model =
     let
         -- TODO
-        max =
+        ( current, max ) =
             case model.evalResult of
                 Complete r ->
-                    r.steps
+                    ( r.steps, r.steps )
 
                 Partial { partial, complete } ->
-                    complete.steps
-
-        allForwardMsg =
-            AdjustApplyFirstNSteps Nothing
+                    ( partial.steps, complete.steps )
 
         ( oneStepBackMsg, oneStepForwardMsg ) =
-            case model.onlyApplyFirstNSteps of
-                Nothing ->
-                    ( AdjustApplyFirstNSteps (Just (Basics.max 0 (max - 1)))
-                    , AdjustApplyFirstNSteps (Just 0)
-                    )
-
-                Just n ->
-                    ( AdjustApplyFirstNSteps (Just (Basics.max 0 (n - 1)))
-                    , AdjustApplyFirstNSteps (Just (Basics.min max (n + 1)))
-                    )
+            ( SetStep (Basics.max 0 (current - 1))
+            , SetStep (Basics.min max (current + 1))
+            )
 
         oneStepBackButton =
             Input.button Palette.regularButton { onPress = Just oneStepBackMsg, label = text "‹" }
@@ -655,16 +653,10 @@ viewStepsInputs model =
             Input.button Palette.regularButton { onPress = Just oneStepForwardMsg, label = text "›" }
 
         allForwardButton =
-            Input.button Palette.regularButton { onPress = Just allForwardMsg, label = text "»" }
+            Input.button Palette.regularButton { onPress = Just Play, label = text "»" }
 
         currentValue =
-            case model.onlyApplyFirstNSteps of
-                Nothing ->
-                    text "     "
-
-                Just i ->
-                    String.fromInt i
-                        |> text
+            text (String.fromInt current ++ "/" ++ String.fromInt max)
     in
     row [ paddingXY 10 0, width fill, spacing 5 ]
         [ oneStepBackButton
@@ -684,19 +676,14 @@ viewStepsInputs model =
                     Element.none
                 )
             ]
-            { onChange = AdjustApplyFirstNSteps << Just << round
+            { onChange = SetStep << round
             , label = Input.labelHidden "Steps"
             , min = 0
             , max = toFloat max
             , step = Just 1
             , thumb = Input.defaultThumb
             , value =
-                case model.onlyApplyFirstNSteps of
-                    Nothing ->
-                        toFloat max
-
-                    Just n ->
-                        toFloat n
+                toFloat current
             }
         ]
 
