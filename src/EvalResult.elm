@@ -5,6 +5,7 @@ module EvalResult exposing
     , MoveInList
     , Problem(..)
     , reportError
+    , traceDepth
     , viewError
     , viewEvalTrace
     )
@@ -58,6 +59,23 @@ type EvalTrace
     = EVTop MoveInList
     | EVRepeat { n : Int, total : Int, prev : EvalTrace } MoveInList
     | EVUserDefined { def : MoveDefinition, actuals : List ExprValue, prev : EvalTrace } MoveInList
+
+
+traceDepth : EvalTrace -> Int
+traceDepth evalTrace =
+    let
+        helper res et =
+            case et of
+                EVTop _ ->
+                    res
+
+                EVRepeat { prev } _ ->
+                    helper (res + 1) prev
+
+                EVUserDefined { prev } _ ->
+                    helper (res + 1) prev
+    in
+    helper 0 evalTrace
 
 
 type alias EvalError =

@@ -446,8 +446,14 @@ update msg model =
                 Complete _ ->
                     ( model, Cmd.none )
 
-                Partial { partial, partialError } ->
-                    ( model, Cmd.none )
+                Partial { partial } ->
+                    ( model
+                        |> applyMoves
+                            (\{ steps, trace } ->
+                                steps <= partial.steps + 1 || EvalResult.traceDepth trace > EvalResult.traceDepth partial.trace
+                            )
+                    , Cmd.none
+                    )
 
         Play ->
             ( model |> applyMoves (always True)
