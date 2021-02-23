@@ -124,6 +124,7 @@ type Msg
     | Focus (Result Dom.Error ())
     | Play
     | SetStep Int
+    | StepOver
 
 
 type DisplayMode
@@ -442,6 +443,14 @@ update msg model =
             , Cmd.none
             )
 
+        StepOver ->
+            case model.evalResult of
+                Complete _ ->
+                    ( model, Cmd.none )
+
+                Partial { partial, partialError } ->
+                    ( model, Cmd.none )
+
         Play ->
             ( model |> applyMoves (always True)
             , Cmd.none
@@ -646,11 +655,17 @@ viewStepsInputs model =
             , SetStep (Basics.min max (current + 1))
             )
 
+        allBackwardButton =
+            Input.button Palette.regularButton { onPress = Just (SetStep 0), label = text "«" }
+
         oneStepBackButton =
             Input.button Palette.regularButton { onPress = Just oneStepBackMsg, label = text "‹" }
 
         oneStepForwardButton =
             Input.button Palette.regularButton { onPress = Just oneStepForwardMsg, label = text "›" }
+
+        stepOverButton =
+            Input.button Palette.regularButton { onPress = Just StepOver, label = text "⤼" }
 
         allForwardButton =
             Input.button Palette.regularButton { onPress = Just Play, label = text "»" }
@@ -659,8 +674,10 @@ viewStepsInputs model =
             text (String.fromInt current ++ "/" ++ String.fromInt max)
     in
     row [ paddingXY 10 0, width fill, spacing 5 ]
-        [ oneStepBackButton
+        [ allBackwardButton
+        , oneStepBackButton
         , oneStepForwardButton
+        , stepOverButton
         , allForwardButton
         , currentValue
         , Input.slider
@@ -746,8 +763,8 @@ view model =
         movesView =
             case ( model.displayMode, model.evalResult ) of
                 ( Show, Partial { partial, partialError } ) ->
-                    Element.column [ width fill, height fill, spacing 20, paddingXY 0 10 ]
-                        [ viewMoveWeStoppedAtInContext partialError
+                    Element.column [ width fill, height (minimum 0 fill), spacing 20, paddingXY 0 10 ]
+                        [ el [ height fill, width fill, scrollbarY ] <| viewMoveWeStoppedAtInContext partialError
                         , EvalResult.viewError partialError
                         ]
 
