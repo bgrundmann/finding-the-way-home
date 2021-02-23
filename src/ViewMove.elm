@@ -88,6 +88,12 @@ view viewConfig move =
             in
             row [ spacing 10 ] (nameMaybeLinked :: List.map viewExpr exprs)
 
+        Note n ->
+            paragraph [ spacing textSpacing ]
+                [ boldMono "note "
+                , el [ Font.italic ] (text n)
+                ]
+
         Repeat n moves ->
             column [ spacing textSpacing ]
                 [ row [ spacing 10 ] [ boldMono "repeat", viewExpr n ]
@@ -158,7 +164,7 @@ viewDefinition viewConfig md =
                             (paragraph [ spacing textSpacing, width fill ]
                                 [ boldMono "doc"
                                 , mono " "
-                                , el [ Font.italic, Font.family [ Font.monospace ] ] (text d)
+                                , el [ Font.italic ] (text d)
                                 ]
                             )
                )
@@ -183,6 +189,9 @@ doPrettyPrint move =
             ("repeat " ++ doPrettyPrintExpr n)
                 :: ppIndented (List.concatMap doPrettyPrint moves)
                 ++ [ "end" ]
+
+        Note n ->
+            [ "note " ++ n ]
 
 
 doPrettyPrintExpr : Expr -> String

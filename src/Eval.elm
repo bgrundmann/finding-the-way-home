@@ -137,6 +137,13 @@ evalWithEnv env image evalTrace steps location move =
                             v
     in
     case move of
+        Note _ ->
+            { lastImage = image
+            , steps = steps
+            , error = Nothing
+            , trace = evalTrace
+            }
+
         Repeat expr moves ->
             case replaceArgumentByValue env expr of
                 Int times ->

@@ -133,7 +133,7 @@ toplevelEnv initialLibrary =
 
 keywords : Set.Set String
 keywords =
-    Set.fromList [ "repeat", "end", "def", "ignore", "doc" ]
+    Set.fromList [ "repeat", "end", "def", "ignore", "doc", "note" ]
 
 
 keyword : String -> Parser ()
@@ -252,6 +252,14 @@ exprParser env =
         ]
 
 
+noteParser : Parser Move
+noteParser =
+    succeed Note
+        |. keyword "note"
+        |. spaces
+        |= (chompWhile (\c -> c /= '\n') |> getChompedString)
+
+
 doMoveParser : ParseEnv -> Parser Move
 doMoveParser env =
     let
@@ -312,6 +320,7 @@ moveParser env =
             ]
         |= oneOf
             [ repeatParser env
+            , noteParser
             , doMoveParser env
             ]
 

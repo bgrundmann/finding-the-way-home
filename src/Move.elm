@@ -87,6 +87,7 @@ type Primitive
 type Move
     = Repeat Expr (List Move)
     | Do MoveDefinition (List Expr)
+    | Note String
 
 
 type Expr
@@ -181,6 +182,9 @@ backwards move =
         Repeat arg moves ->
             Repeat arg (backwardsMoves moves)
 
+        Note n ->
+            Note n
+
         Do def exprs ->
             case ( def.body, exprs ) of
                 ( Primitive Cut, [ n, from, to ] ) ->
@@ -225,6 +229,9 @@ usesOfMove move =
 
             else
                 []
+
+        Note _ ->
+            []
 
         Repeat _ moves ->
             List.concatMap usesOfMove moves

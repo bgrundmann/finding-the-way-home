@@ -55,7 +55,6 @@ type alias Model =
     , selectedMove : Maybe MoveIdentifier
     , activePage : ActivePage
     , toasts : Toasts.Toasts
-    , userKnows : String
     , nav : Nav.Key
     }
 
@@ -70,7 +69,6 @@ type Msg
     | ToastsChanged Toasts.Msg
     | SetActivePage ( ActivePage, MoveEditor.DisplayMode )
     | EditDefinition MoveIdentifier
-    | UserKnowsChanged String
     | GotInitialLibrary (Result Http.Error String)
     | UrlChanged Url
     | UrlRequested Browser.UrlRequest
@@ -123,7 +121,6 @@ init previousStateJson url key =
       , activePage = EditorPage
       , selectedMove = Nothing
       , toasts = toasts
-      , userKnows = ""
       , nav = key
       }
     , Cmd.batch
@@ -199,9 +196,6 @@ update msg model =
               }
             , Cmd.none
             )
-
-        UserKnowsChanged s ->
-            ( { model | userKnows = s }, Cmd.none )
 
         GotInitialLibrary (Err error) ->
             let
@@ -435,39 +429,22 @@ view : Model -> Browser.Document Msg
 view model =
     let
         page =
-            -- This is obviously a little silly, but this isn't really there for any
-            -- form of security
-            if String.reverse model.userKnows /= "larutan" then
-                [ Input.text
-                    [ width (px 200)
-                    , centerX
-                    , centerY
-                    , Input.focusedOnLoad
-                    ]
-                    { label = Input.labelAbove [] (text "Dai Vernon said: Be ...")
-                    , onChange = UserKnowsChanged
-                    , placeholder = Nothing
-                    , text = model.userKnows
-                    }
-                ]
+            let
+                content =
+                    case model.activePage of
+                        EditorPage ->
+                            Element.Lazy.lazy MoveEditor.view model.moveEditor
+                                |> Element.map MoveEditorChanged
 
-            else
-                let
-                    content =
-                        case model.activePage of
-                            EditorPage ->
-                                Element.Lazy.lazy MoveEditor.view model.moveEditor
-                                    |> Element.map MoveEditorChanged
-
-                            LibraryPage ->
-                                Element.Lazy.lazy2
-                                    viewLibrary
-                                    model.selectedMove
-                                    (MoveEditor.getLibrary model.moveEditor)
-                in
-                [ topBar model.activePage (MoveEditor.getDisplayMode model.moveEditor)
-                , content
-                ]
+                        LibraryPage ->
+                            Element.Lazy.lazy2
+                                viewLibrary
+                                model.selectedMove
+                                (MoveEditor.getLibrary model.moveEditor)
+            in
+            [ topBar model.activePage (MoveEditor.getDisplayMode model.moveEditor)
+            , content
+            ]
 
         body =
             Element.layout [ width fill, height fill, Toasts.view model.toasts ] <|
