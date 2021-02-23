@@ -22,6 +22,7 @@ type alias Env =
                     }
             }
     , tempCounter : Int
+    , continue : EvalResult -> Bool
     }
 
 
@@ -58,8 +59,8 @@ checkTemporaryPilesAreGone temporaryPileNames md result =
 
 {-| If evaluation succeded, increase the steps count.
 -}
-increaseSteps : (EvalResult -> Bool) -> EvalResult -> EvalResult
-increaseSteps continue result =
+increaseSteps : Env -> EvalResult -> EvalResult
+increaseSteps env result =
     case result.error of
         Just _ ->
             result
@@ -69,15 +70,15 @@ increaseSteps continue result =
                 nextResult =
                     { result | steps = result.steps + 1 }
             in
-            if continue nextResult then
+            if env.continue nextResult then
                 nextResult
 
             else
                 reportError result.lastImage result.steps EarlyExit
 
 
-evalWithEnv : (EvalResult -> Bool) -> Env -> Image -> Int -> Int -> Move -> EvalResult
-evalWithEnv continue env image steps location move =
+evalWithEnv : Env -> Image -> Int -> Int -> Move -> EvalResult
+evalWithEnv env image steps location move =
     let
         replaceArgumentByValue e expr =
             case expr of
@@ -129,7 +130,7 @@ evalWithEnv continue env image steps location move =
                             else
                                 let
                                     result =
-                                        evalListWithEnv continue env currentImage stepsAcc moves
+                                        evalListWithEnv env currentImage stepsAcc moves
                                 in
                                 case result.error of
                                     Nothing ->
@@ -152,7 +153,7 @@ evalWithEnv continue env image steps location move =
 
                 beforeCallResult =
                     { lastImage = image, steps = steps, error = Nothing }
-                        |> increaseSteps continue
+                        |> increaseSteps env
             in
             case beforeCallResult.error of
                 Just _ ->
@@ -166,7 +167,7 @@ evalWithEnv continue env image steps location move =
                             -- we only want to increase once
                             Primitives.eval image steps p actualValues
                                 |> addBacktrace location (BtDo md actuals actualValues)
-                                |> increaseSteps continue
+                                |> increaseSteps env
 
                         UserDefined { moves, temporaryPiles } ->
                             let
@@ -187,9 +188,9 @@ evalWithEnv continue env image steps location move =
 
                                 result =
                                     evalListWithEnv
-                                        continue
                                         { tempCounter = newTempCounter
                                         , scoped = newScoped
+                                        , continue = env.continue
                                         }
                                         image
                                         beforeCallResult.steps
@@ -205,8 +206,8 @@ evalWithEnv continue env image steps location move =
 -- Leaving a user Definition counts as one
 
 
-evalListWithEnv : (EvalResult -> Bool) -> Env -> Image -> Int -> List Move -> EvalResult
-evalListWithEnv continue env image steps moves =
+evalListWithEnv : Env -> Image -> Int -> List Move -> EvalResult
+evalListWithEnv env image steps moves =
     let
         helper currentImage stepsAcc location remainingMoves =
             case remainingMoves of
@@ -216,7 +217,7 @@ evalListWithEnv continue env image steps moves =
                 m :: newRemainingMoves ->
                     let
                         result =
-                            evalWithEnv continue env currentImage stepsAcc location m
+                            evalWithEnv env currentImage stepsAcc location m
                     in
                     case result.error of
                         Nothing ->
@@ -230,4 +231,8 @@ evalListWithEnv continue env image steps moves =
 
 eval : (EvalResult -> Bool) -> Image -> List Move -> EvalResult
 eval continue image moves =
-    evalListWithEnv continue { tempCounter = 0, scoped = [] } image 0 moves
+    let
+        env =
+            { tempCounter = 0, scoped = [], continue = continue }
+    in
+    evalListWithEnv env image 0 moves
