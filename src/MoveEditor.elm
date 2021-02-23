@@ -189,11 +189,9 @@ init maybePreviousState =
         model =
             { initialImage = ImageEditor.init previousStateOrInitial.initialImage
             , evalResult =
-                Complete
-                    { steps = 0
-                    , lastImage = previousStateOrInitial.initialImage
-                    , error = Nothing
-                    }
+                -- This just creates a dummy eval result which will be overriden in a moment
+                -- by applyMoves
+                Complete <| Eval.eval (always True) previousStateOrInitial.initialImage []
             , text = previousStateOrInitial.text
             , movesAndDefinitions = Ok { moves = [], definitions = [] }
             , backwards = previousStateOrInitial.backwards
@@ -260,7 +258,7 @@ applyMoves continue model =
 
                 evalResult =
                     case result.error of
-                        Just ({ problem, backtrace } as error) ->
+                        Just ({ problem } as error) ->
                             case problem of
                                 EvalResult.EarlyExit ->
                                     Partial
@@ -705,34 +703,6 @@ viewStepsInputs model =
         ]
 
 
-viewMoveWeStoppedAtInContext : EvalResult.EvalError -> Element Msg
-viewMoveWeStoppedAtInContext { problem, backtrace } =
-    -- We know that only Do(s) can fail
-    case
-        backtrace
-            |> List.filterMap
-                (\{ step } ->
-                    case step of
-                        EvalResult.BtRepeat _ ->
-                            Nothing
-
-                        EvalResult.BtDo def exprs actuals ->
-                            Just ( def, exprs, actuals )
-                )
-            |> List.reverse
-    of
-        [] ->
-            -- Shouldn't really happen, but most make compiler happy
-            Element.text "???"
-
-        [ ( def, exprs, actuals ) ] ->
-            -- We stopped at a toplevel move
-            ViewMove.view ViewMove.defaultConfig (Move.Do def exprs)
-
-        ( def, exprs, actuals ) :: ( outerDef, _, _ ) :: _ ->
-            ViewMove.viewDefinition ViewMove.defaultConfig outerDef
-
-
 
 -- ViewMove.view ViewMove.defaultConfig (Move.Do def exprs)
 
@@ -764,7 +734,8 @@ view model =
             case ( model.displayMode, model.evalResult ) of
                 ( Show, Partial { partial, partialError } ) ->
                     Element.column [ width fill, height (minimum 0 fill), spacing 20, paddingXY 0 10 ]
-                        [ el [ height fill, width fill, scrollbarY ] <| viewMoveWeStoppedAtInContext partialError
+                        [ el [ height fill, width fill, scrollbarY ] <|
+                            EvalResult.viewEvalTrace ViewMove.defaultConfig partial.trace
                         , EvalResult.viewError partialError
                         ]
 

@@ -6,6 +6,7 @@ module ViewMove exposing
     , view
     , viewDefinition
     , viewDefinitionsAndMoves
+    , viewExpr
     , viewMoves
     , withMoveUrl
     )

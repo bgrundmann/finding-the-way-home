@@ -1,19 +1,39 @@
 module EvalResult exposing
-    ( BacktraceStep(..)
-    , EvalError
+    ( EvalError
     , EvalResult
+    , EvalTrace(..)
+    , MoveInList
     , Problem(..)
-    , addBacktrace
     , reportError
     , viewError
+    , viewEvalTrace
     )
 
-import Element exposing (Element, column, fill, paragraph, row, spacing, text, width)
+import Element
+    exposing
+        ( Element
+        , centerX
+        , centerY
+        , column
+        , el
+        , fill
+        , height
+        , paddingEach
+        , paragraph
+        , px
+        , row
+        , spacing
+        , text
+        , width
+        )
+import Element.Background as Background
+import Element.Border as Border
 import Element.Font as Font
 import ElmUiUtils exposing (boldMono, mono)
 import Image exposing (Image, PileName)
-import Move exposing (ExprValue(..), MoveDefinition)
+import Move exposing (ExprValue(..), Move, MoveDefinition)
 import Palette
+import ViewMove
 
 
 type Problem
@@ -24,24 +44,24 @@ type Problem
     | EarlyExit
 
 
-{-| First element in the list is the first move that happened.
-Last element is the move that failed.
+{-| n meaning we are in the execution just before executing the corresponding move.
+That is we have executed n of the moves in the list so far. That also means
+that it n == List.length moves can happen.
 -}
-type alias Backtrace =
-    List
-        { location : Int -- Nth move in the current list of moves
-        , step : BacktraceStep
-        }
+type alias MoveInList =
+    { moves : List Move
+    , n : Int
+    }
 
 
-type BacktraceStep
-    = BtRepeat { nth : Int, total : Int }
-    | BtDo MoveDefinition (List Move.Expr) (List ExprValue)
+type EvalTrace
+    = EVTop MoveInList
+    | EVRepeat { n : Int, total : Int, prev : EvalTrace } MoveInList
+    | EVUserDefined { def : MoveDefinition, actuals : List ExprValue, prev : EvalTrace } MoveInList
 
 
 type alias EvalError =
     { problem : Problem
-    , backtrace : Backtrace
     }
 
 
@@ -51,74 +71,118 @@ image. The number of steps in total taken. And if there was an error.
 type alias EvalResult =
     { lastImage : Image
     , error : Maybe EvalError
+    , trace : EvalTrace
     , steps : Int
     }
 
 
-reportError : Image -> Int -> Problem -> EvalResult
-reportError image steps problem =
+reportError : Image -> Int -> EvalTrace -> Problem -> EvalResult
+reportError image steps trace problem =
     { lastImage = image
-    , error = Just { problem = problem, backtrace = [] }
+    , error = Just { problem = problem }
+    , trace = trace
     , steps = steps
     }
 
 
-{-| If we are in an error case, add the backtrace info.
--}
-addBacktrace : Int -> BacktraceStep -> EvalResult -> EvalResult
-addBacktrace loc step result =
-    case result.error of
-        Nothing ->
-            result
+viewEvalTrace : ViewMove.ViewConfig -> EvalTrace -> Element msg
+viewEvalTrace viewConfig trace =
+    let
+        stepped a b =
+            column [ width fill, spacing 5 ]
+                [ el [ width fill, Element.alignLeft ] a
+                , el [ paddingEach { left = 20, right = 0, top = 0, bottom = 0 }, width fill ] b
+                ]
 
-        Just e ->
-            { result
-                | error = Just { e | backtrace = { location = loc, step = step } :: e.backtrace }
-            }
+        viewMoveInList { moves, n } =
+            column [ width fill, spacing 5 ]
+                (List.indexedMap
+                    (\i move ->
+                        let
+                            highlighter =
+                                if i == n then
+                                    el
+                                        [ width (px 10)
+                                        , height (px 10)
 
+                                        --, centerY
+                                        , Background.color Palette.greenBook
+                                        , Border.rounded 5
+                                        ]
+                                        Element.none
 
-viewBacktrace : Backtrace -> Element msg
-viewBacktrace backtrace =
-    column [ width fill, spacing 5 ]
-        (List.map
-            (\{ location, step } ->
-                paragraph [ spacing 5, width fill ]
-                    (text "➥ "
-                        :: mono (String.fromInt location ++ ": ")
-                        :: (case step of
-                                BtRepeat { nth, total } ->
-                                    [ boldMono "repeat "
-                                    , mono (String.fromInt nth)
-                                    , text " of "
-                                    , mono (String.fromInt total)
-                                    ]
+                                else
+                                    el [ width (px 10), height (px 10) ] Element.none
+                        in
+                        row [ width fill, spacing 5 ]
+                            [ highlighter, ViewMove.view viewConfig move ]
+                    )
+                    moves
+                )
 
-                                BtDo md exprs actuals ->
-                                    mono md.name
-                                        :: List.map2
-                                            (\arg v ->
-                                                case v of
+        viewEvalTraceHeader t showBelow =
+            case t of
+                EVTop _ ->
+                    showBelow
+
+                EVRepeat { n, total, prev } _ ->
+                    viewEvalTraceHeader prev
+                        (stepped
+                            (paragraph [ spacing 5 ]
+                                [ boldMono "repeat "
+                                , mono (String.fromInt n ++ " of " ++ String.fromInt total)
+                                ]
+                            )
+                            showBelow
+                        )
+
+                EVUserDefined { def, actuals, prev } _ ->
+                    viewEvalTraceHeader prev
+                        (stepped
+                            (paragraph [ spacing 5 ]
+                                ((mono def.name
+                                    :: List.map2
+                                        (\arg actual ->
+                                            row [ width fill ]
+                                                [ mono arg.name
+                                                , mono "="
+                                                , case actual of
                                                     Int i ->
-                                                        row [] [ mono arg.name, mono "=", mono (String.fromInt i) ]
+                                                        mono (String.fromInt i)
 
                                                     Pile p ->
-                                                        row [] [ mono arg.name, mono "=", mono p ]
-                                            )
-                                            md.args
-                                            actuals
-                                        |> List.intersperse (text " ")
-                           )
-                    )
-            )
-            backtrace
-        )
+                                                        mono p
+                                                ]
+                                        )
+                                        def.args
+                                        actuals
+                                 )
+                                    |> List.intersperse (text " ")
+                                )
+                            )
+                            showBelow
+                        )
+    in
+    let
+        moveInList =
+            case trace of
+                EVTop l ->
+                    l
+
+                EVRepeat _ l ->
+                    l
+
+                EVUserDefined _ l ->
+                    l
+    in
+    viewEvalTraceHeader trace
+        (viewMoveInList moveInList)
 
 
 viewError : EvalError -> Element msg
 viewError error =
     column [ width fill, spacing 20 ]
         [ viewProblem error.problem
-        , viewBacktrace error.backtrace
         ]
 
 

@@ -1,9 +1,22 @@
 module Eval exposing (eval)
 
-import EvalResult exposing (BacktraceStep(..), EvalResult, Problem(..), addBacktrace, reportError)
+import EvalResult
+    exposing
+        ( EvalResult
+        , EvalTrace(..)
+        , Problem(..)
+        , reportError
+        )
 import Image exposing (Image)
 import List.Extra
-import Move exposing (Expr(..), ExprValue(..), Move(..), MoveDefinition, UserDefinedOrPrimitive(..))
+import Move
+    exposing
+        ( Expr(..)
+        , ExprValue(..)
+        , Move(..)
+        , MoveDefinition
+        , UserDefinedOrPrimitive(..)
+        )
 import Primitives
 
 
@@ -24,6 +37,10 @@ type alias Env =
     , tempCounter : Int
     , continue : EvalResult -> Bool
     }
+
+
+type alias MakeTrace =
+    EvalResult.MoveInList -> EvalTrace
 
 
 checkTemporaryPilesAreGone :
@@ -54,6 +71,7 @@ checkTemporaryPilesAreGone temporaryPileNames md result =
                 piles ->
                     reportError result.lastImage
                         result.steps
+                        result.trace
                         (TemporaryPileNotEmpty { names = List.map .nameInSource piles, moveDefinition = md })
 
 
@@ -74,11 +92,11 @@ increaseSteps env result =
                 nextResult
 
             else
-                reportError result.lastImage result.steps EarlyExit
+                reportError result.lastImage result.steps result.trace EarlyExit
 
 
-evalWithEnv : Env -> Image -> Int -> Int -> Move -> EvalResult
-evalWithEnv env image steps location move =
+evalWithEnv : Env -> Image -> EvalTrace -> Int -> Int -> Move -> EvalResult
+evalWithEnv env image evalTrace steps location move =
     let
         replaceArgumentByValue e expr =
             case expr of
@@ -125,12 +143,21 @@ evalWithEnv env image steps location move =
                     let
                         helper n currentImage stepsAcc =
                             if n > times then
-                                { lastImage = currentImage, steps = stepsAcc, error = Nothing }
+                                { lastImage = currentImage
+                                , steps = stepsAcc
+                                , error = Nothing
+
+                                -- TODO unclear if that is right
+                                , trace = evalTrace
+                                }
 
                             else
                                 let
+                                    repeatEvalTrace =
+                                        EVRepeat { n = n, total = times, prev = evalTrace }
+
                                     result =
-                                        evalListWithEnv env currentImage stepsAcc moves
+                                        evalListWithEnv env currentImage repeatEvalTrace stepsAcc moves
                                 in
                                 case result.error of
                                     Nothing ->
@@ -138,12 +165,11 @@ evalWithEnv env image steps location move =
 
                                     Just _ ->
                                         result
-                                            |> addBacktrace location (BtRepeat { nth = n, total = times })
                     in
                     helper 1 image steps
 
                 Pile _ ->
-                    reportError image steps (Bug "Type checker failed")
+                    reportError image steps evalTrace (Bug "Type checker failed")
 
         Do ({ body } as md) actuals ->
             -- Before the actual call we need to check if we are supposed to stop here
@@ -152,21 +178,23 @@ evalWithEnv env image steps location move =
                     List.map (replaceArgumentByValue env) actuals
 
                 beforeCallResult =
-                    { lastImage = image, steps = steps, error = Nothing }
+                    { lastImage = image
+                    , steps = steps
+                    , error = Nothing
+                    , trace = evalTrace
+                    }
                         |> increaseSteps env
             in
             case beforeCallResult.error of
                 Just _ ->
                     beforeCallResult
-                        |> addBacktrace location (BtDo md actuals actualValues)
 
                 Nothing ->
                     case body of
                         Primitive p ->
                             -- Here we pass in the original steps again, because in total
                             -- we only want to increase once
-                            Primitives.eval image steps p actualValues
-                                |> addBacktrace location (BtDo md actuals actualValues)
+                            Primitives.eval image steps evalTrace p actualValues
                                 |> increaseSteps env
 
                         UserDefined { moves, temporaryPiles } ->
@@ -186,19 +214,22 @@ evalWithEnv env image steps location move =
                                 newScoped =
                                     { actuals = actualValues, temporaryPiles = actualTemporaryPiles } :: env.scoped
 
+                                userDefinedEvalTrace =
+                                    EVUserDefined { def = md, actuals = actualValues, prev = evalTrace }
+
                                 result =
                                     evalListWithEnv
-                                        { tempCounter = newTempCounter
-                                        , scoped = newScoped
-                                        , continue = env.continue
+                                        { env
+                                            | tempCounter = newTempCounter
+                                            , scoped = newScoped
                                         }
                                         image
+                                        userDefinedEvalTrace
                                         beforeCallResult.steps
                                         moves
                             in
                             result
                                 |> checkTemporaryPilesAreGone actualTemporaryPiles md
-                                |> addBacktrace location (BtDo md actuals actualValues)
 
 
 
@@ -206,18 +237,22 @@ evalWithEnv env image steps location move =
 -- Leaving a user Definition counts as one
 
 
-evalListWithEnv : Env -> Image -> Int -> List Move -> EvalResult
-evalListWithEnv env image steps moves =
+evalListWithEnv : Env -> Image -> MakeTrace -> Int -> List Move -> EvalResult
+evalListWithEnv env image makeTrace steps moves =
     let
         helper currentImage stepsAcc location remainingMoves =
             case remainingMoves of
                 [] ->
-                    { lastImage = currentImage, steps = stepsAcc, error = Nothing }
+                    { lastImage = currentImage
+                    , steps = stepsAcc
+                    , error = Nothing
+                    , trace = makeTrace { moves = moves, n = location }
+                    }
 
                 m :: newRemainingMoves ->
                     let
                         result =
-                            evalWithEnv env currentImage stepsAcc location m
+                            evalWithEnv env currentImage (makeTrace { moves = moves, n = location }) stepsAcc location m
                     in
                     case result.error of
                         Nothing ->
@@ -234,5 +269,8 @@ eval continue image moves =
     let
         env =
             { tempCounter = 0, scoped = [], continue = continue }
+
+        trace =
+            EVTop
     in
-    evalListWithEnv env image 0 moves
+    evalListWithEnv env image trace 0 moves

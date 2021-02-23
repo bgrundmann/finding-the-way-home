@@ -1,6 +1,6 @@
 module Primitives exposing (eval, primitiveCut, primitiveTurnover, primitives)
 
-import EvalResult exposing (EvalResult, Problem(..), reportError)
+import EvalResult exposing (EvalResult, EvalTrace, Problem(..), reportError)
 import Image exposing (Image, PileName)
 import List.Extra
 import Move
@@ -39,8 +39,8 @@ decodeActuals handlers p actuals =
             handlers.decodingError p
 
 
-eval : Image -> Int -> Primitive -> List ExprValue -> EvalResult
-eval image steps =
+eval : Image -> Int -> EvalTrace -> Primitive -> List ExprValue -> EvalResult
+eval image steps trace =
     decodeActuals
         { turnover =
             \name ->
@@ -50,14 +50,22 @@ eval image steps =
                 in
                 case pile of
                     Nothing ->
-                        reportError image steps (NoSuchPile { name = name })
+                        reportError image steps trace (NoSuchPile { name = name })
 
                     Just p ->
-                        { lastImage = Image.put name (Pile.turnover p) newImage, steps = steps, error = Nothing }
+                        { lastImage = Image.put name (Pile.turnover p) newImage
+                        , steps = steps
+                        , trace = trace
+                        , error = Nothing
+                        }
         , cut =
             \n from to ->
                 if n == 0 then
-                    { lastImage = image, steps = steps, error = Nothing }
+                    { lastImage = image
+                    , steps = steps
+                    , error = Nothing
+                    , trace = trace
+                    }
 
                 else
                     let
@@ -66,7 +74,7 @@ eval image steps =
                     in
                     case pile of
                         Nothing ->
-                            reportError image steps (NoSuchPile { name = from })
+                            reportError image steps trace (NoSuchPile { name = from })
 
                         Just cards ->
                             let
@@ -77,7 +85,10 @@ eval image steps =
                                     List.length topHalf
                             in
                             if actualLen < n then
-                                reportError image steps (NotEnoughCards { expected = n, got = actualLen, inPile = from })
+                                reportError image
+                                    steps
+                                    trace
+                                    (NotEnoughCards { expected = n, got = actualLen, inPile = from })
 
                             else
                                 { lastImage =
@@ -86,10 +97,11 @@ eval image steps =
                                         |> Image.put to topHalf
                                 , error = Nothing
                                 , steps = steps
+                                , trace = trace
                                 }
         , decodingError =
             \_ ->
-                reportError image steps (Bug "type checker failed")
+                reportError image steps trace (Bug "type checker failed")
         }
 
 
