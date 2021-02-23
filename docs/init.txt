@@ -125,8 +125,9 @@ def tantalizer52 deck cardician spectator
 end
 
 def syncopatedAces deck aces target pile1 pile2 pile3
-  doc John Bannon's Syncopated Aces.  At the end target contains the aces and pile1, pile2, pile3 the indifferent cards
+  doc John Bannon: Syncopated Aces.  At the end target contains the aces and pile1, pile2, pile3 the indifferent cards
   temp lefthand righthand
+  note Well actually this is the marlo handling as per the background notes, as I always liked that better
   studDeal 12 deck righthand
   cut 4 aces righthand
   underCut 3 righthand lefthand

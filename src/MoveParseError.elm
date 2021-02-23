@@ -16,10 +16,12 @@ import Element
         , textColumn
         , width
         )
+import Element.Border as Border
 import Element.Font as Font
 import ElmUiUtils exposing (mono)
 import List.Extra
 import Move exposing (ArgumentKind(..), Expr, MoveDefinition)
+import Palette
 import Parser.Advanced
 import ViewMove
 
@@ -112,10 +114,10 @@ view source deadEnds =
         viewProblem problem =
             case problem of
                 UnknownMove n ->
-                    row [] [ text "Don't know how to do ", mono n ]
+                    paragraph [] [ text "Don't know how to do ", mono n ]
 
                 Expected ex ->
-                    row [] [ text "Expected ", viewExpectation ex ]
+                    paragraph [] [ text "Expected ", viewExpectation ex ]
 
                 NoSuchArgument { name, kind } ->
                     case kind of
@@ -165,10 +167,22 @@ view source deadEnds =
                     text "THIS SHOULD NOT HAPPEN"
 
                 Just line ->
+                    let
+                        left =
+                            String.left col line
+
+                        right =
+                            String.dropLeft col line
+                                |> String.padRight 1 '_'
+                    in
                     el [ Font.family [ Font.monospace ] ]
-                        (column [ spacing 5 ]
-                            [ text line
-                            , text (String.repeat (col - 1) " " ++ "^")
+                        (paragraph [ spacing 5 ]
+                            [ text left
+                            , el
+                                [ Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                                , Border.color Palette.redBook
+                                ]
+                                (text right)
                             ]
                         )
 
