@@ -355,7 +355,7 @@ lookupDefinitions : MoveLibrary -> String -> Parser (List MoveDefinition)
 lookupDefinitions library moveName =
     case MoveLibrary.getByName moveName library of
         [] ->
-            problem (UnknownMove moveName)
+            problem (UnknownMove { name = moveName, options = MoveLibrary.getByNamePrefix moveName library })
 
         l ->
             succeed l

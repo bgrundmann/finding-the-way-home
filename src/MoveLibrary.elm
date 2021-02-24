@@ -3,6 +3,7 @@ module MoveLibrary exposing
     , fromList
     , get
     , getByName
+    , getByNamePrefix
     , getUsedBy
     , insert
     , remove
@@ -219,6 +220,12 @@ getByName name library =
     Dict.get name library.sameName
         |> Maybe.withDefault []
         |> List.filterMap (\i -> get i library)
+
+
+getByNamePrefix : String -> MoveLibrary -> List MoveDefinition
+getByNamePrefix name library =
+    Dict.values library.definitions
+        |> List.filter (\md -> String.startsWith name md.name)
 
 
 getUsedBy : MoveIdentifier -> MoveLibrary -> List MoveIdentifier

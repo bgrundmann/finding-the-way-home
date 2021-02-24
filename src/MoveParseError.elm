@@ -39,7 +39,7 @@ type alias DeadEnd =
 
 
 type Problem
-    = UnknownMove String
+    = UnknownMove { name : String, options : List MoveDefinition }
     | NoSuchArgument { name : String, kind : ArgumentKind }
     | Expected Expectation
     | InvalidMoveInvocation { options : List MoveDefinition, actuals : List Expr }
@@ -113,8 +113,19 @@ view source deadEnds =
 
         viewProblem problem =
             case problem of
-                UnknownMove n ->
-                    paragraph [] [ text "Don't know how to do ", mono n ]
+                UnknownMove { name, options } ->
+                    column [ spacing 10, width fill ]
+                        (paragraph [] [ text "Don't know how to do ", mono name ]
+                            :: el [ Font.bold ] (text "Options:")
+                            :: List.map
+                                (\md ->
+                                    column [ spacing 5, width fill ]
+                                        [ mono (Move.signature md)
+                                        , paragraph [ width fill, spacing 5 ] [ text md.doc ]
+                                        ]
+                                )
+                                options
+                        )
 
                 Expected ex ->
                     paragraph [] [ text "Expected ", viewExpectation ex ]
