@@ -71,7 +71,7 @@ import MoveLibrary exposing (MoveLibrary)
 import MoveLibraryJson
 import MoveParseError exposing (MoveParseError)
 import MoveParser
-import Palette exposing (greenBook, largeTextSpacing, normalTextSpacing, redBook, white)
+import Palette exposing (greenBook, largeTextSpacing, normalTextSpacing, redBook, smallFontSize, white)
 import Pile
 import Primitives
 import Task
@@ -578,7 +578,7 @@ editView model =
                                     )
 
                         reference =
-                            row [ padding 10, spacing 20, centerX ]
+                            row [ padding 10, spacing 20, centerX, smallFontSize ]
                                 [ el [ width fill, height fill, Font.family [ Font.monospace ] ]
                                     (text referenceInfoText)
                                 , el [ width fill, height fill, Font.family [ Font.monospace ] ]

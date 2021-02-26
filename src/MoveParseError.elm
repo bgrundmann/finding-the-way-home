@@ -158,7 +158,7 @@ view source deadEnds =
                         (List.map
                             (\md ->
                                 textColumn [ normalTextSpacing, width fill ]
-                                    [ paragraph [ width fill, normalTextSpacing ] [ text <| Move.signature md ]
+                                    [ paragraph [ width fill, normalTextSpacing ] [ mono <| Move.signature md ]
                                     , paragraph [ width fill, normalTextSpacing ] [ text md.doc ]
                                     ]
                             )
