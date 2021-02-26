@@ -68,7 +68,7 @@ import MoveLibrary exposing (MoveLibrary)
 import MoveLibraryJson
 import MoveParseError exposing (MoveParseError)
 import MoveParser
-import Palette exposing (greenBook, redBook, white)
+import Palette exposing (greenBook, largeTextSpacing, normalTextSpacing, redBook, white)
 import Pile
 import Primitives
 import Task
@@ -553,11 +553,9 @@ editView model =
                 , el [ width fill, height fill, Font.family [ Font.monospace ] ] (text m)
                 ]
 
-        viewErrorMessage title error =
-            Element.column [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, spacing 10 ]
-                [ el [ Font.bold, width fill ] (text title)
-                , el [ width fill, height fill ] error
-                ]
+        viewErrorMessage error =
+            Element.el [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, paddingXY 0 10 ]
+                error
 
         maybeEvalError =
             case model.evalResult of
@@ -574,8 +572,7 @@ editView model =
 
                 ( Err errorMsg, _ ) ->
                     ( redBook
-                    , viewErrorMessage "That makes no sense"
-                        (MoveParseError.view model.text errorMsg)
+                    , viewErrorMessage (MoveParseError.view model.text errorMsg)
                     )
 
                 ( Ok _, Just error ) ->
@@ -589,8 +586,12 @@ editView model =
                                     "Failure during performance"
                     in
                     ( redBook
-                    , viewErrorMessage title
-                        (EvalResult.viewError error)
+                    , viewErrorMessage
+                        (Element.column [ largeTextSpacing ]
+                            [ el [ Font.bold, width fill ] (text title)
+                            , EvalResult.viewError error
+                            ]
+                        )
                     )
 
         moveDefinitionsIntoLibraryButton =

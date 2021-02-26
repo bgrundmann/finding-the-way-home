@@ -37,7 +37,7 @@ import Move exposing (ExprValue(..), Move(..), MoveIdentifier, UserDefinedOrPrim
 import MoveEditor
 import MoveLibrary exposing (MoveLibrary)
 import MoveParser
-import Palette exposing (greenBook)
+import Palette exposing (greenBook, normalFontSize, smallFontSize)
 import Ports
 import Primitives
 import Route
@@ -447,7 +447,7 @@ view model =
             ]
 
         body =
-            Element.layout [ width fill, height fill, Toasts.view model.toasts ] <|
+            Element.layout [ normalFontSize, width fill, height fill, Toasts.view model.toasts ] <|
                 column [ width fill, height fill ]
                     page
     in

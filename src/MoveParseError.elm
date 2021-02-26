@@ -21,7 +21,7 @@ import Element.Font as Font
 import ElmUiUtils exposing (mono)
 import List.Extra
 import Move exposing (ArgumentKind(..), Expr, MoveDefinition)
-import Palette
+import Palette exposing (largeTextSpacing, normalTextSpacing)
 import Parser.Advanced
 import ViewMove
 
@@ -114,14 +114,14 @@ view source deadEnds =
         viewProblem problem =
             case problem of
                 UnknownMove { name, options } ->
-                    column [ spacing 10, width fill ]
-                        (paragraph [] [ text "Don't know how to do ", mono name ]
-                            :: el [ Font.bold ] (text "Options:")
+                    column [ largeTextSpacing, width fill ]
+                        (paragraph [ normalTextSpacing ]
+                            [ el [ Font.bold ] (text "Don't know how to do: "), mono name ]
                             :: List.map
                                 (\md ->
-                                    column [ spacing 5, width fill ]
-                                        [ mono (Move.signature md)
-                                        , paragraph [ width fill, spacing 5 ] [ text md.doc ]
+                                    textColumn [ normalTextSpacing, width fill ]
+                                        [ paragraph [ width fill, normalTextSpacing ] [ mono (Move.signature md) ]
+                                        , paragraph [ width fill, normalTextSpacing ] [ text md.doc ]
                                         ]
                                 )
                                 options
@@ -133,19 +133,19 @@ view source deadEnds =
                 NoSuchArgument { name, kind } ->
                     case kind of
                         KindInt ->
-                            paragraph [ spacing 5, width fill ]
+                            paragraph [ normalTextSpacing, width fill ]
                                 [ mono name
                                 , text " looks like a number argument, but no such argument was defined"
                                 ]
 
                         KindPile ->
-                            textColumn [ spacing 20, width fill ]
-                                [ paragraph [ spacing 5, width fill ]
+                            textColumn [ largeTextSpacing, width fill ]
+                                [ paragraph [ normalTextSpacing, width fill ]
                                     [ text "There is neither an argument nor a temporary pile called "
                                     , mono name
                                     , text "."
                                     ]
-                                , paragraph [ spacing 5, width fill ]
+                                , paragraph [ normalTextSpacing, width fill ]
                                     [ text
                                         """Note that inside a definition you cannot refer to a pile directly.
                                    Everything must either be an argument to the definition or be
@@ -154,20 +154,20 @@ view source deadEnds =
                                 ]
 
                 InvalidMoveInvocation { options, actuals } ->
-                    column [ spacing 20, width fill ]
+                    column [ largeTextSpacing, width fill ]
                         (List.map
                             (\md ->
-                                column [ spacing 5, width fill ]
-                                    [ mono (Move.signature md)
-                                    , paragraph [ width fill, spacing 5 ] [ text md.doc ]
+                                textColumn [ normalTextSpacing, width fill ]
+                                    [ paragraph [ width fill, normalTextSpacing ] [ text <| Move.signature md ]
+                                    , paragraph [ width fill, normalTextSpacing ] [ text md.doc ]
                                     ]
                             )
                             options
                         )
 
                 DuplicateDefinition previousDefinition ->
-                    column [ spacing 20, width fill ]
-                        [ paragraph [ spacing 5, width fill ]
+                    column [ largeTextSpacing, width fill ]
+                        [ paragraph [ normalTextSpacing, width fill ]
                             [ text "There is already a previous definition with the same arguments." ]
                         , ViewMove.viewDefinition ViewMove.defaultConfig previousDefinition
                         ]
@@ -186,16 +186,14 @@ view source deadEnds =
                             String.dropLeft col line
                                 |> String.padRight 1 '_'
                     in
-                    el [ Font.family [ Font.monospace ] ]
-                        (paragraph [ spacing 5 ]
-                            [ text left
-                            , el
-                                [ Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
-                                , Border.color Palette.redBook
-                                ]
-                                (text right)
+                    paragraph [ normalTextSpacing, Font.family [ Font.monospace ] ]
+                        [ text left
+                        , el
+                            [ Border.widthEach { bottom = 1, left = 0, right = 0, top = 0 }
+                            , Border.color Palette.redBook
                             ]
-                        )
+                            (text right)
+                        ]
 
         viewDeadEnd deadEnd =
             let
@@ -233,13 +231,13 @@ view source deadEnds =
                             row [] [ text "Expected ", viewExpectation ex ]
 
                         exs ->
-                            column [ spacing 5 ]
+                            column [ normalTextSpacing ]
                                 [ text "Expected one of: "
                                 , row []
                                     [ el [ width (px 20) ] Element.none
                                     , exs
                                         |> List.map viewExpectation
-                                        |> column [ spacing 5 ]
+                                        |> column [ normalTextSpacing ]
                                     ]
                                 ]
 
@@ -249,9 +247,9 @@ view source deadEnds =
                             Element.none
 
                         others ->
-                            column [ spacing 5 ] (List.map viewProblem others)
+                            column [ normalTextSpacing ] (List.map viewProblem others)
             in
-            column [ spacing 5 ]
+            column [ largeTextSpacing ]
                 [ relevantLineAndPlace deadEnd.row deadEnd.col
                 , viewExpectedProblems
                 , viewOtherProblems
@@ -262,4 +260,4 @@ view source deadEnds =
             Element.none
 
         des ->
-            column [ spacing 10 ] (List.map viewDeadEnd des)
+            column [ largeTextSpacing ] (List.map viewDeadEnd des)

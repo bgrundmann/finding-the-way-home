@@ -4,9 +4,13 @@ module Palette exposing
     , dangerousButton
     , greenBook
     , grey
+    , largeTextSpacing
     , linkButton
+    , normalFontSize
+    , normalTextSpacing
     , redBook
     , regularButton
+    , smallFontSize
     , transparentGrey
     , white
     )
@@ -18,11 +22,31 @@ import Element
         , padding
         , rgb255
         , rgba255
-        , scale
+        , spacing
         )
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
+
+
+smallFontSize : Element.Attr decorative msg
+smallFontSize =
+    Font.size 12
+
+
+normalFontSize : Element.Attr decorative msg
+normalFontSize =
+    Font.size 18
+
+
+normalTextSpacing : Element.Attribute msg
+normalTextSpacing =
+    spacing 10
+
+
+largeTextSpacing : Element.Attribute msg
+largeTextSpacing =
+    spacing 20
 
 
 redBook : Element.Color
