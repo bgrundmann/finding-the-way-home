@@ -24,6 +24,7 @@ import Browser.Dom as Dom
 import Element
     exposing
         ( Element
+        , centerX
         , centerY
         , column
         , el
@@ -34,6 +35,7 @@ import Element
         , mouseOver
         , padding
         , paddingXY
+        , paragraph
         , px
         , row
         , scale
@@ -47,6 +49,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Element.Lazy
+import ElmUiUtils exposing (mono)
 import Eval
 import EvalResult exposing (EvalResult)
 import File exposing (File)
@@ -147,12 +150,9 @@ getDefinitions model =
             Just definitions
 
 
-defaultInfoText : String
-defaultInfoText =
-    String.join "\n" (List.map Move.signature (Primitives.primitives |> MoveLibrary.toListTopSort))
-        ++ """
-
-repeat N
+referenceInfoText : String
+referenceInfoText =
+    """repeat N
   move1
   ...
 end
@@ -547,10 +547,10 @@ viewDirectionButton model =
 editView : Model -> Element Msg
 editView model =
     let
-        viewMessage title m =
+        viewMessage title ref =
             Element.column [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, spacing 10 ]
                 [ el [ Font.bold, width fill ] (text title)
-                , el [ width fill, height fill, Font.family [ Font.monospace ] ] (text m)
+                , ref
                 ]
 
         viewErrorMessage error =
@@ -568,7 +568,26 @@ editView model =
         ( movesBorderColor, infoText ) =
             case ( model.movesAndDefinitions, maybeEvalError ) of
                 ( Ok _, Nothing ) ->
-                    ( greenBook, viewMessage "Reference" defaultInfoText )
+                    let
+                        signatures =
+                            -- Todo add the definitions
+                            MoveLibrary.toListAlphabetic model.library
+                                |> List.map
+                                    (\md ->
+                                        paragraph [ normalTextSpacing ] [ mono (Move.signature md) ]
+                                    )
+
+                        reference =
+                            row [ padding 10, spacing 20, centerX ]
+                                [ el [ width fill, height fill, Font.family [ Font.monospace ] ]
+                                    (text referenceInfoText)
+                                , el [ width fill, height fill, Font.family [ Font.monospace ] ]
+                                    (column [ largeTextSpacing ]
+                                        signatures
+                                    )
+                                ]
+                    in
+                    ( greenBook, viewMessage "Reference" reference )
 
                 ( Err errorMsg, _ ) ->
                     ( redBook
