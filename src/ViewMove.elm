@@ -91,7 +91,7 @@ view viewConfig move =
         Note n ->
             paragraph [ spacing textSpacing ]
                 [ boldMono "note "
-                , el [] (text n)
+                , el [ Font.italic ] (text n)
                 ]
 
         Repeat n moves ->
