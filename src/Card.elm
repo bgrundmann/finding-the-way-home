@@ -115,8 +115,9 @@ turnover (Card { visible, hidden }) =
 {-| View the visible side of the card
 -}
 view : Card -> Element msg
-view (Card { visible }) =
-    viewCardDesign visible
+view (Card { visible, hidden }) =
+    el [ Element.behindContent <| el [ Element.alpha 0.4 ] <| viewCardDesign hidden ] <|
+        viewCardDesign visible
 
 
 viewCardDesign : CardDesign -> Element msg

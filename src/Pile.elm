@@ -121,10 +121,10 @@ view pile =
             -- safe way.
             Element.column [ Element.spacing -6 ]
                 [ row [ width fill, Element.paddingXY 4 0 ]
-                    [ el [ Font.variant Font.tabularNumbers, Font.size 15, width fill ] (text (String.fromInt num))
-                    , el [ Font.size 26 ] (Card.view c)
+                    [ el [ Font.variant Font.tabularNumbers, Font.size 12, width fill ] (text (String.fromInt num))
+                    , el [ Font.variant Font.tabularNumbers, Font.size 12 ] (text (Card.toString c))
                     ]
-                , el [ Font.size 64 ] (Card.view (Card.turnover c))
+                , el [ Font.size 70 ] (Card.view c)
                 ]
     in
     paragraph [ Element.spacing 5 ] (List.map viewNumberedCard numberedPile)
