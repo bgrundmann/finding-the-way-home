@@ -30,10 +30,11 @@ import Element
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
+import Element.Input as Input
 import ElmUiUtils exposing (boldMono, mono)
 import Image exposing (Image, PileName)
 import Move exposing (ExprValue(..), Move, MoveDefinition)
-import Palette
+import Palette exposing (largeTextSpacing, normalTextSpacing)
 import ViewMove
 
 
@@ -59,6 +60,19 @@ type EvalTrace
     = EVTop MoveInList
     | EVRepeat { n : Int, total : Int, prev : EvalTrace } MoveInList
     | EVUserDefined { def : MoveDefinition, actuals : List ExprValue, prev : EvalTrace } MoveInList
+
+
+traceReplaceMoveInList : MoveInList -> EvalTrace -> EvalTrace
+traceReplaceMoveInList ml trace =
+    case trace of
+        EVTop _ ->
+            EVTop ml
+
+        EVRepeat rep _ ->
+            EVRepeat rep ml
+
+        EVUserDefined ud _ ->
+            EVUserDefined ud ml
 
 
 traceDepth : EvalTrace -> Int
@@ -103,48 +117,22 @@ reportError image steps trace problem =
     }
 
 
-viewEvalTrace : ViewMove.ViewConfig -> EvalTrace -> Element msg
-viewEvalTrace viewConfig trace =
+viewEvalTrace : ViewMove.ViewConfig -> (EvalTrace -> msg) -> EvalTrace -> Element msg
+viewEvalTrace viewConfig gotoMsg trace =
     let
         stepped a b =
-            column [ width fill, spacing 5 ]
+            column [ width fill, normalTextSpacing ]
                 [ el [ width fill, Element.alignLeft ] a
                 , el [ paddingEach { left = 20, right = 0, top = 0, bottom = 0 }, width fill ] b
                 ]
 
-        viewMoveInList { moves, n } =
-            column [ width fill, spacing 5 ]
-                (List.indexedMap
-                    (\i move ->
-                        let
-                            highlighter =
-                                if i == n then
-                                    el
-                                        [ width (px 10)
-                                        , height (px 10)
-
-                                        --, centerY
-                                        , Background.color Palette.greenBook
-                                        , Border.rounded 5
-                                        ]
-                                        Element.none
-
-                                else
-                                    el [ width (px 10), height (px 10) ] Element.none
-                        in
-                        row [ width fill, spacing 5 ]
-                            [ highlighter, ViewMove.view viewConfig move ]
-                    )
-                    moves
-                )
-
-        viewEvalTraceHeader t showBelow =
+        helper t showBelow =
             case t of
                 EVTop _ ->
                     showBelow
 
                 EVRepeat { n, total, prev } _ ->
-                    viewEvalTraceHeader prev
+                    helper prev
                         (stepped
                             (paragraph [ spacing 5 ]
                                 [ boldMono "repeat "
@@ -155,7 +143,7 @@ viewEvalTrace viewConfig trace =
                         )
 
                 EVUserDefined { def, actuals, prev } _ ->
-                    viewEvalTraceHeader prev
+                    helper prev
                         (stepped
                             (paragraph [ spacing 5 ]
                                 ((mono def.name
@@ -180,8 +168,7 @@ viewEvalTrace viewConfig trace =
                             )
                             showBelow
                         )
-    in
-    let
+
         moveInList =
             case trace of
                 EVTop l ->
@@ -193,8 +180,50 @@ viewEvalTrace viewConfig trace =
                 EVUserDefined _ l ->
                     l
     in
-    viewEvalTraceHeader trace
-        (viewMoveInList moveInList)
+    helper trace <|
+        column [ width fill, normalTextSpacing ]
+            (List.indexedMap
+                (\i move ->
+                    let
+                        highlighter =
+                            if i == moveInList.n then
+                                el
+                                    [ width (px 10)
+                                    , height (px 10)
+
+                                    --, centerY
+                                    , Background.color Palette.greenBook
+                                    , Border.rounded 5
+                                    ]
+                                    Element.none
+
+                            else
+                                Input.button
+                                    [ width (px 10)
+                                    , height (px 10)
+                                    , Border.color Palette.grey
+                                    , Border.width 1
+                                    , Border.rounded 5
+                                    , Element.pointer
+                                    , Element.mouseOver [ Border.color Palette.greenBook ]
+                                    ]
+                                    { label = Element.none
+                                    , onPress =
+                                        gotoMsg
+                                            (traceReplaceMoveInList
+                                                { moves = moveInList.moves
+                                                , n = i
+                                                }
+                                                trace
+                                            )
+                                            |> Just
+                                    }
+                    in
+                    row [ width fill, spacing 5 ]
+                        [ highlighter, ViewMove.view viewConfig move ]
+                )
+                moveInList.moves
+            )
 
 
 viewError : EvalError -> Element msg

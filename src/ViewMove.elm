@@ -40,7 +40,7 @@ import Palette
 
 textSpacing : Int
 textSpacing =
-    8
+    10
 
 
 indented : Element msg -> Element msg
@@ -91,7 +91,7 @@ view viewConfig move =
         Note n ->
             paragraph [ spacing textSpacing ]
                 [ boldMono "note "
-                , el [ Font.italic ] (text n)
+                , el [] (text n)
                 ]
 
         Repeat n moves ->

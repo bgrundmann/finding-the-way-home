@@ -128,6 +128,7 @@ type Msg
     | Play
     | SetStep Int
     | StepOver
+    | Goto EvalResult.EvalTrace
 
 
 type DisplayMode
@@ -455,6 +456,12 @@ update msg model =
                     , Cmd.none
                     )
 
+        Goto evalTrace ->
+            ( model
+                |> applyMoves (\{ trace } -> trace /= evalTrace)
+            , Cmd.none
+            )
+
         Play ->
             ( model |> applyMoves (always True)
             , Cmd.none
@@ -761,7 +768,7 @@ view model =
                 ( Show, Partial { partial, partialError } ) ->
                     Element.column [ width fill, height (minimum 0 fill), spacing 20, paddingXY 0 10 ]
                         [ el [ height fill, width fill, scrollbarY ] <|
-                            EvalResult.viewEvalTrace ViewMove.defaultConfig partial.trace
+                            EvalResult.viewEvalTrace ViewMove.defaultConfig Goto partial.trace
                         , EvalResult.viewError partialError
                         ]
 
