@@ -126,7 +126,10 @@ update pileName f image =
 view : (String -> Element msg) -> Image -> Element msg
 view viewPileName world =
     Element.Keyed.column [ spacing 10, width fill ]
-        (List.map (\( name, pile ) -> ( name, column [] [ viewPileName name, Pile.view pile ] )) world)
+        (world
+            |> List.sortBy Tuple.first
+            |> List.map (\( name, pile ) -> ( name, column [] [ viewPileName name, Pile.view pile ] ))
+        )
 
 
 encode : Image -> Encode.Value

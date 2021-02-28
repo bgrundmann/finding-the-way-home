@@ -432,6 +432,7 @@ view toMsg state =
     let
         pilesView =
             Image.piles state.image
+                |> List.sortBy Tuple.first
                 |> List.map
                     (\( pileName, pile ) ->
                         column [ spacing 10, width fill ]

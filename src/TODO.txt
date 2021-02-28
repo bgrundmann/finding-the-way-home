@@ -1,4 +1,3 @@
-  - Performance mode (steps)
-  - Learn mode (current editor)
-  - Note (comments)
   - More useful error trace
+  - Generate a earlier error if an empty pile is passed to a userdefined command
+    (to do that we need the typing system to distinguish between piles that can and can not be empty)

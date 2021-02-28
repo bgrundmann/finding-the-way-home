@@ -6,7 +6,6 @@ module Card exposing
     , Value(..)
     , all_suits
     , all_values
-    , blank
     , card
     , cardParser
     , fromString
@@ -36,7 +35,6 @@ type BackColor
 type CardDesign
     = Face RegularFace
     | Back BackColor
-    | Blank
 
 
 type Suit
@@ -67,13 +65,6 @@ A visible side and a side that is hidden.
 -}
 type Card
     = Card { visible : CardDesign, hidden : CardDesign }
-
-
-{-| The most primitive card is one that is blank on both sides.
--}
-blank : Card
-blank =
-    Card { visible = Blank, hidden = Blank }
 
 
 {-| A red backed regular card. Face is hidden.
@@ -116,8 +107,8 @@ turnover (Card { visible, hidden }) =
 -}
 view : Card -> Element msg
 view (Card { visible, hidden }) =
-    el [ Element.behindContent <| el [ Element.alpha 0.4 ] <| viewCardDesign hidden ] <|
-        viewCardDesign visible
+    --    el [ Element.behindContent <| el [ Element.alpha 0.4 ] <| viewCardDesign hidden ] <|
+    viewCardDesign visible
 
 
 viewCardDesign : CardDesign -> Element msg
@@ -128,9 +119,6 @@ viewCardDesign d =
 
         Back b ->
             viewBack b
-
-        Blank ->
-            text "_"
 
 
 viewBack : BackColor -> Element msg
@@ -248,9 +236,6 @@ cardDesignToString design =
 
         Back Green ->
             "G"
-
-        Blank ->
-            "_"
 
 
 valueToString : Value -> String
