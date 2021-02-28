@@ -758,7 +758,12 @@ view model =
                             partial.lastImage
             in
             el [ width fill, height (minimum 0 fill), scrollbarY, paddingXY 20 10 ]
-                (Element.Lazy.lazy2 Image.view (\t -> el [ Font.bold ] (text t)) finalImage)
+                (Element.Lazy.lazy4 Image.view
+                    (\t -> el [ Font.bold ] (text t))
+                    (\_ _ -> False)
+                    Nothing
+                    finalImage
+                )
 
         withWidthPortion n =
             el [ width (fillPortion n), height fill ]

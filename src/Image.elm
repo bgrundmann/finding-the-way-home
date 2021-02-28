@@ -1,5 +1,20 @@
-module Image exposing (Image, PileName, decoder, encode, get, names, piles, put, renamePile, take, update, view)
+module Image exposing
+    ( Image
+    , PileName
+    , decoder
+    , encode
+    , get
+    , names
+    , piles
+    , put
+    , renamePile
+    , swap
+    , take
+    , update
+    , view
+    )
 
+import Card exposing (Card)
 import Element
     exposing
         ( Element
@@ -12,6 +27,7 @@ import Element.Keyed
 import Json.Decode as Decode
 import Json.Encode as Encode
 import List
+import List.Extra
 import Pile exposing (Pile)
 
 
@@ -49,6 +65,37 @@ get pileName image =
 
         ( _, x ) :: _ ->
             Just x
+
+
+{-| Swap two cards.
+-}
+swap : PileName -> Int -> PileName -> Int -> Image -> Image
+swap pileNameA ndxA pileNameB ndxB image =
+    let
+        cardA =
+            get pileNameA image
+                |> Maybe.andThen (List.Extra.getAt ndxA)
+
+        cardB =
+            get pileNameB image
+                |> Maybe.andThen (List.Extra.getAt ndxB)
+    in
+    case ( cardA, cardB ) of
+        ( Just a, Just b ) ->
+            image
+                |> update pileNameA
+                    (\p ->
+                        List.Extra.setAt ndxA b (Maybe.withDefault [] p)
+                            |> Just
+                    )
+                |> update pileNameB
+                    (\p ->
+                        List.Extra.setAt ndxB a (Maybe.withDefault [] p)
+                            |> Just
+                    )
+
+        ( _, _ ) ->
+            image
 
 
 {-| Remove the given pile from the image.
@@ -123,12 +170,20 @@ update pileName f image =
     loop [] image
 
 
-view : (String -> Element msg) -> Image -> Element msg
-view viewPileName world =
+view : (String -> Element msg) -> (Int -> Card -> Bool) -> Maybe (Int -> Card -> msg) -> Image -> Element msg
+view viewPileName isSelected maybeOnClick world =
     Element.Keyed.column [ spacing 10, width fill ]
         (world
             |> List.sortBy Tuple.first
-            |> List.map (\( name, pile ) -> ( name, column [] [ viewPileName name, Pile.view pile ] ))
+            |> List.map
+                (\( name, pile ) ->
+                    ( name
+                    , column []
+                        [ viewPileName name
+                        , Pile.view isSelected maybeOnClick pile
+                        ]
+                    )
+                )
         )
 
 

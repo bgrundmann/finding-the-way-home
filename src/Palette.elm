@@ -3,6 +3,7 @@ module Palette exposing
     , blueBook
     , dangerousButton
     , greenBook
+    , greenButton
     , grey
     , largeTextSpacing
     , linkButton
@@ -102,6 +103,18 @@ regularButton =
     [ mouseOver [ Border.glow grey 2 ]
     , Background.color white
     , Border.color blueBook
+    , Border.width 2
+    , Font.color black
+    , padding 5
+    , Border.rounded 5
+    ]
+
+
+greenButton : List (Attribute msg)
+greenButton =
+    [ mouseOver [ Border.glow grey 2 ]
+    , Background.color white
+    , Border.color greenBook
     , Border.width 2
     , Font.color black
     , padding 5

@@ -10,9 +10,11 @@ import Element.Font as Font
 import Element.Input as Input
 import ElmUiUtils exposing (onKey)
 import Image exposing (Image, PileName, view)
+import List.Extra
 import MoveParser exposing (validatePileName)
-import Palette exposing (dangerousButton, regularButton)
+import Palette exposing (dangerousButton, greenButton, regularButton)
 import Pile
+import Set exposing (Set)
 import Task
 
 
@@ -21,6 +23,7 @@ type Editing
     | EditingPileName EditingPileNameState
     | EditingPile EditingPileState
     | ChoosingImageToAdd
+    | Selected (Set ( PileName, Int ))
 
 
 type alias State =
@@ -45,7 +48,7 @@ type alias EditingPileState =
 
 type Msg
     = Delete PileName
-    | Add Image
+    | AddPile Image
     | OpenAdd
     | SortPile PileName
     | ReversePile PileName
@@ -55,6 +58,9 @@ type Msg
     | EditPileName { oldName : String, newName : String }
     | CancelEditing
     | Save
+    | ToggleSelection PileName Int
+    | TakeOut
+    | Swap
 
 
 defaultOptions : List ( String, Image )
@@ -104,6 +110,32 @@ idOfPileNameEditor : String
 idOfPileNameEditor =
     -- Similar to the id of the Pile we assume there is only one
     "imageEditorPileNameEditor"
+
+
+takeOut : Set ( PileName, Int ) -> Image -> Image
+takeOut what image =
+    let
+        helper ( pileName, num ) ( takenOutAcc, imageAcc ) =
+            let
+                ( maybePile, imageAcc1 ) =
+                    Image.take pileName imageAcc
+
+                pile =
+                    Maybe.withDefault [] maybePile
+            in
+            case List.Extra.getAt num pile of
+                Nothing ->
+                    ( takenOutAcc, imageAcc )
+
+                Just card ->
+                    ( card :: takenOutAcc, Image.put pileName (List.Extra.removeAt num pile) imageAcc1 )
+
+        ( takenOut, newImage ) =
+            Set.toList what
+                |> List.sortWith (\( _, n1 ) ( _, n2 ) -> compare n2 n1)
+                |> List.foldl helper ( [], image )
+    in
+    Image.put (findUnusedName newImage "cards") takenOut newImage
 
 
 update : (Result Dom.Error () -> a) -> Msg -> State -> ( State, Cmd a )
@@ -161,6 +193,9 @@ update toFocusMsg msg state =
         Save ->
             case state.editing of
                 NotEditing ->
+                    ( state, Cmd.none )
+
+                Selected _ ->
                     ( state, Cmd.none )
 
                 ChoosingImageToAdd ->
@@ -249,7 +284,7 @@ update toFocusMsg msg state =
             , Cmd.none
             )
 
-        Add imageToAdd ->
+        AddPile imageToAdd ->
             let
                 newImage =
                     List.foldl
@@ -267,6 +302,68 @@ update toFocusMsg msg state =
               }
             , Cmd.none
             )
+
+        ToggleSelection pileName num ->
+            let
+                newEditing =
+                    case state.editing of
+                        EditingPileName _ ->
+                            state.editing
+
+                        EditingPile _ ->
+                            state.editing
+
+                        ChoosingImageToAdd ->
+                            state.editing
+
+                        NotEditing ->
+                            Selected (Set.singleton ( pileName, num ))
+
+                        Selected s ->
+                            if Set.member ( pileName, num ) s then
+                                Set.remove ( pileName, num ) s
+                                    |> Selected
+
+                            else
+                                Set.insert ( pileName, num ) s
+                                    |> Selected
+            in
+            ( { state | editing = newEditing }, Cmd.none )
+
+        Swap ->
+            let
+                newState =
+                    case state.editing of
+                        Selected s ->
+                            case Set.toList s of
+                                [ ( pileNameA, ndxA ), ( pileNameB, ndxB ) ] ->
+                                    { state
+                                        | image = Image.swap pileNameA ndxA pileNameB ndxB state.image
+                                        , editing = NotEditing
+                                    }
+
+                                _ ->
+                                    state
+
+                        _ ->
+                            state
+            in
+            ( newState, Cmd.none )
+
+        TakeOut ->
+            let
+                newState =
+                    case state.editing of
+                        Selected s ->
+                            { state
+                                | image = takeOut s state.image
+                                , editing = NotEditing
+                            }
+
+                        _ ->
+                            state
+            in
+            ( newState, Cmd.none )
 
 
 getImage : State -> Image
@@ -291,6 +388,9 @@ ifEditingThisPileName pileName state =
             Nothing
 
         ChoosingImageToAdd ->
+            Nothing
+
+        Selected _ ->
             Nothing
 
 
@@ -390,6 +490,9 @@ ifEditingThisPile name state =
             else
                 Nothing
 
+        Selected _ ->
+            Nothing
+
 
 viewImageToAddChooser : (Msg -> msg) -> Dict String Image -> Element msg
 viewImageToAddChooser toMsg options =
@@ -413,7 +516,7 @@ viewImageToAddChooser toMsg options =
                                 [ width fill
                                 , Element.mouseOver [ Font.color Palette.greenBook ]
                                 ]
-                                { onPress = Just (Add image |> toMsg), label = text name }
+                                { onPress = Just (AddPile image |> toMsg), label = text name }
                         )
                 )
             ]
@@ -439,7 +542,32 @@ view toMsg state =
                             [ viewPileNameAndButtons toMsg state pileName
                             , case ifEditingThisPile pileName state of
                                 Nothing ->
-                                    Pile.view pile
+                                    let
+                                        isSelected =
+                                            case state.editing of
+                                                Selected selections ->
+                                                    \num _ ->
+                                                        Set.member ( pileName, num ) selections
+
+                                                _ ->
+                                                    \_ _ -> False
+
+                                        toggleSelection num card =
+                                            ToggleSelection pileName num
+                                                |> toMsg
+
+                                        maybeToggleSelection =
+                                            case state.editing of
+                                                NotEditing ->
+                                                    Just toggleSelection
+
+                                                Selected _ ->
+                                                    Just toggleSelection
+
+                                                _ ->
+                                                    Nothing
+                                    in
+                                    Pile.view isSelected maybeToggleSelection pile
 
                                 Just { text } ->
                                     Input.multiline
@@ -471,11 +599,38 @@ view toMsg state =
 
                 _ ->
                     []
+
+        selectionButtons =
+            let
+                takeOutButton =
+                    Input.button greenButton
+                        { onPress = Just (TakeOut |> toMsg)
+                        , label = text "Take out"
+                        }
+            in
+            case state.editing of
+                Selected sel ->
+                    if Set.size sel == 2 then
+                        [ takeOutButton
+                        , Input.button greenButton
+                            { onPress = Just (Swap |> toMsg)
+                            , label = text "Swap"
+                            }
+                        ]
+
+                    else
+                        [ takeOutButton ]
+
+                _ ->
+                    []
     in
     column ([ width fill, spacing 10 ] ++ imageToAddChooser)
         [ pilesView
-        , Input.button regularButton
-            { onPress = OpenAdd |> toMsg |> Just
-            , label = text "Add"
-            }
+        , row [ spacing 10 ]
+            (Input.button regularButton
+                { onPress = OpenAdd |> toMsg |> Just
+                , label = text "Add pile"
+                }
+                :: selectionButtons
+            )
         ]
