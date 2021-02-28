@@ -321,8 +321,15 @@ update toFocusMsg msg state =
 
                         Selected s ->
                             if Set.member ( pileName, num ) s then
-                                Set.remove ( pileName, num ) s
-                                    |> Selected
+                                let
+                                    newSet =
+                                        Set.remove ( pileName, num ) s
+                                in
+                                if Set.isEmpty newSet then
+                                    NotEditing
+
+                                else
+                                    Selected newSet
 
                             else
                                 Set.insert ( pileName, num ) s
