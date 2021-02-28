@@ -59,6 +59,7 @@ type Msg
     | CancelEditing
     | Save
     | ToggleSelection PileName Int
+    | TurnoverSelection
     | TakeOut
     | Swap
 
@@ -372,6 +373,33 @@ update toFocusMsg msg state =
             in
             ( newState, Cmd.none )
 
+        TurnoverSelection ->
+            let
+                newState =
+                    case state.editing of
+                        Selected s ->
+                            let
+                                newImage =
+                                    Set.foldl
+                                        (\( pileName, num ) imageAcc ->
+                                            Image.update pileName
+                                                (\maybePile ->
+                                                    Maybe.withDefault [] maybePile
+                                                        |> List.Extra.updateAt num Card.turnover
+                                                        |> Just
+                                                )
+                                                imageAcc
+                                        )
+                                        state.image
+                                        s
+                            in
+                            { state | image = newImage, editing = NotEditing }
+
+                        _ ->
+                            state
+            in
+            ( newState, Cmd.none )
+
 
 getImage : State -> Image
 getImage { image } =
@@ -614,11 +642,18 @@ view toMsg state =
                         { onPress = Just (TakeOut |> toMsg)
                         , label = text "Take out"
                         }
+
+                turnoverSelectionButton =
+                    Input.button greenButton
+                        { onPress = Just (TurnoverSelection |> toMsg)
+                        , label = text "Turnover"
+                        }
             in
             case state.editing of
                 Selected sel ->
                     if Set.size sel == 2 then
                         [ takeOutButton
+                        , turnoverSelectionButton
                         , Input.button greenButton
                             { onPress = Just (Swap |> toMsg)
                             , label = text "Swap"
@@ -626,7 +661,7 @@ view toMsg state =
                         ]
 
                     else
-                        [ takeOutButton ]
+                        [ takeOutButton, turnoverSelectionButton ]
 
                 _ ->
                     []
