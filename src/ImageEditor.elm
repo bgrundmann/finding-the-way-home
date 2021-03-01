@@ -565,6 +565,16 @@ idOfPileEditor =
     "imageEditorPileEditor"
 
 
+maybe : (data -> cfg -> cfg) -> Maybe data -> cfg -> cfg
+maybe f m cfg =
+    case m of
+        Nothing ->
+            cfg
+
+        Just data ->
+            f data cfg
+
+
 view : (Msg -> msg) -> State -> Element msg
 view toMsg state =
     let
@@ -578,31 +588,33 @@ view toMsg state =
                             , case ifEditingThisPile pileName state of
                                 Nothing ->
                                     let
-                                        isSelected =
-                                            case state.editing of
-                                                Selected selections ->
-                                                    \num _ ->
-                                                        Set.member ( pileName, num ) selections
-
-                                                _ ->
-                                                    \_ _ -> False
-
                                         toggleSelection num card =
                                             ToggleSelection pileName num
                                                 |> toMsg
 
-                                        maybeToggleSelection =
-                                            case state.editing of
-                                                NotEditing ->
-                                                    Just toggleSelection
+                                        config =
+                                            Pile.defaultConfig
+                                                |> maybe Pile.withIsSelected
+                                                    (case state.editing of
+                                                        Selected selections ->
+                                                            Just (\num _ -> Set.member ( pileName, num ) selections)
 
-                                                Selected _ ->
-                                                    Just toggleSelection
+                                                        _ ->
+                                                            Nothing
+                                                    )
+                                                |> maybe Pile.withOnClick
+                                                    (case state.editing of
+                                                        NotEditing ->
+                                                            Just toggleSelection
 
-                                                _ ->
-                                                    Nothing
+                                                        Selected _ ->
+                                                            Just toggleSelection
+
+                                                        _ ->
+                                                            Nothing
+                                                    )
                                     in
-                                    Pile.view isSelected maybeToggleSelection pile
+                                    Pile.view config pile
 
                                 Just { text } ->
                                     Input.multiline

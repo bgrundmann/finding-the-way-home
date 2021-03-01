@@ -170,8 +170,8 @@ update pileName f image =
     loop [] image
 
 
-view : (String -> Element msg) -> (Int -> Card -> Bool) -> Maybe (Int -> Card -> msg) -> Image -> Element msg
-view viewPileName isSelected maybeOnClick world =
+view : (String -> Element msg) -> Pile.ViewConfig msg -> Image -> Element msg
+view viewPileName viewConfig world =
     Element.Keyed.column [ spacing 10, width fill ]
         (world
             |> List.sortBy Tuple.first
@@ -180,7 +180,7 @@ view viewPileName isSelected maybeOnClick world =
                     ( name
                     , column []
                         [ viewPileName name
-                        , Pile.view isSelected maybeOnClick pile
+                        , Pile.view viewConfig pile
                         ]
                     )
                 )

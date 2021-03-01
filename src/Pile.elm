@@ -1,5 +1,7 @@
 module Pile exposing
     ( Pile
+    , ViewConfig
+    , defaultConfig
     , fromString
     , pileParser
     , poker_deck
@@ -7,6 +9,8 @@ module Pile exposing
     , toString
     , turnover
     , view
+    , withIsSelected
+    , withOnClick
     )
 
 import Card exposing (Card, Suit(..), Value(..), all_values, card, cardParser)
@@ -111,8 +115,31 @@ toString pile =
         |> String.join ",\n"
 
 
-view : (Int -> Card -> Bool) -> Maybe (Int -> Card -> msg) -> Pile -> Element msg
-view isSelected maybeOnClick pile =
+type alias ViewConfig msg =
+    { isSelected : Int -> Card -> Bool
+    , onClick : Maybe (Int -> Card -> msg)
+    }
+
+
+defaultConfig : ViewConfig msg
+defaultConfig =
+    { isSelected = \_ _ -> False
+    , onClick = Nothing
+    }
+
+
+withIsSelected : (Int -> Card -> Bool) -> ViewConfig msg -> ViewConfig msg
+withIsSelected isSelected cfg =
+    { cfg | isSelected = isSelected }
+
+
+withOnClick : (Int -> Card -> msg) -> ViewConfig msg -> ViewConfig msg
+withOnClick onClick cfg =
+    { cfg | onClick = Just onClick }
+
+
+view : ViewConfig msg -> Pile -> Element msg
+view viewConfig pile =
     -- By default we show the hidden side in big and the visible side in small
     -- the assumption being that most of the time the deck will be face down
     let
@@ -122,7 +149,7 @@ view isSelected maybeOnClick pile =
         viewNumberedCard ( num, c ) =
             let
                 maybeSelectedBorder =
-                    if isSelected num c then
+                    if viewConfig.isSelected num c then
                         [ Border.width 2, padding 1, Border.rounded 3, Border.color Palette.greenBook ]
 
                     else
@@ -142,7 +169,7 @@ view isSelected maybeOnClick pile =
                         , el [ Font.size 64 ] (Card.view c)
                         ]
             in
-            case maybeOnClick of
+            case viewConfig.onClick of
                 Nothing ->
                     cardEl
 

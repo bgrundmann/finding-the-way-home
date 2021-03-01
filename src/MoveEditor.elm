@@ -758,10 +758,9 @@ view model =
                             partial.lastImage
             in
             el [ width fill, height (minimum 0 fill), scrollbarY, paddingXY 20 10 ]
-                (Element.Lazy.lazy4 Image.view
+                (Element.Lazy.lazy3 Image.view
                     (\t -> el [ Font.bold ] (text t))
-                    (\_ _ -> False)
-                    Nothing
+                    Pile.defaultConfig
                     finalImage
                 )
 
