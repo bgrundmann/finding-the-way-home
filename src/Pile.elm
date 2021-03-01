@@ -140,8 +140,6 @@ withOnClick onClick cfg =
 
 view : ViewConfig msg -> Pile -> Element msg
 view viewConfig pile =
-    -- By default we show the hidden side in big and the visible side in small
-    -- the assumption being that most of the time the deck will be face down
     let
         numberedPile =
             List.indexedMap (\n c -> ( n, c )) pile
@@ -161,10 +159,13 @@ view viewConfig pile =
                     Element.column
                         (Element.spacing -6 :: maybeSelectedBorder)
                         [ row [ width fill, Element.paddingXY 4 0 ]
-                            [ el [ Font.variant Font.tabularNumbers, Font.size 12, width fill ]
+                            [ el [ Font.variant Font.tabularNumbers, Font.size 10, width fill ]
                                 (text (String.fromInt <| num + 1))
-                            , el [ Font.variant Font.tabularNumbers, Font.size 12 ]
-                                (text (Card.toString c))
+                            , el [ Font.variant Font.tabularNumbers, Font.size 14 ]
+                                (c
+                                    |> Card.getHidden
+                                    |> Card.viewCardDesignSmall
+                                )
                             ]
                         , el [ Font.size 64 ] (Card.view c)
                         ]

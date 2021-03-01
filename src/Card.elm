@@ -9,9 +9,12 @@ module Card exposing
     , card
     , cardParser
     , fromString
+    , getHidden
+    , getVisible
     , toString
     , turnover
     , view
+    , viewCardDesignSmall
     , withHidden
     , withVisible
     )
@@ -103,12 +106,52 @@ turnover (Card { visible, hidden }) =
     Card { visible = hidden, hidden = visible }
 
 
+getHidden : Card -> CardDesign
+getHidden (Card { hidden }) =
+    hidden
+
+
+getVisible : Card -> CardDesign
+getVisible (Card { visible }) =
+    visible
+
+
 {-| View the visible side of the card
 -}
 view : Card -> Element msg
 view (Card { visible, hidden }) =
-    --    el [ Element.behindContent <| el [ Element.alpha 0.4 ] <| viewCardDesign hidden ] <|
     viewCardDesign visible
+
+
+viewCardDesignSmall : CardDesign -> Element msg
+viewCardDesignSmall d =
+    case d of
+        Face ( value, suit ) ->
+            let
+                s =
+                    case suit of
+                        Hearts ->
+                            el [ Font.color Palette.redBook ] (text "♥")
+
+                        Spades ->
+                            text "♠"
+
+                        Clubs ->
+                            text "♣"
+
+                        Diamonds ->
+                            el [ Font.color Palette.redBook ] (text "♦")
+            in
+            Element.row [] [ text <| valueToString value, s ]
+
+        Back Red ->
+            el [ Font.color Palette.redBook ] (text "R")
+
+        Back Blue ->
+            el [ Font.color Palette.blueBook ] (text "B")
+
+        Back Green ->
+            el [ Font.color Palette.greenBook ] (text "G")
 
 
 viewCardDesign : CardDesign -> Element msg
