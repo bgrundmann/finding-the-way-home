@@ -29,6 +29,9 @@ import Element.Font as Font
 import Element.Input as Input
 import Element.Lazy
 import ElmUiUtils exposing (mono)
+import File exposing (File)
+import File.Download as Download
+import File.Select as Select
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -41,7 +44,8 @@ import Palette exposing (greenBook, normalFontSize, smallFontSize)
 import Ports
 import Primitives
 import Route
-import Toasts
+import Task
+import Toasts exposing (Toast)
 import Url exposing (Url)
 import ViewMove
 
@@ -72,6 +76,10 @@ type Msg
     | GotInitialLibrary (Result Http.Error String)
     | UrlChanged Url
     | UrlRequested Browser.UrlRequest
+    | Backup
+    | RestoreRequest
+    | Restore File
+    | RestoreLoaded String
 
 
 main : Program Encode.Value Model Msg
@@ -131,6 +139,15 @@ init previousStateJson url key =
     )
 
 
+addToast : Toast -> Model -> ( Model, Cmd Msg )
+addToast toast model =
+    let
+        ( toasts, toastCmd ) =
+            Toasts.add toast model.toasts
+    in
+    ( { model | toasts = toasts }, Cmd.map ToastsChanged toastCmd )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -176,13 +193,8 @@ update msg model =
 
                                         MoveEditor.BackwardsNotSupported ->
                                             "Sorry show mode not support while going backwards."
-
-                                ( toasts, toastCmd ) =
-                                    Toasts.add
-                                        (Toasts.toast message |> Toasts.withWarning)
-                                        model.toasts
                             in
-                            ( { model | toasts = toasts }, Cmd.map ToastsChanged toastCmd )
+                            addToast (Toasts.toast message |> Toasts.withWarning) model
 
                 ( EditorPage, MoveEditor.Edit ) ->
                     ( model, Nav.pushUrl model.nav (Route.routeToString Route.Editor) )
@@ -198,11 +210,11 @@ update msg model =
             )
 
         GotInitialLibrary (Err error) ->
-            let
-                ( toasts, toastCmd ) =
-                    Toasts.add (Toasts.toast "Failed to load initial library") model.toasts
-            in
-            ( { model | toasts = toasts }, Cmd.map ToastsChanged toastCmd )
+            model
+                |> addToast
+                    (Toasts.toast "Failed to load initial library"
+                        |> Toasts.withWarning
+                    )
 
         GotInitialLibrary (Ok what) ->
             case MoveParser.parseMoves Primitives.primitives what of
@@ -215,6 +227,47 @@ update msg model =
                             MoveLibrary.fromList (MoveLibrary.toListTopSort Primitives.primitives ++ definitions)
                     in
                     ( { model | moveEditor = MoveEditor.setLibrary newLibrary model.moveEditor }, Cmd.none )
+
+        Backup ->
+            let
+                jsonBackup =
+                    MoveEditor.getStoredState model.moveEditor
+                        |> MoveEditor.encodeStoredState
+                        |> Encode.encode 0
+
+                downloadCmd =
+                    Download.string "finding-the-way-home.json" "text/json" jsonBackup
+            in
+            ( model, downloadCmd )
+
+        RestoreRequest ->
+            ( model, Select.file [ "text/json" ] Restore )
+
+        Restore file ->
+            ( model, Task.perform RestoreLoaded (File.toString file) )
+
+        RestoreLoaded text ->
+            case Decode.decodeString MoveEditor.storedStateDecoder text of
+                Err e ->
+                    model
+                        |> addToast
+                            (Toasts.toast ("Restoration failed :-(\n" ++ Decode.errorToString e)
+                                |> Toasts.withWarning
+                            )
+
+                Ok ss ->
+                    let
+                        ( moveEditor, moveCmd ) =
+                            MoveEditor.init (Just ss)
+                    in
+                    { moveEditor = moveEditor
+                    , activePage = EditorPage
+                    , selectedMove = Nothing
+                    , nav = model.nav
+                    , toasts = Toasts.init
+                    }
+                        |> addToast (Toasts.toast "Backup restored")
+                        |> Tuple.mapSecond (\cmd -> Cmd.batch [ Cmd.map MoveEditorChanged moveCmd, cmd ])
 
         UrlChanged url ->
             case Route.urlToRoute url of
@@ -327,6 +380,21 @@ topBar activePage displayMode =
             , Border.color Palette.greenBook
             ]
             (text "")
+        , row
+            [ Border.widthEach { bottom = 2, top = 0, left = 0, right = 0 }
+            , paddingEach { left = 0, right = 0, top = 12, bottom = 7 }
+            , Border.color Palette.greenBook
+            , spacing 10
+            ]
+            [ Input.button Palette.linkButton
+                { label = text "Backup"
+                , onPress = Just Backup
+                }
+            , Input.button Palette.linkButton
+                { label = text "Restore"
+                , onPress = Just RestoreRequest
+                }
+            ]
         ]
 
 
