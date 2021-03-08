@@ -13,7 +13,7 @@ import Image exposing (Image, PileName, view)
 import List.Extra
 import MoveParser exposing (validatePileName)
 import Palette exposing (dangerousButton, greenButton, regularButton)
-import Pile
+import Pile exposing (Pile)
 import Set exposing (Set)
 import Task
 
@@ -24,6 +24,7 @@ type Editing
     | EditingPile EditingPileState
     | ChoosingImageToAdd
     | Selected (Set ( PileName, Int ))
+    | ChoosingSortOrder PileName
 
 
 type alias State =
@@ -50,7 +51,8 @@ type Msg
     = Delete PileName
     | AddPile Image
     | OpenAdd
-    | SortPile PileName
+    | OpenSort PileName
+    | SortPile PileName Pile
     | ReversePile PileName
     | TurnoverPile PileName
     | StartEditPile PileName
@@ -73,6 +75,28 @@ defaultOptions =
     , ( "green deck (face down)"
       , [ ( "greendeck", Pile.poker_deck |> List.map (Card.withVisible (Card.Back Card.Green)) ) ]
       )
+    ]
+
+
+sortingOptions : List ( Element msg, Pile )
+sortingOptions =
+    let
+        asc s =
+            ( row [] [ text "A-K", Card.viewSuit s ], Pile.all s )
+
+        desc s =
+            ( row [] [ text "K-A", Card.viewSuit s ], Pile.all s |> List.reverse )
+
+        deck_of ( la, pa ) ( lb, pb ) ( lc, pc ) ( ld, pd ) =
+            ( row [] [ la, text " ", lb, text " ", lc, text " ", ld ]
+            , pa ++ pb ++ pc ++ pd
+            )
+    in
+    [ deck_of (asc Card.Clubs) (asc Card.Diamonds) (desc Card.Hearts) (desc Card.Spades)
+    , deck_of (asc Card.Clubs) (asc Card.Hearts) (asc Card.Spades) (asc Card.Diamonds)
+    , deck_of (desc Card.Clubs) (desc Card.Hearts) (desc Card.Spades) (desc Card.Diamonds)
+    , deck_of (desc Card.Clubs) (desc Card.Spades) (desc Card.Hearts) (desc Card.Diamonds)
+    , deck_of (asc Card.Clubs) (asc Card.Spades) (desc Card.Hearts) (desc Card.Diamonds)
     ]
 
 
@@ -202,6 +226,9 @@ update toFocusMsg msg state =
                 ChoosingImageToAdd ->
                     ( state, Cmd.none )
 
+                ChoosingSortOrder _ ->
+                    ( state, Cmd.none )
+
                 EditingPile { pileName, text } ->
                     case Pile.fromString text of
                         Err _ ->
@@ -240,10 +267,13 @@ update toFocusMsg msg state =
             , Cmd.none
             )
 
-        SortPile pileName ->
+        OpenSort pileName ->
+            ( { state | editing = ChoosingSortOrder pileName }, Cmd.none )
+
+        SortPile pileName pile ->
             let
                 sort maybePile =
-                    Maybe.map Pile.sort maybePile
+                    Maybe.map (Pile.sort pile) maybePile
             in
             ( { state
                 | image = Image.update pileName sort state.image
@@ -315,6 +345,9 @@ update toFocusMsg msg state =
                             state.editing
 
                         ChoosingImageToAdd ->
+                            state.editing
+
+                        ChoosingSortOrder _ ->
                             state.editing
 
                         NotEditing ->
@@ -425,6 +458,9 @@ ifEditingThisPileName pileName state =
         ChoosingImageToAdd ->
             Nothing
 
+        ChoosingSortOrder _ ->
+            Nothing
+
         Selected _ ->
             Nothing
 
@@ -474,7 +510,7 @@ viewPileNameAndButtons toMsg state pileName =
             case ifEditingThisPile pileName state of
                 Nothing ->
                     [ Input.button regularButton
-                        { onPress = SortPile pileName |> toMsg |> Just
+                        { onPress = OpenSort pileName |> toMsg |> Just
                         , label = text "Sort"
                         }
                     , Input.button regularButton
@@ -515,6 +551,9 @@ ifEditingThisPile name state =
         ChoosingImageToAdd ->
             Nothing
 
+        ChoosingSortOrder _ ->
+            Nothing
+
         EditingPileName _ ->
             Nothing
 
@@ -552,6 +591,32 @@ viewImageToAddChooser toMsg options =
                                 , Element.mouseOver [ Font.color Palette.greenBook ]
                                 ]
                                 { onPress = Just (AddPile image |> toMsg), label = text name }
+                        )
+                )
+            ]
+
+
+viewSortOrderChooser : (Msg -> msg) -> String -> List ( Element msg, Pile ) -> Element msg
+viewSortOrderChooser toMsg pileName options =
+    el [ width fill, height fill, Background.color Palette.transparentGrey ] <|
+        column
+            [ padding 10
+            , Border.color Palette.blueBook
+            , Border.width 2
+            , Border.rounded 5
+            , Background.color Palette.white
+            , Font.color Palette.black
+            , Element.alignBottom
+            ]
+            [ column [ Element.alignBottom, spacing 5 ]
+                (options
+                    |> List.map
+                        (\( label, pile ) ->
+                            Input.button
+                                [ width fill
+                                , Element.mouseOver [ Font.color Palette.greenBook ]
+                                ]
+                                { onPress = Just (SortPile pileName pile |> toMsg), label = label }
                         )
                 )
             ]
@@ -647,6 +712,15 @@ view toMsg state =
                 _ ->
                     []
 
+        sortOrderChooser =
+            case state.editing of
+                ChoosingSortOrder pileName ->
+                    [ Element.inFront (viewSortOrderChooser toMsg pileName sortingOptions)
+                    ]
+
+                _ ->
+                    []
+
         selectionButtons =
             let
                 takeOutButton =
@@ -678,7 +752,7 @@ view toMsg state =
                 _ ->
                     []
     in
-    column ([ width fill, spacing 10 ] ++ imageToAddChooser)
+    column ([ width fill, spacing 10 ] ++ imageToAddChooser ++ sortOrderChooser)
         [ pilesView
         , row [ spacing 10 ]
             (Input.button regularButton

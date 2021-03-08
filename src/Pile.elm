@@ -1,11 +1,16 @@
 module Pile exposing
     ( Pile
     , ViewConfig
+    , all
+    , clubs_asc
     , defaultConfig
+    , diamonds_asc
     , fromString
+    , hearts_asc
     , pileParser
     , poker_deck
     , sort
+    , spades_asc
     , toString
     , turnover
     , view
@@ -27,23 +32,41 @@ type alias Pile =
     List Card
 
 
+all : Suit -> Pile
+all suit =
+    List.map (\v -> card v suit) all_values
+
+
+clubs_asc : Pile
+clubs_asc =
+    all Clubs
+
+
+diamonds_asc : Pile
+diamonds_asc =
+    all Diamonds
+
+
+hearts_asc : Pile
+hearts_asc =
+    all Hearts
+
+
+spades_asc : Pile
+spades_asc =
+    all Spades
+
+
 poker_deck : Pile
 poker_deck =
-    let
-        all suit =
-            List.map (\v -> card v suit) all_values
-    in
-    all Clubs
-        ++ all Diamonds
-        ++ (all Hearts |> List.reverse)
-        ++ (all Spades |> List.reverse)
+    clubs_asc ++ diamonds_asc ++ List.reverse hearts_asc ++ List.reverse spades_asc
 
 
 {-| Sort a pile so that all cards that there are appear in the same order
 as new deck order.
 -}
-sort : Pile -> Pile
-sort p =
+sort : Pile -> Pile -> Pile
+sort desiredOrder p =
     let
         -- First add the numbers as per new deck order
         -- This algorithm is quadratric but 52 * 52 is still not that big
@@ -53,13 +76,13 @@ sort p =
         numberedPile =
             List.indexedMap
                 (\originalPosition card ->
-                    case List.Extra.elemIndex card poker_deck of
+                    case List.Extra.elemIndex card desiredOrder of
                         Just ndx ->
                             ( ndx, card )
 
                         Nothing ->
                             -- Not found try turning the card over
-                            case List.Extra.elemIndex (Card.turnover card) poker_deck of
+                            case List.Extra.elemIndex (Card.turnover card) desiredOrder of
                                 Just ndx ->
                                     ( ndx, card )
 

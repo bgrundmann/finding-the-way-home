@@ -15,6 +15,7 @@ module Card exposing
     , turnover
     , view
     , viewCardDesignSmall
+    , viewSuit
     , withHidden
     , withVisible
     )
@@ -123,26 +124,27 @@ view (Card { visible, hidden }) =
     viewCardDesign visible
 
 
+viewSuit : Suit -> Element msg
+viewSuit suit =
+    case suit of
+        Hearts ->
+            el [ Font.color Palette.redBook ] (text "♥")
+
+        Spades ->
+            text "♠"
+
+        Clubs ->
+            text "♣"
+
+        Diamonds ->
+            el [ Font.color Palette.redBook ] (text "♦")
+
+
 viewCardDesignSmall : CardDesign -> Element msg
 viewCardDesignSmall d =
     case d of
         Face ( value, suit ) ->
-            let
-                s =
-                    case suit of
-                        Hearts ->
-                            el [ Font.color Palette.redBook ] (text "♥")
-
-                        Spades ->
-                            text "♠"
-
-                        Clubs ->
-                            text "♣"
-
-                        Diamonds ->
-                            el [ Font.color Palette.redBook ] (text "♦")
-            in
-            Element.row [] [ text <| valueToString value, s ]
+            Element.row [] [ text <| valueToString value, viewSuit suit ]
 
         Back Red ->
             el [ Font.color Palette.redBook ] (text "R")
