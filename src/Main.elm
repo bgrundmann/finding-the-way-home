@@ -379,7 +379,7 @@ topBar activePage displayMode =
             , paddingEach { left = 0, right = 0, top = 12, bottom = 8 }
             , Border.color Palette.greenBook
             ]
-            (text "")
+            (text " ")
         , row
             [ Border.widthEach { bottom = 2, top = 0, left = 0, right = 0 }
             , paddingEach { left = 0, right = 0, top = 12, bottom = 7 }
