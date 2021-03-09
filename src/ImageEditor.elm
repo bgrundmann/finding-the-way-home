@@ -754,6 +754,7 @@ view toMsg state =
     in
     column ([ width fill, spacing 10 ] ++ imageToAddChooser ++ sortOrderChooser)
         [ pilesView
+        , el [ width fill, Element.centerX, height (Element.px 1), Background.color Palette.grey ] Element.none
         , row [ spacing 10 ]
             (Input.button regularButton
                 { onPress = OpenAdd |> toMsg |> Just
