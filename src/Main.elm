@@ -515,7 +515,7 @@ view model =
             ]
 
         body =
-            Element.layout [ normalFontSize, width fill, height fill, Toasts.view model.toasts ] <|
+            Element.layout [ normalFontSize, Palette.font, width fill, height fill, Toasts.view model.toasts ] <|
                 column [ width fill, height fill ]
                     page
     in

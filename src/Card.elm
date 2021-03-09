@@ -131,10 +131,10 @@ viewSuit suit =
             el [ Font.color Palette.redBook ] (text "♥")
 
         Spades ->
-            text "♠"
+            el [ Font.color Palette.spadesBlack ] (text "♠")
 
         Clubs ->
-            text "♣"
+            el [ Font.color Palette.clubsBlack ] (text "♣")
 
         Diamonds ->
             el [ Font.color Palette.redBook ] (text "♦")
@@ -192,7 +192,7 @@ viewRegularFace ( value, suit ) =
         ( suitVal, color ) =
             case suit of
                 Spades ->
-                    ( 0x0001F0A0, Element.rgb255 0 0 0 )
+                    ( 0x0001F0A0, Palette.spadesBlack )
 
                 Hearts ->
                     ( 0x0001F0B0, Element.rgb255 139 0 0 )
@@ -201,7 +201,7 @@ viewRegularFace ( value, suit ) =
                     ( 0x0001F0C0, Element.rgb255 139 0 0 )
 
                 Clubs ->
-                    ( 0x0001F0D0, Element.rgb255 0 0 0 )
+                    ( 0x0001F0D0, Palette.clubsBlack )
 
         faceVal =
             case value of

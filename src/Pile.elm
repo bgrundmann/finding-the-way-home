@@ -184,7 +184,7 @@ view viewConfig pile =
                         [ row [ width fill, Element.paddingXY 4 0 ]
                             [ el [ Font.variant Font.tabularNumbers, Font.size 10, width fill ]
                                 (text (String.fromInt <| num + 1))
-                            , el [ Font.variant Font.tabularNumbers, Font.size 14 ]
+                            , el [ Font.size 15 ]
                                 (c
                                     |> Card.getHidden
                                     |> Card.viewCardDesignSmall

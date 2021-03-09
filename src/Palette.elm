@@ -1,7 +1,9 @@
 module Palette exposing
     ( black
     , blueBook
+    , clubsBlack
     , dangerousButton
+    , font
     , greenBook
     , greenButton
     , grey
@@ -12,6 +14,7 @@ module Palette exposing
     , redBook
     , regularButton
     , smallFontSize
+    , spadesBlack
     , transparentGrey
     , white
     )
@@ -28,6 +31,11 @@ import Element
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
+
+
+font : Element.Attribute msg
+font =
+    Font.family [ Font.typeface "Times" ]
 
 
 smallFontSize : Element.Attr decorative msg
@@ -73,6 +81,16 @@ white =
 black : Element.Color
 black =
     rgb255 0 0 0
+
+
+spadesBlack : Element.Color
+spadesBlack =
+    black
+
+
+clubsBlack : Element.Color
+clubsBlack =
+    rgb255 75 50 75
 
 
 grey : Element.Color
