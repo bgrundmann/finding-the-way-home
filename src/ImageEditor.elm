@@ -742,6 +742,9 @@ view toMsg state =
                                                         Selected selections ->
                                                             Just (\num _ -> Set.member ( pileName, num ) selections)
 
+                                                        ChoosingSortOrder (Selection selections) ->
+                                                            Just (\num _ -> Set.member ( pileName, num ) selections)
+
                                                         _ ->
                                                             Nothing
                                                     )
@@ -829,7 +832,6 @@ view toMsg state =
                     [ invertSelectionButton
                     , takeOutButton
                     , turnoverSelectionButton
-                    , invertSelectionButton
                     , sortButton sel
                     ]
             in
