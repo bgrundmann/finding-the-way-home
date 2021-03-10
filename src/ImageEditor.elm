@@ -1,7 +1,7 @@
 module ImageEditor exposing (Msg, State, getImage, init, update, view)
 
 import Browser.Dom as Dom
-import Card
+import Card exposing (Card)
 import Dict exposing (Dict)
 import Element exposing (Element, column, el, fill, height, padding, row, spacing, text, width)
 import Element.Background as Background
@@ -24,7 +24,7 @@ type Editing
     | EditingPile EditingPileState
     | ChoosingImageToAdd
     | Selected (Set ( PileName, Int ))
-    | ChoosingSortOrder PileName
+    | ChoosingSortOrder WhatToSort
 
 
 type alias State =
@@ -47,12 +47,17 @@ type alias EditingPileState =
     }
 
 
+type WhatToSort
+    = Selection (Set ( PileName, Int ))
+    | Pile PileName
+
+
 type Msg
     = Delete PileName
     | AddPile Image
     | OpenAdd
-    | OpenSort PileName
-    | SortPile PileName Pile
+    | OpenSort WhatToSort
+    | Sort WhatToSort Pile
     | ReversePile PileName
     | TurnoverPile PileName
     | StartEditPile PileName
@@ -62,6 +67,7 @@ type Msg
     | Save
     | ToggleSelection PileName Int
     | TurnoverSelection
+    | InvertSelection
     | TakeOut
     | Swap
 
@@ -137,7 +143,7 @@ idOfPileNameEditor =
     "imageEditorPileNameEditor"
 
 
-takeOut : Set ( PileName, Int ) -> Image -> Image
+takeOut : Set ( PileName, Int ) -> Image -> ( Pile, Image )
 takeOut what image =
     let
         helper ( pileName, num ) ( takenOutAcc, imageAcc ) =
@@ -154,13 +160,36 @@ takeOut what image =
 
                 Just card ->
                     ( card :: takenOutAcc, Image.put pileName (List.Extra.removeAt num pile) imageAcc1 )
-
-        ( takenOut, newImage ) =
-            Set.toList what
-                |> List.sortWith (\( _, n1 ) ( _, n2 ) -> compare n2 n1)
-                |> List.foldl helper ( [], image )
     in
-    Image.put (findUnusedName newImage "cards") takenOut newImage
+    Set.toList what
+        |> List.sortWith
+            (\( p1, n1 ) ( p2, n2 ) ->
+                case compare p1 p2 of
+                    EQ ->
+                        compare n2 n1
+
+                    other ->
+                        other
+            )
+        |> List.foldl helper ( [], image )
+
+
+putBack : Set ( PileName, Int ) -> List Card -> Image -> Image
+putBack place what image =
+    let
+        helper ( ( pileName, num ), card ) imageAcc =
+            Image.update pileName
+                (\maybePile ->
+                    let
+                        ( a, b ) =
+                            List.Extra.splitAt num (Maybe.withDefault [] maybePile)
+                    in
+                    Just (a ++ card :: b)
+                )
+                imageAcc
+    in
+    List.map2 Tuple.pair (Set.toList place) what
+        |> List.foldl helper image
 
 
 update : (Result Dom.Error () -> a) -> Msg -> State -> ( State, Cmd a )
@@ -267,20 +296,32 @@ update toFocusMsg msg state =
             , Cmd.none
             )
 
-        OpenSort pileName ->
-            ( { state | editing = ChoosingSortOrder pileName }, Cmd.none )
+        OpenSort what ->
+            ( { state | editing = ChoosingSortOrder what }, Cmd.none )
 
-        SortPile pileName pile ->
-            let
-                sort maybePile =
-                    Maybe.map (Pile.sort pile) maybePile
-            in
-            ( { state
-                | image = Image.update pileName sort state.image
-                , editing = NotEditing
-              }
-            , Cmd.none
-            )
+        Sort what desiredOrder ->
+            case what of
+                Pile pileName ->
+                    let
+                        sort maybePile =
+                            Maybe.map (Pile.sort desiredOrder) maybePile
+                    in
+                    ( { state
+                        | image = Image.update pileName sort state.image
+                        , editing = NotEditing
+                      }
+                    , Cmd.none
+                    )
+
+                Selection s ->
+                    let
+                        ( cards, imageWithout ) =
+                            takeOut s state.image
+
+                        sortedCards =
+                            Pile.sort desiredOrder cards
+                    in
+                    ( { state | image = putBack s sortedCards imageWithout, editing = NotEditing }, Cmd.none )
 
         TurnoverPile pileName ->
             let
@@ -333,6 +374,39 @@ update toFocusMsg msg state =
               }
             , Cmd.none
             )
+
+        InvertSelection ->
+            let
+                invertSelection currentSelection =
+                    let
+                        newSelection =
+                            Image.piles state.image
+                                |> List.concatMap
+                                    (\( pileName, pile ) ->
+                                        pile
+                                            |> List.indexedMap (\ndx card -> ( ndx, card ))
+                                            |> List.filterMap
+                                                (\( ndx, card ) ->
+                                                    if Set.member ( pileName, ndx ) currentSelection then
+                                                        Nothing
+
+                                                    else
+                                                        Just ( pileName, ndx )
+                                                )
+                                    )
+                                |> Set.fromList
+                    in
+                    ( { state | editing = Selected newSelection }, Cmd.none )
+            in
+            case state.editing of
+                Selected s ->
+                    invertSelection s
+
+                NotEditing ->
+                    invertSelection Set.empty
+
+                _ ->
+                    ( state, Cmd.none )
 
         ToggleSelection pileName num ->
             let
@@ -396,8 +470,12 @@ update toFocusMsg msg state =
                 newState =
                     case state.editing of
                         Selected s ->
+                            let
+                                ( cards, imageWithout ) =
+                                    takeOut s state.image
+                            in
                             { state
-                                | image = takeOut s state.image
+                                | image = Image.put (findUnusedName imageWithout "cards") cards imageWithout
                                 , editing = NotEditing
                             }
 
@@ -510,7 +588,7 @@ viewPileNameAndButtons toMsg state pileName =
             case ifEditingThisPile pileName state of
                 Nothing ->
                     [ Input.button regularButton
-                        { onPress = OpenSort pileName |> toMsg |> Just
+                        { onPress = OpenSort (Pile pileName) |> toMsg |> Just
                         , label = text "Sort"
                         }
                     , Input.button regularButton
@@ -596,8 +674,8 @@ viewImageToAddChooser toMsg options =
             ]
 
 
-viewSortOrderChooser : (Msg -> msg) -> String -> List ( Element msg, Pile ) -> Element msg
-viewSortOrderChooser toMsg pileName options =
+viewSortOrderChooser : (Msg -> msg) -> WhatToSort -> List ( Element msg, Pile ) -> Element msg
+viewSortOrderChooser toMsg what options =
     el [ width fill, height fill, Background.color Palette.transparentGrey ] <|
         column
             [ padding 10
@@ -616,7 +694,7 @@ viewSortOrderChooser toMsg pileName options =
                                 [ width fill
                                 , Element.mouseOver [ Font.color Palette.greenBook ]
                                 ]
-                                { onPress = Just (SortPile pileName pile |> toMsg), label = label }
+                                { onPress = Just (Sort what pile |> toMsg), label = label }
                         )
                 )
             ]
@@ -714,8 +792,8 @@ view toMsg state =
 
         sortOrderChooser =
             case state.editing of
-                ChoosingSortOrder pileName ->
-                    [ Element.inFront (viewSortOrderChooser toMsg pileName sortingOptions)
+                ChoosingSortOrder what ->
+                    [ Element.inFront (viewSortOrderChooser toMsg what sortingOptions)
                     ]
 
                 _ ->
@@ -734,23 +812,42 @@ view toMsg state =
                         { onPress = Just (TurnoverSelection |> toMsg)
                         , label = text "Turnover"
                         }
+
+                sortButton sel =
+                    Input.button greenButton
+                        { onPress = Just (OpenSort (Selection sel) |> toMsg)
+                        , label = text "Sort"
+                        }
+
+                invertSelectionButton =
+                    Input.button greenButton
+                        { onPress = Just (InvertSelection |> toMsg)
+                        , label = text "Invert"
+                        }
+
+                withSelectionButtons sel =
+                    [ invertSelectionButton
+                    , takeOutButton
+                    , turnoverSelectionButton
+                    , invertSelectionButton
+                    , sortButton sel
+                    ]
             in
             case state.editing of
                 Selected sel ->
                     if Set.size sel == 2 then
-                        [ takeOutButton
-                        , turnoverSelectionButton
-                        , Input.button greenButton
-                            { onPress = Just (Swap |> toMsg)
-                            , label = text "Swap"
-                            }
-                        ]
+                        withSelectionButtons sel
+                            ++ [ Input.button greenButton
+                                    { onPress = Just (Swap |> toMsg)
+                                    , label = text "Swap"
+                                    }
+                               ]
 
                     else
-                        [ takeOutButton, turnoverSelectionButton ]
+                        withSelectionButtons sel
 
                 _ ->
-                    []
+                    [ invertSelectionButton ]
     in
     column ([ width fill, spacing 10 ] ++ imageToAddChooser ++ sortOrderChooser)
         [ pilesView
