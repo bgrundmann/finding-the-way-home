@@ -546,6 +546,12 @@ viewDirectionButton model =
         }
 
 
+viewErrorMessage : Element msg -> Element msg
+viewErrorMessage error =
+    Element.el [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, paddingXY 0 10 ]
+        error
+
+
 editView : Model -> Element Msg
 editView model =
     let
@@ -554,10 +560,6 @@ editView model =
                 [ el [ Font.bold, width fill ] (text title)
                 , ref
                 ]
-
-        viewErrorMessage error =
-            Element.el [ width fill, height (minimum 0 (fillPortion 1)), scrollbarY, paddingXY 0 10 ]
-                error
 
         maybeEvalError =
             case model.evalResult of
@@ -767,23 +769,37 @@ view model =
                 ( Show, Partial { partial } ) ->
                     Element.column [ width fill, height (minimum 0 fill), spacing 20, paddingXY 0 10 ]
                         [ el [ height fill, width fill, scrollbarY ] <|
-                            EvalResult.viewEvalTrace ViewMove.defaultConfig Goto partial.trace
+                            EvalResult.viewEvalTrace ViewMove.defaultConfig Palette.greenBook Goto partial.trace
                         ]
 
-                ( Show, Complete _ ) ->
+                ( Show, Complete result ) ->
                     case model.movesAndDefinitions of
                         Err _ ->
                             Element.none
 
                         Ok { definitions, moves } ->
-                            el
-                                [ width fill
-                                , height (minimum 0 fill)
-                                , scrollbarY
-                                , paddingXY 20 10
-                                ]
-                            <|
-                                ViewMove.viewDefinitionsAndMoves ViewMove.defaultConfig definitions moves
+                            case result.error of
+                                Nothing ->
+                                    el
+                                        [ width fill
+                                        , height (minimum 0 fill)
+                                        , scrollbarY
+                                        , paddingXY 20 10
+                                        ]
+                                    <|
+                                        ViewMove.viewDefinitionsAndMoves ViewMove.defaultConfig definitions moves
+
+                                Just error ->
+                                    Element.column [ width fill, height (minimum 0 fill), spacing 20, paddingXY 0 10 ]
+                                        [ el [ height fill, width fill, scrollbarY ] <|
+                                            EvalResult.viewEvalTrace ViewMove.defaultConfig Palette.redBook Goto result.trace
+                                        , viewErrorMessage
+                                            (Element.column [ largeTextSpacing ]
+                                                [ el [ Font.bold, width fill ] (text "Failure during performance")
+                                                , EvalResult.viewError error
+                                                ]
+                                            )
+                                        ]
 
                 ( Edit, _ ) ->
                     editView model

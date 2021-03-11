@@ -117,8 +117,8 @@ reportError image steps trace problem =
     }
 
 
-viewEvalTrace : ViewMove.ViewConfig -> (EvalTrace -> msg) -> EvalTrace -> Element msg
-viewEvalTrace viewConfig gotoMsg trace =
+viewEvalTrace : ViewMove.ViewConfig -> Element.Color -> (EvalTrace -> msg) -> EvalTrace -> Element msg
+viewEvalTrace viewConfig highlightColor gotoMsg trace =
     let
         stepped a b =
             column [ width fill, normalTextSpacing ]
@@ -192,7 +192,7 @@ viewEvalTrace viewConfig gotoMsg trace =
                                     , height (px 10)
 
                                     --, centerY
-                                    , Background.color Palette.greenBook
+                                    , Background.color highlightColor
                                     , Border.rounded 5
                                     ]
                                     Element.none
