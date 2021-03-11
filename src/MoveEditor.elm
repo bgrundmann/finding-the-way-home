@@ -92,10 +92,6 @@ type EvalResultState
     = Complete EvalResult
     | Partial
         { partial : EvalResult
-
-        -- We know that a partial Result had to end in an error state
-        -- (EarlyExit)
-        , partialError : EvalResult.EvalError
         , complete : EvalResult
         }
 
@@ -264,7 +260,6 @@ applyMoves continue model =
                                 EvalResult.EarlyExit ->
                                     Partial
                                         { partial = result
-                                        , partialError = error
                                         , complete =
                                             Eval.eval
                                                 (always True)
@@ -769,11 +764,10 @@ view model =
 
         movesView =
             case ( model.displayMode, model.evalResult ) of
-                ( Show, Partial { partial, partialError } ) ->
+                ( Show, Partial { partial } ) ->
                     Element.column [ width fill, height (minimum 0 fill), spacing 20, paddingXY 0 10 ]
                         [ el [ height fill, width fill, scrollbarY ] <|
                             EvalResult.viewEvalTrace ViewMove.defaultConfig Goto partial.trace
-                        , EvalResult.viewError partialError
                         ]
 
                 ( Show, Complete _ ) ->
